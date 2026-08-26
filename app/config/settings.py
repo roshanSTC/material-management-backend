@@ -30,3 +30,4 @@ class Config:
         raise RuntimeError("JWT_SECRET_KEY is not configured")
 
     JWT_ACCESS_TOKEN_EXPIRES = 60 * 60
+    JWT_REFRESH_TOKEN_EXPIRES = 60 * 60 * 24 * 30

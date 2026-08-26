@@ -1,6 +1,7 @@
 from flask_smorest import Blueprint
 from flask_jwt_extended import (
     create_access_token,
+    create_refresh_token,
     get_jwt_identity,
     jwt_required,
 )
@@ -81,12 +82,17 @@ def login(data):
         access_token = create_access_token(
             identity=str(user.id),
         )
+        
+        refresh_token = create_refresh_token(
+            identity=str(user.id),
+        )
 
         return {
             "success": True,
             "data": {
                 **_user_response(user),
                 "access_token": access_token,
+                "refresh_token": refresh_token,
             },
             "message": "Login successful.",
         }, 200
@@ -123,3 +129,42 @@ def me():
         "data": _user_response(user),
         "message": "Authenticated user retrieved successfully.",
     }
+    
+
+@auth_bp.post("/refresh")
+@jwt_required(refresh=True)
+def refresh():
+    user_id = get_jwt_identity()
+
+    user = db.session.get(User, user_id)
+
+    if user is None:
+        return {
+            "success": False,
+            "error": {
+                "code": "USER_NOT_FOUND",
+                "message": "User not found.",
+            },
+        }, 404
+
+    if not user.is_active:
+        return {
+            "success": False,
+            "error": {
+                "code": "INACTIVE_USER",
+                "message": "User account is inactive.",
+            },
+        }, 403
+
+    access_token = create_access_token(
+        identity=str(user.id),
+    )
+
+    return {
+        "success": True,
+        "data": {
+            "access_token": access_token,
+            "expires_in": 2592000
+        },
+        "message": "Access token refreshed successfully.",
+    }, 200

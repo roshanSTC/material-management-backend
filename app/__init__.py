@@ -2,6 +2,7 @@ from flask import Flask
 
 from app.config.settings import Config
 from app.extensions.database import db, migrate
+from app.extensions.jwt import jwt
 
 
 def create_app(config_class=Config):
@@ -11,6 +12,7 @@ def create_app(config_class=Config):
 
     db.init_app(app)
     migrate.init_app(app, db)
+    jwt.init_app(app)
 
     from app.models import (
         Customer,

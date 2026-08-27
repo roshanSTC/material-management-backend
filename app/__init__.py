@@ -29,7 +29,11 @@ def create_app(config_class=Config):
     )   # noqa: F401
     
     from app.routes.auth import auth_bp
+    from app.routes.customer import customer_bp
+    from app.routes.supplier import supplier_bp
 
     api.register_blueprint(auth_bp)
+    api.register_blueprint(customer_bp)
+    api.register_blueprint(supplier_bp)
 
     return app

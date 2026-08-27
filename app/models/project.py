@@ -142,6 +142,19 @@ class Project(db.Model):
         back_populates="project",
         lazy="select",
     )
+    
+    
+    steps = db.relationship(
+        "ProjectStep",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+        order_by="ProjectStep.step_number",
+    )
+
+
+
+
 
     def __repr__(self) -> str:
         return f"<Project {self.id}: {self.project_title}>"

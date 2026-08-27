@@ -40,6 +40,7 @@ from app.models.supplier_payment import SupplierPayment
 from app.models.user import User
 from app.models.permission import Permission
 from app.models.role import Role
+from app.models.project_step import ProjectStep
 
 
 __all__ = [
@@ -84,4 +85,5 @@ __all__ = [
     "TransportDetail",
     "CustomerPayment",
     "SupplierPayment",
+    "ProjectStep",
 ]

@@ -108,7 +108,7 @@ def login(data):
 
 
 @auth_bp.get("/me")
-@auth_bp.doc(security=[{"bearerAuth": []}])
+@auth_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def me():
     user_id = get_jwt_identity()
@@ -132,6 +132,7 @@ def me():
     
 
 @auth_bp.post("/refresh")
+@auth_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required(refresh=True)
 def refresh():
     user_id = get_jwt_identity()

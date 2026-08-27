@@ -19,15 +19,7 @@ class Config:
     API_VERSION = "v1"
     OPENAPI_VERSION = "3.0.3"
     
-    OPENAPI_COMPONENTS = {
-        "securitySchemes": {
-            "BearerAuth": {
-                "type": "http",
-                "scheme": "bearer",
-                "bearerFormat": "JWT",
-            }
-        }
-    }
+    
 
     OPENAPI_URL_PREFIX = "/api/docs"
     OPENAPI_SWAGGER_UI_PATH = "/swagger-ui"

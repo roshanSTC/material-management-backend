@@ -18,11 +18,20 @@ class Config:
     API_TITLE = "Material Management API"
     API_VERSION = "v1"
     OPENAPI_VERSION = "3.0.3"
+    
+    OPENAPI_COMPONENTS = {
+        "securitySchemes": {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+            }
+        }
+    }
 
     OPENAPI_URL_PREFIX = "/api/docs"
     OPENAPI_SWAGGER_UI_PATH = "/swagger-ui"
     OPENAPI_SWAGGER_UI_URL = "https://cdn.jsdelivr.net/npm/swagger-ui-dist/"
-    
     
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY")
 

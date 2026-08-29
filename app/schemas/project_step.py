@@ -1,18 +1,7 @@
-from marshmallow import Schema, fields, validate
+from marshmallow import Schema, fields
 
 
 class ProjectStepCreateUpdateSchema(Schema):
-    status = fields.String(
-        required=True,
-        validate=validate.OneOf(
-            [
-                "pending",
-                "in_progress",
-                "completed",
-            ]
-        ),
-    )
-
     data = fields.Dict(
         required=False,
         allow_none=True,
@@ -41,6 +30,10 @@ class ProjectStepResponseSchema(Schema):
     )
 
     status = fields.String(
+        required=True,
+    )
+
+    progress_percentage = fields.Float(
         required=True,
     )
 

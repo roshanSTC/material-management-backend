@@ -1,4 +1,3 @@
-
 from datetime import datetime, timezone
 
 from app.extensions.database import db
@@ -9,189 +8,186 @@ STEP_DEFINITIONS = {
     1: {
         "name": "Customer Query to ST",
         "description": (
-            "Customer shares the material or equipment requirement with S.T."
+            "Customer shares the material or equipment requirement "
+            "with S.T."
         ),
-        "fields": {
+        "required_fields": {
             "query_description",
             "query_date",
             "remarks",
         },
     },
-
     2: {
         "name": "Request Quotation from Supplier",
         "description": (
             "S.T. forwards the requirement to the overseas partner "
             "or supplier for pricing."
         ),
-        "fields": {
+        "required_fields": {
             "quotation_requested_date",
             "supplier_contacted",
             "remarks",
         },
     },
-
     3: {
         "name": "Supplier's Quotation",
         "description": (
             "The supplier returns pricing, lead time, and terms "
             "for the requested material."
         ),
-        "fields": {
+        "required_fields": {
             "quotation_amount",
             "quotation_date",
             "validity_days",
             "remarks",
         },
     },
-
     4: {
         "name": "Cost Sheet Preparation",
         "description": (
             "Landed cost, duties, margin, and freight are worked "
             "into an internal cost sheet."
         ),
-        "fields": {
+        "required_fields": {
             "cost_amount",
             "margin_percent",
             "prepared_date",
             "remarks",
         },
     },
-
     5: {
         "name": "Quotation to Customer",
         "description": (
             "A formal quotation is issued to the customer based "
             "on the cost sheet."
         ),
-        "fields": {
+        "required_fields": {
             "quotation_amount",
             "sent_date",
             "validity_days",
             "remarks",
         },
     },
-
     6: {
         "name": "Customer issues Tender",
         "description": (
             "The customer floats a tender based on the quoted scope."
         ),
-        "fields": {
+        "required_fields": {
             "tender_number",
             "submission_date",
             "remarks",
         },
     },
-
     7: {
         "name": "S.T. submits Bid Documents",
         "description": (
             "S.T. prepares and submits the technical and commercial bid."
         ),
-        "fields": {
+        "required_fields": {
             "document_reference",
             "submitted_date",
             "remarks",
         },
     },
-
     8: {
         "name": "Customer issues Purchase Order (PO)",
         "description": (
-            "On winning the bid, the customer issues an official PO to S.T."
+            "On winning the bid, the customer issues an official "
+            "PO to S.T."
         ),
-        "fields": {
+        "required_fields": {
             "po_number",
             "po_date",
             "po_amount",
             "remarks",
         },
     },
-
     9: {
-        "name": "S.T. places Order Confirmation with Supplier",
-        "description": (
-            "S.T. confirms the order with the foreign partner or supplier."
+        "name": (
+            "S.T. places Order Confirmation with Supplier"
         ),
-        "fields": {
+        "description": (
+            "S.T. confirms the order with the foreign partner "
+            "or supplier."
+        ),
+        "required_fields": {
             "confirmation_date",
             "expected_delivery_date",
             "remarks",
         },
     },
-
     10: {
         "name": "Supplier raises Bill / Invoice",
         "description": (
-            "The supplier issues billing, triggering the advance payment terms."
+            "The supplier issues billing, triggering the advance "
+            "payment terms."
         ),
-        "fields": {
+        "required_fields": {
             "invoice_number",
             "invoice_date",
             "invoice_amount",
             "remarks",
         },
     },
-
     11: {
         "name": "Material delivered to India",
         "description": (
             "Goods arrive at the Indian port or airport for clearance."
         ),
-        "fields": {
+        "required_fields": {
             "shipping_mode",
             "tracking_number",
             "dispatch_date",
             "remarks",
         },
     },
-
     12: {
         "name": "Customs Clearance",
         "description": (
-            "Import documentation, duties, and customs formalities are completed."
+            "Import documentation, duties, and customs formalities "
+            "are completed."
         ),
-        "fields": {
+        "required_fields": {
             "clearance_date",
             "duties_paid",
             "agent_name",
             "remarks",
         },
     },
-
     13: {
-        "name": "S.T. delivers Material to Customer's Place with S.T. Billing",
-        "description": (
-            "Material reaches the customer's site along with S.T.'s invoice."
+        "name": (
+            "S.T. delivers Material to Customer's Place "
+            "with S.T. Billing"
         ),
-        "fields": {
+        "description": (
+            "Material reaches the customer's site along with "
+            "S.T.'s invoice."
+        ),
+        "required_fields": {
             "delivery_date",
             "delivery_challan_number",
             "remarks",
         },
     },
-
     14: {
         "name": "Customer makes Payment to S.T.",
         "description": (
             "Customer settles the invoice raised by S.T."
         ),
-        "fields": {
+        "required_fields": {
             "payment_date",
             "amount_received",
             "payment_mode",
             "remarks",
         },
     },
-
     15: {
         "name": "S.T. makes Payment to Partner / Supplier",
         "description": (
             "S.T. clears the balance payment owed to the supplier."
         ),
-        "fields": {
+        "required_fields": {
             "payment_date",
             "amount_paid",
             "payment_mode",
@@ -247,7 +243,88 @@ def _get_step_definition(step_number: int) -> dict:
     return definition
 
 
-def _validate_data(step_number: int, data: dict | None) -> dict | None:
+def _is_field_filled(value) -> bool:
+    """
+    Determine whether a required field has been provided.
+
+    None and empty strings are considered empty.
+
+    Values such as 0 and False are considered valid values.
+    """
+    if value is None:
+        return False
+
+    if isinstance(value, str) and not value.strip():
+        return False
+
+    return True
+
+
+def calculate_step_progress(
+    step_number: int,
+    data: dict | None,
+) -> float:
+    """
+    Calculate the completion percentage for a project step.
+    """
+    definition = _get_step_definition(step_number)
+
+    required_fields = definition["required_fields"]
+
+    if not required_fields:
+        return 100.0
+
+    data = data or {}
+
+    filled_fields = sum(
+        1
+        for field_name in required_fields
+        if _is_field_filled(data.get(field_name))
+    )
+
+    percentage = (
+        filled_fields / len(required_fields)
+    ) * 100
+
+    return round(percentage, 2)
+
+
+def determine_step_status(progress_percentage: float) -> str:
+    """
+    Determine step status from its completion percentage.
+    """
+    if progress_percentage <= 0:
+        return "pending"
+
+    if progress_percentage >= 100:
+        return "completed"
+
+    return "in_progress"
+
+
+def _calculate_step_state(
+    step_number: int,
+    data: dict | None,
+) -> tuple[str, float]:
+    """
+    Calculate both status and percentage for a step.
+    """
+    progress_percentage = calculate_step_progress(
+        step_number,
+        data,
+    )
+
+    status = determine_step_status(
+        progress_percentage
+    )
+
+    return status, progress_percentage
+
+
+def _validate_data(
+    step_number: int,
+    data: dict | None,
+) -> dict | None:
     if data is None:
         return None
 
@@ -257,7 +334,8 @@ def _validate_data(step_number: int, data: dict | None) -> dict | None:
         )
 
     definition = _get_step_definition(step_number)
-    allowed_fields = definition["fields"]
+
+    allowed_fields = definition["required_fields"]
 
     unknown_fields = set(data) - allowed_fields
 
@@ -270,7 +348,9 @@ def _validate_data(step_number: int, data: dict | None) -> dict | None:
     return data
 
 
-def list_project_steps(project_id: int) -> list[ProjectStep]:
+def list_project_steps(
+    project_id: int,
+) -> list[ProjectStep]:
     project = db.session.get(Project, project_id)
 
     if project is None:
@@ -326,7 +406,8 @@ def get_project_step(
 
     if step is None:
         raise ProjectStepNotFoundError(
-            f"Step {step_number} has not been saved for project {project_id}."
+            f"Step {step_number} has not been saved "
+            f"for project {project_id}."
         )
 
     return step
@@ -336,7 +417,6 @@ def create_project_step(
     *,
     project_id: int,
     step_number: int,
-    status: str,
     data: dict | None,
 ) -> ProjectStep:
     if db.session.get(Project, project_id) is None:
@@ -346,12 +426,15 @@ def create_project_step(
 
     definition = _get_step_definition(step_number)
 
-    if status not in VALID_STATUSES:
-        raise InvalidStepStatusError(
-            "Status must be pending, in_progress, or completed."
-        )
+    data = _validate_data(
+        step_number,
+        data,
+    )
 
-    data = _validate_data(step_number, data)
+    status, progress_percentage = _calculate_step_state(
+        step_number,
+        data,
+    )
 
     existing = ProjectStep.query.filter_by(
         project_id=project_id,
@@ -360,7 +443,8 @@ def create_project_step(
 
     if existing is not None:
         raise ProjectStepAlreadyExistsError(
-            f"Step {step_number} already exists for project {project_id}."
+            f"Step {step_number} already exists "
+            f"for project {project_id}."
         )
 
     step = ProjectStep(
@@ -392,7 +476,6 @@ def update_project_step(
     *,
     project_id: int,
     step_number: int,
-    status: str,
     data: dict | None,
 ) -> ProjectStep:
     step = get_project_step(
@@ -400,20 +483,24 @@ def update_project_step(
         step_number=step_number,
     )
 
-    if status not in VALID_STATUSES:
-        raise InvalidStepStatusError(
-            "Status must be pending, in_progress, or completed."
-        )
+    data = _validate_data(
+        step_number,
+        data,
+    )
 
-    data = _validate_data(step_number, data)
+    status, progress_percentage = _calculate_step_state(
+        step_number,
+        data,
+    )
 
     step.status = status
     step.data = data
 
-    if status == "completed":
-        step.completed_at = datetime.now(timezone.utc)
-    else:
-        step.completed_at = None
+    step.completed_at = (
+        datetime.now(timezone.utc)
+        if status == "completed"
+        else None
+    )
 
     try:
         db.session.commit()
@@ -424,7 +511,9 @@ def update_project_step(
     return step
 
 
-def get_all_project_steps(project_id: int) -> list[ProjectStep]:
+def get_all_project_steps(
+    project_id: int,
+) -> list[ProjectStep]:
     return list_project_steps(project_id)
 
 
@@ -442,13 +531,11 @@ def create_project_step_transaction(
     *,
     project_id: int,
     step_number: int,
-    status: str,
     data: dict | None,
 ) -> ProjectStep:
     return create_project_step(
         project_id=project_id,
         step_number=step_number,
-        status=status,
         data=data,
     )
 
@@ -457,24 +544,29 @@ def update_project_step_transaction(
     *,
     project_id: int,
     step_number: int,
-    status: str,
     data: dict | None,
 ) -> ProjectStep:
     return update_project_step(
         project_id=project_id,
         step_number=step_number,
-        status=status,
         data=data,
     )
 
 
 def serialize_project_step(step: ProjectStep) -> dict:
+    status, progress_percentage = _calculate_step_state(
+        step.step_number,
+        step.data,
+    )
+
     return {
         "id": step.id,
         "project_id": step.project_id,
         "step_number": step.step_number,
         "step_name": step.step_name,
-        "status": step.status,
+        "description": step.description,
+        "status": status,
+        "progress_percentage": progress_percentage,
         "completed_at": step.completed_at,
         "data": step.data,
     }

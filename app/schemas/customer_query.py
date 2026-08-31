@@ -1,5 +1,7 @@
 from marshmallow import Schema, fields, validate
 
+from app.schemas.attachment import AttachmentResponseSchema
+
 
 class CustomerQueryItemSchema(Schema):
     material_name = fields.String(
@@ -13,6 +15,8 @@ class CustomerQueryItemSchema(Schema):
         places=3,
         validate=validate.Range(min=0.001),
     )
+    
+    
 
 
 class CustomerQueryCreateSchema(Schema):
@@ -63,5 +67,10 @@ class CustomerQueryResponseSchema(Schema):
 
     items = fields.List(
         fields.Nested(CustomerQueryItemResponseSchema),
+        required=True,
+    )
+    
+    attachments = fields.List(
+        fields.Nested(AttachmentResponseSchema),
         required=True,
     )

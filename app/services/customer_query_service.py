@@ -54,6 +54,7 @@ def create_customer_query_transaction(
     remark: str | None,
     items: list[dict],
 ) -> CustomerQuery:
+
     project = get_project(project_id)
 
     if project is None:
@@ -73,19 +74,14 @@ def create_customer_query_transaction(
             "The selected customer does not belong to the selected project."
         )
 
-    try:
-        customer_query = create_customer_query(
-            project_id=project_id,
-            customer_id=customer_id,
-            qo_date=qo_date,
-            remark=remark,
-            items=items,
-        )
+    customer_query = create_customer_query(
+        project_id=project_id,
+        customer_id=customer_id,
+        qo_date=qo_date,
+        remark=remark,
+        items=items,
+    )
 
-        db.session.commit()
+    db.session.flush()
 
-        return customer_query
-
-    except Exception:
-        db.session.rollback()
-        raise
+    return customer_query

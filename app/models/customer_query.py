@@ -64,6 +64,13 @@ class CustomerQuery(db.Model):
         cascade="all, delete-orphan",
         lazy="select",
     )
+    
+    attachments = db.relationship(
+        "Attachment",
+        back_populates="customer_query",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
 
     def __repr__(self) -> str:
         return f"<CustomerQuery {self.id}>"

@@ -12,9 +12,8 @@ STEP_DEFINITIONS = {
             "with S.T."
         ),
         "required_fields": {
-            "query_description",
-            "query_date",
-            "remarks",
+            "qo_date",
+            "remark",
         },
     },
     2: {

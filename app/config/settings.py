@@ -15,11 +15,16 @@ class Config:
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
+    STORAGE_BACKEND = os.getenv( "STORAGE_BACKEND", "local", )
+    
+    ATTACHMENT_STORAGE_PATH = os.getenv(
+        "ATTACHMENT_STORAGE_PATH",
+        "storage/attachments",
+    )
+    
     API_TITLE = "Material Management API"
     API_VERSION = "v1"
     OPENAPI_VERSION = "3.0.3"
-    
-    
 
     OPENAPI_URL_PREFIX = "/api/docs"
     OPENAPI_SWAGGER_UI_PATH = "/swagger-ui"

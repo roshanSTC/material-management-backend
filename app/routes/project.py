@@ -1,4 +1,5 @@
 
+from flask_jwt_extended import jwt_required
 from flask_smorest import Blueprint
 
 from app.schemas.project import (
@@ -37,8 +38,10 @@ def _project_response(project):
 
 
 @project_bp.post("")
+@project_bp.doc(security=[{"BearerAuth": []}])
 @project_bp.arguments(ProjectCreateSchema)
 @project_bp.response(201, ProjectResponseSchema)
+@jwt_required()
 def create(data):
     try:
         project = create_project(
@@ -70,6 +73,7 @@ def create(data):
 
 @project_bp.get("")
 @project_bp.response(200, ProjectResponseSchema(many=True))
+@jwt_required()
 def list_all():
     projects = list_projects()
 
@@ -80,7 +84,9 @@ def list_all():
 
 
 @project_bp.get("/<int:project_id>")
+@project_bp.doc(security=[{"BearerAuth": []}])
 @project_bp.response(200, ProjectResponseSchema)
+@jwt_required()
 def get(project_id):
     try:
         project = get_project(project_id)
@@ -98,8 +104,10 @@ def get(project_id):
 
 
 @project_bp.put("/<int:project_id>")
+@project_bp.doc(security=[{"BearerAuth": []}])
 @project_bp.arguments(ProjectUpdateSchema)
 @project_bp.response(200, ProjectResponseSchema)
+@jwt_required()
 def update(data, project_id):
     try:
         project = update_project(

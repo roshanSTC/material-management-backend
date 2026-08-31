@@ -1,3 +1,4 @@
+from flask_jwt_extended import jwt_required
 from flask_smorest import Blueprint
 
 from app.schemas.customer import (
@@ -38,6 +39,7 @@ def _customer_response(customer):
 @customer_bp.post("")
 @customer_bp.arguments(CustomerCreateSchema)
 @customer_bp.response(201, CustomerResponseSchema)
+@jwt_required()
 def create(data):
     customer = create_customer(
         name=data["name"],
@@ -51,7 +53,9 @@ def create(data):
 
 
 @customer_bp.get("")
+@customer_bp.doc(security=[{"BearerAuth": []}])
 @customer_bp.response(200, CustomerResponseSchema(many=True))
+@jwt_required()
 def list_all():
     customers = list_customers()
 
@@ -62,7 +66,9 @@ def list_all():
 
 
 @customer_bp.get("/<int:customer_id>")
+@customer_bp.doc(security=[{"BearerAuth": []}])
 @customer_bp.response(200, CustomerResponseSchema)
+@jwt_required()
 def get(customer_id):
     try:
         customer = get_customer(customer_id)
@@ -79,8 +85,10 @@ def get(customer_id):
 
 
 @customer_bp.put("/<int:customer_id>")
+@customer_bp.doc(security=[{"BearerAuth": []}])
 @customer_bp.arguments(CustomerUpdateSchema)
 @customer_bp.response(200, CustomerResponseSchema)
+@jwt_required()
 def update(data, customer_id):
     try:
         customer = update_customer(

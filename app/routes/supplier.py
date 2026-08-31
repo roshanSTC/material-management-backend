@@ -1,3 +1,4 @@
+from flask_jwt_extended import jwt_required
 from flask_smorest import Blueprint
 
 from app.schemas.supplier import (
@@ -36,8 +37,10 @@ def _supplier_response(supplier):
 
 
 @supplier_bp.post("")
+@supplier_bp.doc(security=[{"BearerAuth": []}])
 @supplier_bp.arguments(SupplierCreateSchema)
 @supplier_bp.response(201, SupplierResponseSchema)
+@jwt_required()
 def create(data):
     supplier = create_supplier(
         name=data["name"],
@@ -51,7 +54,9 @@ def create(data):
 
 
 @supplier_bp.get("")
+@supplier_bp.doc(security=[{"BearerAuth": []}])
 @supplier_bp.response(200, SupplierResponseSchema(many=True))
+@jwt_required()
 def list_all():
     suppliers = list_suppliers()
 
@@ -62,7 +67,9 @@ def list_all():
 
 
 @supplier_bp.get("/<int:supplier_id>")
+@supplier_bp.doc(security=[{"BearerAuth": []}])
 @supplier_bp.response(200, SupplierResponseSchema)
+@jwt_required()
 def get(supplier_id):
     try:
         supplier = get_supplier(supplier_id)
@@ -79,8 +86,10 @@ def get(supplier_id):
 
 
 @supplier_bp.put("/<int:supplier_id>")
+@supplier_bp.doc(security=[{"BearerAuth": []}])
 @supplier_bp.arguments(SupplierUpdateSchema)
 @supplier_bp.response(200, SupplierResponseSchema)
+@jwt_required()
 def update(data, supplier_id):
     try:
         supplier = update_supplier(

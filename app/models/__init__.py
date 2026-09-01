@@ -42,6 +42,7 @@ from app.models.permission import Permission
 from app.models.role import Role
 from app.models.project_step import ProjectStep
 from app.models.attachment import Attachment
+from app.models.material import Material
 
 
 __all__ = [
@@ -88,4 +89,5 @@ __all__ = [
     "SupplierPayment",
     "ProjectStep",
     "Attachment",
+    "Material"
 ]

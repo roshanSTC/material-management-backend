@@ -1,3 +1,5 @@
+from flask_jwt_extended import get_jwt_identity
+
 from app.extensions.database import db
 from app.models import QuotationRequest
 
@@ -9,6 +11,10 @@ from app.repositories.quotation_request_repository import (
     list_quotation_requests,
 )
 
+
+from app.services.attachment_service import (
+    create_attachment,
+)
 
 class QuotationRequestError(Exception):
     """Base error for quotation request operations."""
@@ -60,45 +66,61 @@ def create_quotation_request_transaction(
     *,
     project_id: int,
     supplier_id: int,
-    request_date,
+    quotation_requested_date,
+    supplier_contacted: bool,
     remarks: str | None,
     items: list[dict],
+    files=None,
 ) -> QuotationRequest:
 
-    project = get_project(
-        project_id
-    )
+    project = get_project(project_id)
 
     if project is None:
         raise ProjectNotFoundError(
-            f"Project with id "
-            f"{project_id} was not found."
+            f"Project with id {project_id} was not found."
         )
 
-    supplier = get_supplier(
-        supplier_id
-    )
+    supplier = get_supplier(supplier_id)
 
     if supplier is None:
         raise SupplierNotFoundError(
-            f"Supplier with id "
-            f"{supplier_id} was not found."
+            f"Supplier with id {supplier_id} was not found."
         )
 
     if project.supplier_id != supplier.id:
         raise SupplierProjectMismatchError(
-            "The selected supplier does not "
-            "belong to the selected project."
+            "The selected supplier does not belong "
+            "to the selected project."
         )
 
     quotation_request = create_quotation_request(
         project_id=project_id,
         supplier_id=supplier_id,
-        request_date=request_date,
+        quotation_requested_date=quotation_requested_date,
+        supplier_contacted=supplier_contacted,
         remarks=remarks,
         items=items,
     )
 
     db.session.flush()
+
+    # -----------------------------------------
+    # Attachments
+    # -----------------------------------------
+
+    if files:
+        for file in files:
+
+            if not file or not file.filename:
+                continue
+
+            create_attachment(
+                file=file,
+                entity_type="quotation_request",
+                entity_id=quotation_request.id,
+                uploaded_by=int(get_jwt_identity()),
+            )
+
+    db.session.commit()
 
     return quotation_request

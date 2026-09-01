@@ -1,9 +1,11 @@
 import json
 
-from flask import request
+from flask import current_app, request
 from flask_jwt_extended import (
+    get_jwt_identity,
     jwt_required,
 )
+from app.extensions.database import db
 from flask_smorest import Blueprint
 
 from app.schemas.quotation_request import (
@@ -11,6 +13,7 @@ from app.schemas.quotation_request import (
     QuotationRequestResponseSchema,
 )
 
+from app.services.attachment_service import AttachmentValidationError, create_attachment, list_attachments
 from app.services.quotation_request_service import (
     ProjectNotFoundError,
     SupplierNotFoundError,
@@ -20,6 +23,7 @@ from app.services.quotation_request_service import (
     get_quotation_request_record,
     list_quotation_request_records,
 )
+from app.services.storage.factory import get_storage
 
 
 quotation_request_bp = Blueprint(
@@ -33,12 +37,27 @@ quotation_request_bp = Blueprint(
 def _quotation_request_response(
     quotation_request,
 ):
+
+    attachments = list_attachments(
+        entity_type="quotation_request",
+        entity_id=quotation_request.id,
+    )
+
     return {
         "id": quotation_request.id,
         "project_id": quotation_request.project_id,
         "supplier_id": quotation_request.supplier_id,
-        "request_date": quotation_request.request_date,
+
+        "quotation_requested_date": (
+            quotation_request.quotation_requested_date
+        ),
+
+        "supplier_contacted": (
+            quotation_request.supplier_contacted
+        ),
+
         "remarks": quotation_request.remarks,
+
         "created_at": quotation_request.created_at,
         "updated_at": quotation_request.updated_at,
 
@@ -49,6 +68,19 @@ def _quotation_request_response(
                 "quantity": item.quantity,
             }
             for item in quotation_request.items
+        ],
+
+        "attachments": [
+            {
+                "id": attachment.id,
+                "file_name": attachment.file_name,
+                "storage_key": attachment.storage_key,
+                "content_type": attachment.content_type,
+                "file_size": attachment.file_size,
+                "uploaded_by": attachment.uploaded_by,
+                "created_at": attachment.created_at,
+            }
+            for attachment in attachments
         ],
     }
 
@@ -69,13 +101,21 @@ def _quotation_request_response(
                             "example": (
                                 '{"project_id":1,'
                                 '"supplier_id":1,'
-                                '"request_date":"2026-09-01",'
+                                '"quotation_requested_date":"2026-09-01",'
+                                '"supplier_contacted":true,'
                                 '"remarks":"Please provide quotation",'
                                 '"items":['
                                 '{"material_name":"Steel",'
                                 '"quantity":"10.000"}'
-                                "]}"
+                                ']}'
                             ),
+                        },
+                        "file": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "format": "binary",
+                            },
                         },
                     },
                 },
@@ -85,6 +125,8 @@ def _quotation_request_response(
 )
 @jwt_required()
 def create():
+
+    files = request.files.getlist("file")
 
     data_raw = request.form.get("data")
 
@@ -98,9 +140,7 @@ def create():
         }, 422
 
     try:
-        data = json.loads(
-            data_raw
-        )
+        data = json.loads(data_raw)
 
     except json.JSONDecodeError:
         return {
@@ -113,9 +153,7 @@ def create():
 
     try:
         validated_data = (
-            QuotationRequestCreateSchema().load(
-                data
-            )
+            QuotationRequestCreateSchema().load(data)
         )
 
     except Exception as exc:
@@ -127,27 +165,39 @@ def create():
             },
         }, 422
 
+    uploaded_storage_keys = []
+
     try:
+
+        user_id = int(get_jwt_identity())
 
         quotation_request = (
             create_quotation_request_transaction(
-                project_id=validated_data[
-                    "project_id"
+                project_id=validated_data["project_id"],
+                supplier_id=validated_data["supplier_id"],
+                quotation_requested_date=validated_data[
+                    "quotation_requested_date"
                 ],
-                supplier_id=validated_data[
-                    "supplier_id"
+                supplier_contacted=validated_data[
+                    "supplier_contacted"
                 ],
-                request_date=validated_data[
-                    "request_date"
-                ],
-                remarks=validated_data.get(
-                    "remarks"
-                ),
-                items=validated_data[
-                    "items"
-                ],
+                remarks=validated_data.get("remarks"),
+                items=validated_data["items"],
             )
         )
+
+        for file in files:
+
+            attachment, storage_key = create_attachment(
+                file=file,
+                entity_type="quotation_request",
+                entity_id=quotation_request.id,
+                uploaded_by=user_id,
+            )
+
+            uploaded_storage_keys.append(storage_key)
+
+        db.session.commit()
 
         return (
             _quotation_request_response(
@@ -157,6 +207,8 @@ def create():
         )
 
     except ProjectNotFoundError as exc:
+
+        db.session.rollback()
 
         return {
             "success": False,
@@ -168,6 +220,8 @@ def create():
 
     except SupplierNotFoundError as exc:
 
+        db.session.rollback()
+
         return {
             "success": False,
             "error": {
@@ -178,6 +232,8 @@ def create():
 
     except SupplierProjectMismatchError as exc:
 
+        db.session.rollback()
+
         return {
             "success": False,
             "error": {
@@ -186,19 +242,47 @@ def create():
             },
         }, 409
 
-    except Exception:
-
-        from app.extensions.database import db
+    except AttachmentValidationError as exc:
 
         db.session.rollback()
 
         return {
             "success": False,
             "error": {
+                "code": "INVALID_ATTACHMENT",
+                "message": str(exc),
+            },
+        }, 422
+
+    except Exception as exc:
+
+        db.session.rollback()
+
+        current_app.logger.exception(
+            "Quotation request creation failed"
+        )
+
+        storage = get_storage()
+
+        for storage_key in uploaded_storage_keys:
+
+            try:
+
+                if storage.exists(storage_key):
+                    storage.delete(storage_key)
+
+            except Exception:
+
+                current_app.logger.exception(
+                    "Failed to cleanup attachment: %s",
+                    storage_key,
+                )
+
+        return {
+            "success": False,
+            "error": {
                 "code": "QUOTATION_REQUEST_CREATE_FAILED",
-                "message": (
-                    "Unable to create quotation request."
-                ),
+                "message": str(exc),
             },
         }, 500
 

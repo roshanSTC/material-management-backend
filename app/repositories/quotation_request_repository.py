@@ -7,31 +7,20 @@ from app.models import (
 )
 
 
-def get_project(
-    project_id: int,
-) -> Project | None:
-
-    return db.session.get(
-        Project,
-        project_id,
-    )
+def get_project(project_id: int) -> Project | None:
+    return db.session.get(Project, project_id)
 
 
-def get_supplier(
-    supplier_id: int,
-) -> Supplier | None:
-
-    return db.session.get(
-        Supplier,
-        supplier_id,
-    )
+def get_supplier(supplier_id: int) -> Supplier | None:
+    return db.session.get(Supplier, supplier_id)
 
 
 def create_quotation_request(
     *,
     project_id: int,
     supplier_id: int,
-    request_date,
+    quotation_requested_date,
+    supplier_contacted: bool,
     remarks: str | None,
     items: list[dict],
 ) -> QuotationRequest:
@@ -39,7 +28,8 @@ def create_quotation_request(
     quotation_request = QuotationRequest(
         project_id=project_id,
         supplier_id=supplier_id,
-        request_date=request_date,
+        quotation_requested_date=quotation_requested_date,
+        supplier_contacted=supplier_contacted,
         remarks=remarks.strip() if remarks else None,
     )
 
@@ -51,9 +41,7 @@ def create_quotation_request(
 
         quotation_request.items.append(item)
 
-    db.session.add(
-        quotation_request
-    )
+    db.session.add(quotation_request)
 
     return quotation_request
 
@@ -72,7 +60,5 @@ def list_quotation_requests() -> list[QuotationRequest]:
 
     return db.session.execute(
         db.select(QuotationRequest)
-        .order_by(
-            QuotationRequest.id.desc()
-        )
+        .order_by(QuotationRequest.id.desc())
     ).scalars().all()

@@ -1,33 +1,24 @@
-from marshmallow import Schema, fields, validate
+from marshmallow import Schema, fields
 
 
 class QuotationRequestItemSchema(Schema):
-    material_name = fields.String(
-        required=True,
-        validate=validate.Length(min=1, max=255),
-    )
-
+    material_name = fields.String(required=True)
     quantity = fields.Decimal(
         required=True,
         as_string=True,
-        places=3,
-        validate=validate.Range(min=0.001),
     )
 
 
 class QuotationRequestCreateSchema(Schema):
-    project_id = fields.Integer(
-        required=True,
-        validate=validate.Range(min=1),
+    project_id = fields.Integer(required=True)
+    supplier_id = fields.Integer(required=True)
+
+    quotation_requested_date = fields.Date(
+        required=True
     )
 
-    supplier_id = fields.Integer(
-        required=True,
-        validate=validate.Range(min=1),
-    )
-
-    request_date = fields.Date(
-        required=True,
+    supplier_contacted = fields.Boolean(
+        required=True
     )
 
     remarks = fields.String(
@@ -38,54 +29,30 @@ class QuotationRequestCreateSchema(Schema):
     items = fields.List(
         fields.Nested(QuotationRequestItemSchema),
         required=True,
-        validate=validate.Length(min=1),
-    )
-
-
-class QuotationRequestItemResponseSchema(Schema):
-    id = fields.Integer(required=True)
-
-    material_name = fields.String(
-        required=True,
-    )
-
-    quantity = fields.Decimal(
-        required=True,
-        as_string=True,
-        places=3,
     )
 
 
 class QuotationRequestResponseSchema(Schema):
-    id = fields.Integer(required=True)
+    id = fields.Integer()
+    project_id = fields.Integer()
+    supplier_id = fields.Integer()
 
-    project_id = fields.Integer(
-        required=True,
-    )
-
-    supplier_id = fields.Integer(
-        required=True,
-    )
-
-    request_date = fields.Date(
-        required=True,
-    )
+    quotation_requested_date = fields.Date()
+    supplier_contacted = fields.Boolean()
 
     remarks = fields.String(
-        allow_none=True,
+        allow_none=True
     )
 
-    created_at = fields.DateTime(
-        required=True,
-    )
-
-    updated_at = fields.DateTime(
-        required=True,
-    )
+    created_at = fields.DateTime()
+    updated_at = fields.DateTime()
 
     items = fields.List(
         fields.Nested(
-            QuotationRequestItemResponseSchema
-        ),
-        required=True,
+            QuotationRequestItemSchema
+        )
+    )
+
+    attachments = fields.List(
+        fields.Dict()
     )

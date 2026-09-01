@@ -25,9 +25,15 @@ class QuotationRequest(db.Model):
         index=True,
     )
 
-    request_date = db.Column(
+    quotation_requested_date = db.Column(
         db.Date,
         nullable=False,
+    )
+
+    supplier_contacted = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False,
     )
 
     remarks = db.Column(
@@ -65,5 +71,18 @@ class QuotationRequest(db.Model):
         lazy="select",
     )
 
+    __table_args__ = (
+        db.UniqueConstraint(
+            "project_id",
+            "supplier_id",
+            name="uq_quotation_request_project_supplier",
+        ),
+    )
+
     def __repr__(self) -> str:
-        return f"<QuotationRequest {self.id}>"
+        return (
+            f"<QuotationRequest "
+            f"{self.id}: "
+            f"project={self.project_id} "
+            f"supplier={self.supplier_id}>"
+        )

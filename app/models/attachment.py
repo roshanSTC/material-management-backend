@@ -11,9 +11,14 @@ class Attachment(db.Model):
         primary_key=True,
     )
 
-    customer_query_id = db.Column(
+    entity_type = db.Column(
+        db.String(100),
+        nullable=False,
+        index=True,
+    )
+
+    entity_id = db.Column(
         db.Integer,
-        db.ForeignKey("customer_queries.id"),
         nullable=False,
         index=True,
     )
@@ -59,11 +64,6 @@ class Attachment(db.Model):
         onupdate=datetime.utcnow,
     )
 
-    customer_query = db.relationship(
-        "CustomerQuery",
-        back_populates="attachments",
-    )
-
     uploader = db.relationship(
         "User",
         lazy="select",
@@ -72,6 +72,6 @@ class Attachment(db.Model):
     def __repr__(self) -> str:
         return (
             f"<Attachment {self.id}: "
-            f"customer_query={self.customer_query_id} "
+            f"{self.entity_type}={self.entity_id} "
             f"{self.file_name}>"
         )

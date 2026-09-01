@@ -156,17 +156,18 @@ def _validate_file(file: FileStorage):
 def create_attachment(
     *,
     file: FileStorage,
-    customer_query_id: int,
+    entity_type: str,
+    entity_id: int,
     uploaded_by: int,
 ):
     filename, file_size = _validate_file(file)
 
     storage_key = (
-        f"attachments/"
-        f"customer-query/{customer_query_id}/"
-        f"{uuid.uuid4().hex}_{filename}"
-    )
-
+    f"attachments/"
+    f"{entity_type}/"
+    f"{entity_id}/"
+    f"{uuid.uuid4().hex}_{filename}"
+)
     storage = get_storage()
     file_stored = False
 
@@ -184,7 +185,8 @@ def create_attachment(
             )
 
         attachment = Attachment(
-            customer_query_id=customer_query_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
             file_name=filename,
             storage_key=storage_key,
             content_type=file.content_type,
@@ -213,31 +215,20 @@ def create_attachment(
 
 def list_attachments(
     *,
-    user_id: int,
-    customer_query_id: int,
+    entity_type: str,
+    entity_id: int,
 ):
-    """
-    Return attachments belonging to a customer query.
-    """
-
-    if customer_query_id <= 0:
-        raise AttachmentValidationError(
-            "customer_query_id must be a positive integer."
-        )
-
-    attachments = (
+    return (
         Attachment.query
         .filter(
-            Attachment.customer_query_id
-            == customer_query_id
+            Attachment.entity_type == entity_type,
+            Attachment.entity_id == entity_id,
         )
         .order_by(
             Attachment.created_at.desc()
         )
         .all()
     )
-
-    return attachments
 
 
 def get_attachment(

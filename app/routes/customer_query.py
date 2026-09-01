@@ -10,6 +10,7 @@ from app.extensions.database import db
 from app.services.attachment_service import (
     AttachmentValidationError,
     create_attachment,
+    list_attachments,
 )
 
 from app.services.storage.factory import get_storage
@@ -38,6 +39,11 @@ customer_query_bp = Blueprint(
 
 
 def _customer_query_response(customer_query):
+    attachments = list_attachments(
+        entity_type="customer_query",
+        entity_id=customer_query.id,
+    )
+
     return {
         "id": customer_query.id,
         "project_id": customer_query.project_id,
@@ -59,7 +65,8 @@ def _customer_query_response(customer_query):
         "attachments": [
             {
                 "id": attachment.id,
-                "customer_query_id": attachment.customer_query_id,
+                "entity_type": attachment.entity_type,
+                "entity_id": attachment.entity_id,
                 "file_name": attachment.file_name,
                 "storage_key": attachment.storage_key,
                 "content_type": attachment.content_type,
@@ -68,7 +75,7 @@ def _customer_query_response(customer_query):
                 "created_at": attachment.created_at,
                 "updated_at": attachment.updated_at,
             }
-            for attachment in customer_query.attachments
+            for attachment in attachments
         ],
     }
 
@@ -171,7 +178,8 @@ def create():
 
             attachment, storage_key = create_attachment(
                 file=file,
-                customer_query_id=customer_query.id,
+                entity_type="customer_query",
+                entity_id=customer_query.id,
                 uploaded_by=user_id,
             )
 
@@ -228,10 +236,13 @@ def create():
             },
         }, 422
 
-    except Exception:
+    except Exception as exc:
         db.session.rollback()
 
-        # Cleanup files already written to storage
+        current_app.logger.exception(
+            "Customer query creation failed"
+        )
+
         storage = get_storage()
 
         for storage_key in uploaded_storage_keys:
@@ -248,7 +259,7 @@ def create():
             "success": False,
             "error": {
                 "code": "CUSTOMER_QUERY_CREATE_FAILED",
-                "message": "Unable to create customer query.",
+                "message": str(exc),
             },
         }, 500
         

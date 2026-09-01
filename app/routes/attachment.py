@@ -42,148 +42,148 @@ def _attachment_response(attachment):
     }
 
 
-@attachment_bp.post("")
-@attachment_bp.doc(
-    security=[{"BearerAuth": []}],
-    requestBody={
-        "required": True,
-        "content": {
-            "multipart/form-data": {
-                "schema": {
-                    "type": "object",
-                    "required": [
-                        "customer_query_id",
-                        "file",
-                    ],
-                    "properties": {
-                        "customer_query_id": {
-                            "type": "integer",
-                            "example": 1,
-                        },
-                        "file": {
-                            "type": "string",
-                            "format": "binary",
-                        },
-                    },
-                },
-            },
-        },
-    },
-)
-@attachment_bp.response(
-    201,
-    AttachmentResponseSchema,
-)
-@jwt_required()
-def upload_attachment():
-    """
-    Upload an attachment for a customer query.
-    """
+# @attachment_bp.post("")
+# @attachment_bp.doc(
+#     security=[{"BearerAuth": []}],
+#     requestBody={
+#         "required": True,
+#         "content": {
+#             "multipart/form-data": {
+#                 "schema": {
+#                     "type": "object",
+#                     "required": [
+#                         "customer_query_id",
+#                         "file",
+#                     ],
+#                     "properties": {
+#                         "customer_query_id": {
+#                             "type": "integer",
+#                             "example": 1,
+#                         },
+#                         "file": {
+#                             "type": "string",
+#                             "format": "binary",
+#                         },
+#                     },
+#                 },
+#             },
+#         },
+#     },
+# )
+# @attachment_bp.response(
+#     201,
+#     AttachmentResponseSchema,
+# )
+# @jwt_required()
+# def upload_attachment():
+#     """
+#     Upload an attachment for a customer query.
+#     """
 
-    customer_query_id = request.form.get(
-        "customer_query_id"
-    )
+#     customer_query_id = request.form.get(
+#         "customer_query_id"
+#     )
 
-    file = request.files.get("file")
+#     file = request.files.get("file")
 
-    if not customer_query_id:
-        return {
-            "success": False,
-            "error": {
-                "code": "CUSTOMER_QUERY_ID_REQUIRED",
-                "message": "customer_query_id is required.",
-            },
-        }, 422
+#     if not customer_query_id:
+#         return {
+#             "success": False,
+#             "error": {
+#                 "code": "CUSTOMER_QUERY_ID_REQUIRED",
+#                 "message": "customer_query_id is required.",
+#             },
+#         }, 422
 
-    if file is None:
-        return {
-            "success": False,
-            "error": {
-                "code": "FILE_REQUIRED",
-                "message": "File is required.",
-            },
-        }, 422
+#     if file is None:
+#         return {
+#             "success": False,
+#             "error": {
+#                 "code": "FILE_REQUIRED",
+#                 "message": "File is required.",
+#             },
+#         }, 422
 
-    try:
-        customer_query_id = int(customer_query_id)
-    except (TypeError, ValueError):
-        return {
-            "success": False,
-            "error": {
-                "code": "INVALID_CUSTOMER_QUERY_ID",
-                "message": (
-                    "customer_query_id must be an integer."
-                ),
-            },
-        }, 422
+#     try:
+#         customer_query_id = int(customer_query_id)
+#     except (TypeError, ValueError):
+#         return {
+#             "success": False,
+#             "error": {
+#                 "code": "INVALID_CUSTOMER_QUERY_ID",
+#                 "message": (
+#                     "customer_query_id must be an integer."
+#                 ),
+#             },
+#         }, 422
 
-    try:
-        attachment, _storage_key = create_attachment(
-            file=file,
-            customer_query_id=customer_query_id,
-            uploaded_by=int(get_jwt_identity()),
-        )
+#     try:
+#         attachment, _storage_key = create_attachment(
+#             file=file,
+#             customer_query_id=customer_query_id,
+#             uploaded_by=int(get_jwt_identity()),
+#         )
 
-        return _attachment_response(
-            attachment
-        ), 201
+#         return _attachment_response(
+#             attachment
+#         ), 201
 
-    except AttachmentValidationError as exc:
-        return {
-            "success": False,
-            "error": {
-                "code": "INVALID_ATTACHMENT",
-                "message": str(exc),
-            },
-        }, 422
+#     except AttachmentValidationError as exc:
+#         return {
+#             "success": False,
+#             "error": {
+#                 "code": "INVALID_ATTACHMENT",
+#                 "message": str(exc),
+#             },
+#         }, 422
 
-    except StorageError:
-        return {
-            "success": False,
-            "error": {
-                "code": "STORAGE_ERROR",
-                "message": "Unable to store attachment.",
-            },
-        }, 500
+#     except StorageError:
+#         return {
+#             "success": False,
+#             "error": {
+#                 "code": "STORAGE_ERROR",
+#                 "message": "Unable to store attachment.",
+#             },
+#         }, 500
 
 
-@attachment_bp.get(
-    "/customer-query/<int:customer_query_id>"
-)
-@attachment_bp.doc(
-    security=[{"BearerAuth": []}],
-)
-@attachment_bp.response(
-    200,
-    AttachmentResponseSchema(many=True),
-)
-@jwt_required()
-def get_customer_query_attachments(
-    customer_query_id,
-):
-    """
-    List all attachments belonging to a customer query.
-    """
+# @attachment_bp.get(
+#     "/customer-query/<int:customer_query_id>"
+# )
+# @attachment_bp.doc(
+#     security=[{"BearerAuth": []}],
+# )
+# @attachment_bp.response(
+#     200,
+#     AttachmentResponseSchema(many=True),
+# )
+# @jwt_required()
+# def get_customer_query_attachments(
+#     customer_query_id,
+# ):
+#     """
+#     List all attachments belonging to a customer query.
+#     """
 
-    try:
-        attachments = list_attachments(
-            user_id=int(get_jwt_identity()),
-            customer_query_id=customer_query_id,
-        )
+#     try:
+#         attachments = list_attachments(
+#             user_id=int(get_jwt_identity()),
+#             customer_query_id=customer_query_id,
+#         )
 
-        return [
-            _attachment_response(attachment)
-            for attachment in attachments
-        ], 200
+#         return [
+#             _attachment_response(attachment)
+#             for attachment in attachments
+#         ], 200
 
-    except AttachmentValidationError as exc:
-        return {
-            "success": False,
-            "error": {
-                "code": "INVALID_CUSTOMER_QUERY",
-                "message": str(exc),
-            },
-        }, 422
+#     except AttachmentValidationError as exc:
+#         return {
+#             "success": False,
+#             "error": {
+#                 "code": "INVALID_CUSTOMER_QUERY",
+#                 "message": str(exc),
+#             },
+#         }, 422
 
 
 @attachment_bp.get(
@@ -239,39 +239,39 @@ def download_attachment(attachment_id):
     )
 
 
-@attachment_bp.delete(
-    "/<int:attachment_id>"
-)
-@attachment_bp.doc(
-    security=[{"BearerAuth": []}],
-)
-@jwt_required()
-def remove_attachment(attachment_id):
-    """
-    Delete an attachment.
-    """
+# @attachment_bp.delete(
+#     "/<int:attachment_id>"
+# )
+# @attachment_bp.doc(
+#     security=[{"BearerAuth": []}],
+# )
+# @jwt_required()
+# def remove_attachment(attachment_id):
+#     """
+#     Delete an attachment.
+#     """
 
-    try:
-        delete_attachment(
-            attachment_id
-        )
+#     try:
+#         delete_attachment(
+#             attachment_id
+#         )
 
-    except AttachmentNotFoundError as exc:
-        return {
-            "success": False,
-            "error": {
-                "code": "ATTACHMENT_NOT_FOUND",
-                "message": str(exc),
-            },
-        }, 404
+#     except AttachmentNotFoundError as exc:
+#         return {
+#             "success": False,
+#             "error": {
+#                 "code": "ATTACHMENT_NOT_FOUND",
+#                 "message": str(exc),
+#             },
+#         }, 404
 
-    except StorageError:
-        return {
-            "success": False,
-            "error": {
-                "code": "STORAGE_ERROR",
-                "message": "Unable to delete attachment.",
-            },
-        }, 500
+#     except StorageError:
+#         return {
+#             "success": False,
+#             "error": {
+#                 "code": "STORAGE_ERROR",
+#                 "message": "Unable to delete attachment.",
+#             },
+#         }, 500
 
-    return "", 204
+#     return "", 204

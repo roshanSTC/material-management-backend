@@ -30,9 +30,7 @@ def upgrade():
             )
         )
 
-        batch_op.drop_index(
-            "ix_attachments_entity_id"
-        )
+        
 
         batch_op.create_index(
             "ix_attachments_customer_query_id",

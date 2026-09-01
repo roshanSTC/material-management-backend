@@ -37,6 +37,7 @@ def _customer_response(customer):
 
 
 @customer_bp.post("")
+@customer_bp.doc(security=[{"BearerAuth": []}])
 @customer_bp.arguments(CustomerCreateSchema)
 @customer_bp.response(201, CustomerResponseSchema)
 @jwt_required()

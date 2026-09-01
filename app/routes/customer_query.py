@@ -110,10 +110,10 @@ def _customer_query_response(customer_query):
         },
     },
 )
-@customer_query_bp.response(
-    201,
-    CustomerQueryResponseSchema,
-)
+# @customer_query_bp.response(
+#     201,
+#     CustomerQueryResponseSchema,
+# )
 @jwt_required()
 def create():
 
@@ -256,7 +256,7 @@ def create():
 
 @customer_query_bp.get("")
 @customer_query_bp.doc(security=[{"BearerAuth": []}])
-@customer_query_bp.response(200, CustomerQueryResponseSchema(many=True))
+# @customer_query_bp.response(200, CustomerQueryResponseSchema(many=True))
 @jwt_required()
 def list_all():
     customer_queries = list_customer_query_records()
@@ -270,7 +270,7 @@ def list_all():
     
 @customer_query_bp.get("/<int:customer_query_id>")
 @customer_query_bp.doc(security=[{"BearerAuth": []}])
-@customer_query_bp.response(200, CustomerQueryResponseSchema)
+# @customer_query_bp.response(200, CustomerQueryResponseSchema)
 @jwt_required()
 def get(customer_query_id):
     try:

@@ -11,8 +11,7 @@ class AttachmentResponseSchema(Schema):
     file_name = fields.String(
         dump_only=True,
     )
-    
-    customer_query_id = fields.Integer(dump_only=True)
+
 
     storage_key = fields.String(
         dump_only=True,

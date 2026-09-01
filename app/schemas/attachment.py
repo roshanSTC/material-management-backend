@@ -1,6 +1,16 @@
 from marshmallow import Schema, fields
 
 
+class AttachmentUploadSchema(Schema):
+    file = fields.Raw(
+        required=True,
+        metadata={
+            "type": "string",
+            "format": "binary",
+        },
+    )
+
+
 class AttachmentResponseSchema(Schema):
     id = fields.Integer(dump_only=True)
 

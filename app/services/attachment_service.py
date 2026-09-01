@@ -214,50 +214,30 @@ def create_attachment(
 def list_attachments(
     *,
     user_id: int,
-    project_id: int,
-    step_number: int | None = None,
+    customer_query_id: int,
 ):
     """
-    Return attachments belonging to a project.
-
-    If step_number is provided, only attachments for that
-    specific project step are returned.
+    Return attachments belonging to a customer query.
     """
 
-    if project_id <= 0:
+    if customer_query_id <= 0:
         raise AttachmentValidationError(
-            "project_id must be a positive integer."
+            "customer_query_id must be a positive integer."
         )
 
-    if step_number is not None and step_number <= 0:
-        raise AttachmentValidationError(
-            "step_number must be a positive integer."
-        )
-
-    authorize_project_access(
-        user_id=user_id,
-        project_id=project_id,
-    )
-
-    query = (
+    attachments = (
         Attachment.query
         .filter(
-            Attachment.project_id == project_id,
+            Attachment.customer_query_id
+            == customer_query_id
         )
-    )
-
-    if step_number is not None:
-        query = query.filter(
-            Attachment.step_number == step_number,
-        )
-
-    return (
-        query
         .order_by(
             Attachment.created_at.desc()
         )
         .all()
     )
+
+    return attachments
 
 
 def get_attachment(

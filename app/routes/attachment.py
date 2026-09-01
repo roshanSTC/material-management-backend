@@ -1,4 +1,3 @@
-
 from flask import request, send_file
 from flask_jwt_extended import (
     get_jwt_identity,
@@ -8,7 +7,6 @@ from flask_smorest import Blueprint
 
 from app.schemas.attachment import (
     AttachmentResponseSchema,
-    AttachmentUploadSchema,
 )
 from app.services.attachment_service import (
     AttachmentNotFoundError,
@@ -33,8 +31,7 @@ attachment_bp = Blueprint(
 def _attachment_response(attachment):
     return {
         "id": attachment.id,
-        "project_id": attachment.project_id,
-        "step_number": attachment.step_number,
+        "customer_query_id": attachment.customer_query_id,
         "file_name": attachment.file_name,
         "storage_key": attachment.storage_key,
         "content_type": attachment.content_type,
@@ -55,16 +52,13 @@ def _attachment_response(attachment):
                 "schema": {
                     "type": "object",
                     "required": [
-                        "project_id",
-                        "step_number",
+                        "customer_query_id",
                         "file",
                     ],
                     "properties": {
-                        "project_id": {
+                        "customer_query_id": {
                             "type": "integer",
-                        },
-                        "step_number": {
-                            "type": "integer",
+                            "example": 1,
                         },
                         "file": {
                             "type": "string",
@@ -83,28 +77,21 @@ def _attachment_response(attachment):
 @jwt_required()
 def upload_attachment():
     """
-    Upload an attachment for a project step.
+    Upload an attachment for a customer query.
     """
 
-    project_id = request.form.get("project_id")
-    step_number = request.form.get("step_number")
+    customer_query_id = request.form.get(
+        "customer_query_id"
+    )
+
     file = request.files.get("file")
 
-    if not project_id:
+    if not customer_query_id:
         return {
             "success": False,
             "error": {
-                "code": "PROJECT_ID_REQUIRED",
-                "message": "project_id is required.",
-            },
-        }, 422
-
-    if not step_number:
-        return {
-            "success": False,
-            "error": {
-                "code": "STEP_NUMBER_REQUIRED",
-                "message": "step_number is required.",
+                "code": "CUSTOMER_QUERY_ID_REQUIRED",
+                "message": "customer_query_id is required.",
             },
         }, 422
 
@@ -118,29 +105,28 @@ def upload_attachment():
         }, 422
 
     try:
-        project_id = int(project_id)
-        step_number = int(step_number)
-    except ValueError:
+        customer_query_id = int(customer_query_id)
+    except (TypeError, ValueError):
         return {
             "success": False,
             "error": {
-                "code": "INVALID_PROJECT_DATA",
+                "code": "INVALID_CUSTOMER_QUERY_ID",
                 "message": (
-                    "project_id and step_number "
-                    "must be integers."
+                    "customer_query_id must be an integer."
                 ),
             },
         }, 422
 
     try:
-        attachment = create_attachment(
+        attachment, _storage_key = create_attachment(
             file=file,
-            project_id=project_id,
-            step_number=step_number,
+            customer_query_id=customer_query_id,
             uploaded_by=int(get_jwt_identity()),
         )
 
-        return _attachment_response(attachment), 201
+        return _attachment_response(
+            attachment
+        ), 201
 
     except AttachmentValidationError as exc:
         return {
@@ -162,7 +148,7 @@ def upload_attachment():
 
 
 @attachment_bp.get(
-    "/project/<int:project_id>"
+    "/customer-query/<int:customer_query_id>"
 )
 @attachment_bp.doc(
     security=[{"BearerAuth": []}],
@@ -172,56 +158,17 @@ def upload_attachment():
     AttachmentResponseSchema(many=True),
 )
 @jwt_required()
-def get_project_attachments(project_id):
-    """
-    List all attachments belonging to a project.
-    """
-
-    try:
-        attachments = list_attachments(
-            user_id=int(get_jwt_identity()),
-            project_id=project_id,
-        )
-
-        return [
-            _attachment_response(attachment)
-            for attachment in attachments
-        ], 200
-
-    except AttachmentValidationError as exc:
-        return {
-            "success": False,
-            "error": {
-                "code": "INVALID_PROJECT",
-                "message": str(exc),
-            },
-        }, 422
-
-
-@attachment_bp.get(
-    "/project/<int:project_id>/step/<int:step_number>"
-)
-@attachment_bp.doc(
-    security=[{"BearerAuth": []}],
-)
-@attachment_bp.response(
-    200,
-    AttachmentResponseSchema(many=True),
-)
-@jwt_required()
-def get_step_attachments(
-    project_id,
-    step_number,
+def get_customer_query_attachments(
+    customer_query_id,
 ):
     """
-    List attachments belonging to a specific project step.
+    List all attachments belonging to a customer query.
     """
 
     try:
         attachments = list_attachments(
             user_id=int(get_jwt_identity()),
-            project_id=project_id,
-            step_number=step_number,
+            customer_query_id=customer_query_id,
         )
 
         return [
@@ -233,7 +180,7 @@ def get_step_attachments(
         return {
             "success": False,
             "error": {
-                "code": "INVALID_ATTACHMENT_SCOPE",
+                "code": "INVALID_CUSTOMER_QUERY",
                 "message": str(exc),
             },
         }, 422

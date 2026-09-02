@@ -3,6 +3,7 @@ from flask_jwt_extended import get_jwt_identity
 from app.extensions.database import db
 from app.models import QuotationRequest
 
+from app.models.quotation_request_item import QuotationRequestItem
 from app.repositories.quotation_request_repository import (
     create_quotation_request,
     get_project,
@@ -122,5 +123,100 @@ def create_quotation_request_transaction(
             )
 
     db.session.commit()
+
+    return quotation_request
+
+
+
+def update_quotation_request_transaction(
+    quotation_request_id,
+    project_id=None,
+    supplier_id=None,
+    quotation_requested_date=None,
+    supplier_contacted=None,
+    remarks=None,
+    items=None,
+):
+    quotation_request = (
+        db.session.get(
+            QuotationRequest,
+            quotation_request_id,
+        )
+    )
+
+    if not quotation_request:
+        raise QuotationRequestNotFoundError(
+            "Quotation request not found."
+        )
+
+    # Only validate project if it is being changed
+    if project_id is not None:
+
+        project = get_project(project_id)
+
+        if not project:
+            raise ProjectNotFoundError(
+                "Project not found."
+            )
+
+        quotation_request.project_id = project_id
+
+    # Only validate supplier if it is being changed
+    if supplier_id is not None:
+
+        supplier = get_supplier(supplier_id)
+
+        if not supplier:
+            raise SupplierNotFoundError(
+                "Supplier not found."
+            )
+
+        # Validate supplier belongs to project
+        final_project_id = (
+            project_id
+            if project_id is not None
+            else quotation_request.project_id
+        )
+
+        if supplier.project_id != final_project_id:
+            raise SupplierProjectMismatchError(
+                "Supplier does not belong to the selected project."
+            )
+
+        quotation_request.supplier_id = supplier_id
+
+    # Update scalar fields only when supplied
+    if quotation_requested_date is not None:
+        quotation_request.quotation_requested_date = (
+            quotation_requested_date
+        )
+
+    if supplier_contacted is not None:
+        quotation_request.supplier_contacted = (
+            supplier_contacted
+        )
+
+    if remarks is not None:
+        quotation_request.remarks = remarks
+
+    # Replace items only when items are supplied
+    if items is not None:
+
+        for item in list(quotation_request.items):
+            db.session.delete(item)
+
+        db.session.flush()
+
+        for item_data in items:
+
+            item = QuotationRequestItem(
+                quotation_request_id=quotation_request.id,
+                material_name=item_data["material_name"],
+                quantity=item_data["quantity"],
+            )
+
+            db.session.add(item)
+
+    db.session.flush()
 
     return quotation_request

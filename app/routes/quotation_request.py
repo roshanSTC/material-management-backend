@@ -22,6 +22,7 @@ from app.services.quotation_request_service import (
     create_quotation_request_transaction,
     get_quotation_request_record,
     list_quotation_request_records,
+    update_quotation_request_transaction,
 )
 from app.services.storage.factory import get_storage
 
@@ -305,6 +306,223 @@ def list_all():
         for quotation_request
         in quotation_requests
     ], 200
+    
+    
+@quotation_request_bp.patch(
+    "/<int:quotation_request_id>"
+)
+@quotation_request_bp.doc(
+    security=[{"BearerAuth": []}],
+    requestBody={
+        "required": True,
+        "content": {
+            "multipart/form-data": {
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "string",
+                            "description": (
+                                "Partial JSON payload. "
+                                "Only supplied fields are updated."
+                            ),
+                            "example": (
+                                '{"remarks":"Updated quotation request",'
+                                '"supplier_contacted":true,'
+                                '"items":['
+                                '{"material_name":"Steel",'
+                                '"quantity":"20.000"}'
+                                ']}'
+                            ),
+                        },
+                        "file": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "format": "binary",
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    },
+)
+@jwt_required()
+def update(quotation_request_id):
+
+    files = request.files.getlist("file")
+
+    data_raw = request.form.get("data")
+
+    if not data_raw:
+        return {
+            "success": False,
+            "error": {
+                "code": "DATA_REQUIRED",
+                "message": "data is required.",
+            },
+        }, 422
+
+    try:
+        data = json.loads(data_raw)
+
+    except json.JSONDecodeError:
+
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_DATA",
+                "message": "data must contain valid JSON.",
+            },
+        }, 422
+
+    if not isinstance(data, dict):
+
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_DATA",
+                "message": "data must contain a JSON object.",
+            },
+        }, 422
+
+    try:
+        user_id = int(get_jwt_identity())
+
+        # Check that request exists before starting update
+        quotation_request = (
+            get_quotation_request_record(
+                quotation_request_id
+            )
+        )
+
+        uploaded_storage_keys = []
+
+        try:
+
+            quotation_request = (
+                update_quotation_request_transaction(
+                    quotation_request_id=quotation_request_id,
+                    project_id=data.get("project_id"),
+                    supplier_id=data.get("supplier_id"),
+                    quotation_requested_date=data.get(
+                        "quotation_requested_date"
+                    ),
+                    supplier_contacted=data.get(
+                        "supplier_contacted"
+                    ),
+                    remarks=data.get("remarks"),
+                    items=data.get("items"),
+                )
+            )
+
+            # Add new attachments
+            for file in files:
+
+                attachment, storage_key = create_attachment(
+                    file=file,
+                    entity_type="quotation_request",
+                    entity_id=quotation_request.id,
+                    uploaded_by=user_id,
+                )
+
+                uploaded_storage_keys.append(storage_key)
+
+            db.session.commit()
+
+            return (
+                _quotation_request_response(
+                    quotation_request
+                ),
+                200,
+            )
+
+        except Exception:
+            db.session.rollback()
+
+            # Cleanup newly uploaded files
+            storage = get_storage()
+
+            for storage_key in uploaded_storage_keys:
+
+                try:
+
+                    if storage.exists(storage_key):
+                        storage.delete(storage_key)
+
+                except Exception:
+
+                    current_app.logger.exception(
+                        "Failed to cleanup attachment: %s",
+                        storage_key,
+                    )
+
+            raise
+
+    except QuotationRequestNotFoundError as exc:
+
+        return {
+            "success": False,
+            "error": {
+                "code": "QUOTATION_REQUEST_NOT_FOUND",
+                "message": str(exc),
+            },
+        }, 404
+
+    except ProjectNotFoundError as exc:
+
+        return {
+            "success": False,
+            "error": {
+                "code": "PROJECT_NOT_FOUND",
+                "message": str(exc),
+            },
+        }, 404
+
+    except SupplierNotFoundError as exc:
+
+        return {
+            "success": False,
+            "error": {
+                "code": "SUPPLIER_NOT_FOUND",
+                "message": str(exc),
+            },
+        }, 404
+
+    except SupplierProjectMismatchError as exc:
+
+        return {
+            "success": False,
+            "error": {
+                "code": "SUPPLIER_PROJECT_MISMATCH",
+                "message": str(exc),
+            },
+        }, 409
+
+    except AttachmentValidationError as exc:
+
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_ATTACHMENT",
+                "message": str(exc),
+            },
+        }, 422
+
+    except Exception as exc:
+
+        current_app.logger.exception(
+            "Quotation request update failed"
+        )
+
+        return {
+            "success": False,
+            "error": {
+                "code": "QUOTATION_REQUEST_UPDATE_FAILED",
+                "message": str(exc),
+            },
+        }, 500
 
 
 # @quotation_request_bp.get(

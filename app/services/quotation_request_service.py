@@ -220,3 +220,21 @@ def update_quotation_request_transaction(
     db.session.flush()
 
     return quotation_request
+
+
+
+def delete_quotation_request_transaction(quotation_request_id: int):
+    quotation_request = get_quotation_request_record(
+        quotation_request_id
+    )
+
+    if not quotation_request:
+        raise QuotationRequestNotFoundError(
+            f"Quotation request {quotation_request_id} not found."
+        )
+
+    db.session.delete(quotation_request)
+
+    db.session.flush()
+
+    return quotation_request

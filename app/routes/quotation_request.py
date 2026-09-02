@@ -13,13 +13,14 @@ from app.schemas.quotation_request import (
     QuotationRequestResponseSchema,
 )
 
-from app.services.attachment_service import AttachmentValidationError, create_attachment, list_attachments
+from app.services.attachment_service import AttachmentValidationError, create_attachment, delete_attachment, list_attachments
 from app.services.quotation_request_service import (
     ProjectNotFoundError,
     SupplierNotFoundError,
     SupplierProjectMismatchError,
     QuotationRequestNotFoundError,
     create_quotation_request_transaction,
+    delete_quotation_request_transaction,
     get_quotation_request_record,
     list_quotation_request_records,
     update_quotation_request_transaction,
@@ -520,6 +521,92 @@ def update(quotation_request_id):
             "success": False,
             "error": {
                 "code": "QUOTATION_REQUEST_UPDATE_FAILED",
+                "message": str(exc),
+            },
+        }, 500
+        
+        
+@quotation_request_bp.delete("/<int:quotation_request_id>")
+@quotation_request_bp.response(200)
+@quotation_request_bp.doc(security=[{"BearerAuth": []}])
+@jwt_required()
+def delete(quotation_request_id):
+    try:
+        quotation_request = get_quotation_request_record(
+            quotation_request_id
+        )
+
+        if not quotation_request:
+            raise QuotationRequestNotFoundError(
+                f"Quotation request {quotation_request_id} not found."
+            )
+
+        # Get attachments before deleting DB records
+        attachments = list_attachments(
+            entity_type="quotation_request",
+            entity_id=quotation_request_id,
+        )
+
+        storage_keys = [
+            attachment.storage_key
+            for attachment in attachments
+        ]
+
+        # Delete attachment DB records
+        delete_attachment(
+            entity_type="quotation_request",
+            entity_id=quotation_request_id,
+        )
+
+        # Delete quotation request + child items
+        delete_quotation_request_transaction(
+            quotation_request_id
+        )
+
+        # Commit DB transaction
+        db.session.commit()
+
+        # Delete physical files AFTER successful DB commit
+        storage = get_storage()
+
+        for storage_key in storage_keys:
+            try:
+                if storage.exists(storage_key):
+                    storage.delete(storage_key)
+            except Exception:
+                current_app.logger.exception(
+                    "Failed to delete storage file: %s",
+                    storage_key,
+                )
+
+        return {
+            "success": True,
+            "message": "Quotation request deleted successfully.",
+        }, 200
+
+    except QuotationRequestNotFoundError:
+        db.session.rollback()
+
+        return {
+            "success": False,
+            "error": {
+                "code": "QUOTATION_REQUEST_NOT_FOUND",
+                "message": "Quotation request not found.",
+            },
+        }, 404
+
+    except Exception as exc:
+        db.session.rollback()
+
+        current_app.logger.exception(
+            "Quotation request deletion failed: %s",
+            exc,
+        )
+
+        return {
+            "success": False,
+            "error": {
+                "code": "QUOTATION_REQUEST_DELETE_FAILED",
                 "message": str(exc),
             },
         }, 500

@@ -131,41 +131,41 @@ def login(data):
 #     }
     
 
-# @auth_bp.post("/refresh")
-# @auth_bp.doc(security=[{"BearerAuth": []}])
-# @jwt_required(refresh=True)
-# def refresh():
-#     user_id = get_jwt_identity()
+@auth_bp.post("/refresh")
+@auth_bp.doc(security=[{"BearerAuth": []}])
+@jwt_required(refresh=True)
+def refresh():
+    user_id = get_jwt_identity()
 
-#     user = db.session.get(User, user_id)
+    user = db.session.get(User, user_id)
 
-#     if user is None:
-#         return {
-#             "success": False,
-#             "error": {
-#                 "code": "USER_NOT_FOUND",
-#                 "message": "User not found.",
-#             },
-#         }, 404
+    if user is None:
+        return {
+            "success": False,
+            "error": {
+                "code": "USER_NOT_FOUND",
+                "message": "User not found.",
+            },
+        }, 404
 
-#     if not user.is_active:
-#         return {
-#             "success": False,
-#             "error": {
-#                 "code": "INACTIVE_USER",
-#                 "message": "User account is inactive.",
-#             },
-#         }, 403
+    if not user.is_active:
+        return {
+            "success": False,
+            "error": {
+                "code": "INACTIVE_USER",
+                "message": "User account is inactive.",
+            },
+        }, 403
 
-#     access_token = create_access_token(
-#         identity=str(user.id),
-#     )
+    access_token = create_access_token(
+        identity=str(user.id),
+    )
 
-#     return {
-#         "success": True,
-#         "data": {
-#             "access_token": access_token,
-#             "expires_in": 2592000
-#         },
-#         "message": "Access token refreshed successfully.",
-#     }, 200
+    return {
+        "success": True,
+        "data": {
+            "access_token": access_token,
+            "expires_in": 2592000
+        },
+        "message": "Access token refreshed successfully.",
+    }, 200

@@ -307,38 +307,38 @@ def list_all():
     ], 200
 
 
-@quotation_request_bp.get(
-    "/<int:quotation_request_id>"
-)
-@quotation_request_bp.doc(
-    security=[{"BearerAuth": []}]
-)
-@jwt_required()
-def get(
-    quotation_request_id,
-):
+# @quotation_request_bp.get(
+#     "/<int:quotation_request_id>"
+# )
+# @quotation_request_bp.doc(
+#     security=[{"BearerAuth": []}]
+# )
+# @jwt_required()
+# def get(
+#     quotation_request_id,
+# ):
 
-    try:
+#     try:
 
-        quotation_request = (
-            get_quotation_request_record(
-                quotation_request_id
-            )
-        )
+#         quotation_request = (
+#             get_quotation_request_record(
+#                 quotation_request_id
+#             )
+#         )
 
-    except QuotationRequestNotFoundError as exc:
+#     except QuotationRequestNotFoundError as exc:
 
-        return {
-            "success": False,
-            "error": {
-                "code": "QUOTATION_REQUEST_NOT_FOUND",
-                "message": str(exc),
-            },
-        }, 404
+#         return {
+#             "success": False,
+#             "error": {
+#                 "code": "QUOTATION_REQUEST_NOT_FOUND",
+#                 "message": str(exc),
+#             },
+#         }, 404
 
-    return (
-        _quotation_request_response(
-            quotation_request
-        ),
-        200,
-    )
+#     return (
+#         _quotation_request_response(
+#             quotation_request
+#         ),
+#         200,
+#     )

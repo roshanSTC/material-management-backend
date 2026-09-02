@@ -229,16 +229,16 @@ def list_all():
     ], 200
 
 
-@supplier_quotation_bp.get("/<int:supplier_quotation_id>")
-@supplier_quotation_bp.doc(security=[{"BearerAuth": []}])
-# @supplier_quotation_bp.response(200, SupplierQuotationResponseSchema)
-@jwt_required()
-def get(supplier_quotation_id):
-    try:
-        supplier_quotation = get_supplier_quotation_record(supplier_quotation_id)
-    except SupplierQuotationNotFoundError as exc:
-        return _error("SUPPLIER_QUOTATION_NOT_FOUND", str(exc), 404)
-    return _supplier_quotation_response(supplier_quotation), 200
+# @supplier_quotation_bp.get("/<int:supplier_quotation_id>")
+# @supplier_quotation_bp.doc(security=[{"BearerAuth": []}])
+# # @supplier_quotation_bp.response(200, SupplierQuotationResponseSchema)
+# @jwt_required()
+# def get(supplier_quotation_id):
+#     try:
+#         supplier_quotation = get_supplier_quotation_record(supplier_quotation_id)
+#     except SupplierQuotationNotFoundError as exc:
+#         return _error("SUPPLIER_QUOTATION_NOT_FOUND", str(exc), 404)
+#     return _supplier_quotation_response(supplier_quotation), 200
 
 
 @supplier_quotation_bp.patch("/<int:supplier_quotation_id>")

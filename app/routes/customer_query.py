@@ -280,25 +280,25 @@ def list_all():
     
     
     
-@customer_query_bp.get("/<int:customer_query_id>")
-@customer_query_bp.doc(security=[{"BearerAuth": []}])
-# @customer_query_bp.response(200, CustomerQueryResponseSchema)
-@jwt_required()
-def get(customer_query_id):
-    try:
-        customer_query = get_customer_query_record(
-            customer_query_id
-        )
-    except CustomerQueryNotFoundError as exc:
-        return {
-            "success": False,
-            "error": {
-                "code": "CUSTOMER_QUERY_NOT_FOUND",
-                "message": str(exc),
-            },
-        }, 404
+# @customer_query_bp.get("/<int:customer_query_id>")
+# @customer_query_bp.doc(security=[{"BearerAuth": []}])
+# # @customer_query_bp.response(200, CustomerQueryResponseSchema)
+# @jwt_required()
+# def get(customer_query_id):
+#     try:
+#         customer_query = get_customer_query_record(
+#             customer_query_id
+#         )
+#     except CustomerQueryNotFoundError as exc:
+#         return {
+#             "success": False,
+#             "error": {
+#                 "code": "CUSTOMER_QUERY_NOT_FOUND",
+#                 "message": str(exc),
+#             },
+#         }, 404
 
-    return _customer_query_response(customer_query), 200
+#     return _customer_query_response(customer_query), 200
 
 
 @customer_query_bp.patch("/<int:customer_query_id>")

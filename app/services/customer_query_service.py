@@ -1,6 +1,7 @@
 from app.extensions.database import db
 from app.models import CustomerQuery
 
+from app.models.customer_query_item import CustomerQueryItem
 from app.repositories.customer_query_repository import (
     create_customer_query,
     get_customer,
@@ -81,6 +82,71 @@ def create_customer_query_transaction(
         remark=remark,
         items=items,
     )
+
+    db.session.flush()
+
+    return customer_query
+
+
+
+def update_customer_query_transaction(
+    *,
+    customer_query_id: int,
+    project_id: int,
+    customer_id: int,
+    qo_date,
+    remark: str | None,
+    items: list[dict],
+) -> CustomerQuery:
+
+    customer_query = get_customer_query(
+        customer_query_id
+    )
+
+    if customer_query is None:
+        raise CustomerQueryNotFoundError(
+            f"Customer Query with id "
+            f"{customer_query_id} was not found."
+        )
+
+    project = get_project(project_id)
+
+    if project is None:
+        raise ProjectNotFoundError(
+            f"Project with id {project_id} was not found."
+        )
+
+    customer = get_customer(customer_id)
+
+    if customer is None:
+        raise CustomerNotFoundError(
+            f"Customer with id {customer_id} was not found."
+        )
+
+    if project.customer_id != customer.id:
+        raise CustomerProjectMismatchError(
+            "The selected customer does not "
+            "belong to the selected project."
+        )
+
+    customer_query.project_id = project_id
+    customer_query.customer_id = customer_id
+    customer_query.qo_date = qo_date
+    customer_query.remark = (
+        remark.strip()
+        if remark
+        else None
+    )
+
+    customer_query.items.clear()
+
+    for item_data in items:
+        item = CustomerQueryItem(
+            material_name=item_data["material_name"].strip(),
+            quantity=item_data["quantity"],
+        )
+
+        customer_query.items.append(item)
 
     db.session.flush()
 

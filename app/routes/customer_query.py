@@ -27,6 +27,7 @@ from app.services.customer_query_service import (
     create_customer_query_transaction,
     get_customer_query_record,
     list_customer_query_records,
+    update_customer_query_transaction,
 )
 
 
@@ -298,3 +299,163 @@ def get(customer_query_id):
         }, 404
 
     return _customer_query_response(customer_query), 200
+
+
+@customer_query_bp.patch("/<int:customer_query_id>")
+@customer_query_bp.doc(
+    security=[{"BearerAuth": []}],
+    requestBody={
+        "required": True,
+        "content": {
+            "multipart/form-data": {
+                "schema": {
+                    "type": "object",
+                    "required": ["data"],
+                    "properties": {
+                        "data": {
+                            "type": "string",
+                            "example": (
+                                '{"project_id":1,'
+                                '"customer_id":1,'
+                                '"qo_date":"2026-09-01",'
+                                '"remark":"Updated requirement",'
+                                '"items":[{"material_name":"Steel",'
+                                '"quantity":"20.000"}]}'
+                            ),
+                        },
+                        "file": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "format": "binary",
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    },
+)
+# @customer_query_bp.response(
+#     200,
+#     CustomerQueryResponseSchema,
+# )
+@jwt_required()
+def update(customer_query_id):
+
+    files = request.files.getlist("file")
+    data_raw = request.form.get("data")
+
+    if not data_raw:
+        return {
+            "success": False,
+            "error": {
+                "code": "DATA_REQUIRED",
+                "message": "data is required.",
+            },
+        }, 422
+
+    try:
+        data = json.loads(data_raw)
+    except json.JSONDecodeError:
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_DATA",
+                "message": "data must contain valid JSON.",
+            },
+        }, 422
+
+    uploaded_storage_keys = []
+
+    try:
+        user_id = int(get_jwt_identity())
+
+        customer_query = update_customer_query_transaction(
+            customer_query_id=customer_query_id,
+            project_id=data.get("project_id"),
+            customer_id=data.get("customer_id"),
+            qo_date=data.get("qo_date"),
+            remark=data.get("remark"),
+            items=data.get("items"),
+        )
+
+        for file in files:
+
+            attachment, storage_key = create_attachment(
+                file=file,
+                entity_type="customer_query",
+                entity_id=customer_query.id,
+                uploaded_by=user_id,
+            )
+
+            uploaded_storage_keys.append(storage_key)
+
+        db.session.commit()
+
+        return _customer_query_response(customer_query), 200
+
+    except CustomerQueryNotFoundError as exc:
+        db.session.rollback()
+
+        return {
+            "success": False,
+            "error": {
+                "code": "CUSTOMER_QUERY_NOT_FOUND",
+                "message": str(exc),
+            },
+        }, 404
+
+    except (
+        ProjectNotFoundError,
+        CustomerNotFoundError,
+        CustomerProjectMismatchError,
+    ) as exc:
+
+        db.session.rollback()
+
+        return {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": str(exc),
+            },
+        }, 422
+
+    except AttachmentValidationError as exc:
+        db.session.rollback()
+
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_ATTACHMENT",
+                "message": str(exc),
+            },
+        }, 422
+
+    except Exception as exc:
+        db.session.rollback()
+
+        current_app.logger.exception(
+            "Customer query update failed"
+        )
+
+        storage = get_storage()
+
+        for storage_key in uploaded_storage_keys:
+            try:
+                if storage.exists(storage_key):
+                    storage.delete(storage_key)
+            except Exception:
+                current_app.logger.exception(
+                    "Failed to cleanup attachment: %s",
+                    storage_key,
+                )
+
+        return {
+            "success": False,
+            "error": {
+                "code": "CUSTOMER_QUERY_UPDATE_FAILED",
+                "message": str(exc),
+            },
+        }, 500

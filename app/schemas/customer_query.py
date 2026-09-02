@@ -74,3 +74,14 @@ class CustomerQueryResponseSchema(Schema):
         fields.Nested(AttachmentResponseSchema),
         required=True,
     )
+    
+class CustomerQueryUpdateSchema(Schema):
+    project_id = fields.Integer(required=False)
+    customer_id = fields.Integer(required=False)
+    qo_date = fields.Date(required=False)
+    remark = fields.String(required=False, allow_none=True)
+
+    items = fields.List(
+        fields.Nested(CustomerQueryItemSchema),
+        required=False,
+    )

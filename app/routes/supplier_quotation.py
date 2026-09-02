@@ -13,6 +13,7 @@ from app.schemas.supplier_quotation import (
 from app.services.attachment_service import (
     AttachmentValidationError,
     create_attachment,
+    delete_attachment,
     list_attachments,
 )
 from app.services.storage.factory import get_storage
@@ -22,6 +23,7 @@ from app.services.supplier_quotation_service import (
     SupplierProjectMismatchError,
     SupplierQuotationNotFoundError,
     create_supplier_quotation_transaction,
+    delete_supplier_quotation_transaction,
     get_supplier_quotation_record,
     list_supplier_quotation_records,
     update_supplier_quotation_transaction,
@@ -266,7 +268,7 @@ def list_all():
         },
     },
 )
-@supplier_quotation_bp.response(200, SupplierQuotationResponseSchema)
+# @supplier_quotation_bp.response(200, SupplierQuotationResponseSchema)
 @jwt_required()
 def update(supplier_quotation_id):
     data, error = _parse_form_data(SupplierQuotationUpdateSchema())
@@ -309,3 +311,89 @@ def update(supplier_quotation_id):
             "Unable to update supplier quotation.",
             500,
         )
+        
+        
+@supplier_quotation_bp.delete("/<int:supplier_quotation_id>")
+@supplier_quotation_bp.response(200)
+@supplier_quotation_bp.doc(security=[{"BearerAuth": []}])
+@jwt_required()
+def delete(supplier_quotation_id):
+    try:
+        supplier_quotation = get_supplier_quotation_record(
+            supplier_quotation_id
+        )
+
+        if not supplier_quotation:
+            raise SupplierQuotationNotFoundError(
+                f"Supplier quotation {supplier_quotation_id} not found."
+            )
+
+        # Get attachments before deleting DB records
+        attachments = list_attachments(
+            entity_type="supplier_quotation",
+            entity_id=supplier_quotation_id,
+        )
+
+        storage_keys = [
+            attachment.storage_key
+            for attachment in attachments
+        ]
+
+        # Delete attachment DB records
+        delete_attachment(
+            entity_type="supplier_quotation",
+            entity_id=supplier_quotation_id,
+        )
+
+        # Delete supplier quotation + child items
+        delete_supplier_quotation_transaction(
+            supplier_quotation_id
+        )
+
+        # Commit DB transaction
+        db.session.commit()
+
+        # Delete physical files AFTER successful DB commit
+        storage = get_storage()
+
+        for storage_key in storage_keys:
+            try:
+                if storage.exists(storage_key):
+                    storage.delete(storage_key)
+            except Exception:
+                current_app.logger.exception(
+                    "Failed to delete storage file: %s",
+                    storage_key,
+                )
+
+        return {
+            "success": True,
+            "message": "Supplier quotation deleted successfully.",
+        }, 200
+
+    except SupplierQuotationNotFoundError:
+        db.session.rollback()
+
+        return {
+            "success": False,
+            "error": {
+                "code": "SUPPLIER_QUOTATION_NOT_FOUND",
+                "message": "Supplier quotation not found.",
+            },
+        }, 404
+
+    except Exception as exc:
+        db.session.rollback()
+
+        current_app.logger.exception(
+            "Supplier quotation deletion failed: %s",
+            exc,
+        )
+
+        return {
+            "success": False,
+            "error": {
+                "code": "SUPPLIER_QUOTATION_DELETE_FAILED",
+                "message": str(exc),
+            },
+        }, 500

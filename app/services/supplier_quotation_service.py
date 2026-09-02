@@ -86,3 +86,21 @@ def _validate_project_supplier(project_id: int, supplier_id: int) -> None:
         raise SupplierProjectMismatchError(
             "The selected supplier does not belong to the selected project."
         )
+
+
+
+def delete_supplier_quotation_transaction(supplier_quotation_id: int):
+    supplier_quotation = get_supplier_quotation_record(
+        supplier_quotation_id
+    )
+
+    if not supplier_quotation:
+        raise SupplierQuotationNotFoundError(
+            f"Supplier quotation {supplier_quotation_id} not found."
+        )
+
+    db.session.delete(supplier_quotation)
+
+    db.session.flush()
+
+    return supplier_quotation

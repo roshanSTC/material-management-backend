@@ -72,6 +72,7 @@ def create(data):
 
 
 @project_bp.get("")
+@project_bp.doc(security=[{"BearerAuth": []}])
 @project_bp.response(200, ProjectResponseSchema(many=True))
 @jwt_required()
 def list_all():

@@ -10,7 +10,7 @@ class Config:
 
     SQLALCHEMY_DATABASE_URI = os.getenv(
         "DATABASE_URL",
-        "postgresql+psycopg://postgres:postgres@localhost:5432/material_management",
+        "postgresql+psycopg://postgres:kTLf.A+4IsD<LQCt@34.14.155.173:5432/material_management",
     )
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False

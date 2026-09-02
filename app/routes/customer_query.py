@@ -11,6 +11,7 @@ from app.services.attachment_service import (
     AttachmentValidationError,
     create_attachment,
     list_attachments,
+    delete_attachment,
 )
 
 from app.services.storage.factory import get_storage
@@ -25,6 +26,7 @@ from app.services.customer_query_service import (
     ProjectNotFoundError,
     CustomerQueryNotFoundError,
     create_customer_query_transaction,
+    delete_customer_query_transaction,
     get_customer_query_record,
     list_customer_query_records,
     update_customer_query_transaction,
@@ -456,6 +458,91 @@ def update(customer_query_id):
             "success": False,
             "error": {
                 "code": "CUSTOMER_QUERY_UPDATE_FAILED",
+                "message": str(exc),
+            },
+        }, 500
+        
+        
+@customer_query_bp.delete("/<int:customer_query_id>")
+
+@customer_query_bp.response(200)
+@customer_query_bp.doc(security=[{"BearerAuth": []}])
+@jwt_required()
+def delete(customer_query_id):
+    try:
+        customer_query = get_customer_query_record(customer_query_id)
+
+        if not customer_query:
+            raise CustomerQueryNotFoundError(
+                f"Customer query {customer_query_id} not found."
+            )
+
+        # Get attachments before deleting DB records
+        attachments = list_attachments(
+            entity_type="customer_query",
+            entity_id=customer_query_id,
+        )
+
+        storage_keys = [
+            attachment.storage_key
+            for attachment in attachments
+        ]
+
+        # Delete attachment DB records
+        delete_attachment(
+            entity_type="customer_query",
+            entity_id=customer_query_id,
+        )
+
+        # Delete customer query + customer query items
+        delete_customer_query_transaction(
+            customer_query_id
+        )
+
+        # Commit DB transaction
+        db.session.commit()
+
+        # Delete physical files AFTER successful DB commit
+        storage = get_storage()
+
+        for storage_key in storage_keys:
+            try:
+                if storage.exists(storage_key):
+                    storage.delete(storage_key)
+            except Exception:
+                current_app.logger.exception(
+                    "Failed to delete storage file: %s",
+                    storage_key,
+                )
+
+        return {
+            "success": True,
+            "message": "Customer query deleted successfully.",
+        }, 200
+
+    except CustomerQueryNotFoundError:
+        db.session.rollback()
+
+        return {
+            "success": False,
+            "error": {
+                "code": "CUSTOMER_QUERY_NOT_FOUND",
+                "message": "Customer query not found.",
+            },
+        }, 404
+
+    except Exception as exc:
+        db.session.rollback()
+
+        current_app.logger.exception(
+            "Customer query deletion failed: %s",
+            exc,
+        )
+
+        return {
+            "success": False,
+            "error": {
+                "code": "CUSTOMER_QUERY_DELETE_FAILED",
                 "message": str(exc),
             },
         }, 500

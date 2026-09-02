@@ -247,29 +247,21 @@ def get_attachment(
     return attachment
 
 
-def delete_attachment(
-    attachment_id: int,
-):
-    attachment = get_attachment(
-        attachment_id
+def delete_attachment(*, entity_type: str, entity_id: int):
+    attachments = (
+        Attachment.query
+        .filter(
+            Attachment.entity_type == entity_type,
+            Attachment.entity_id == entity_id,
+        )
+        .all()
     )
 
-    storage = get_storage()
+    storage_keys = [attachment.storage_key for attachment in attachments]
 
-    storage_key = attachment.storage_key
+    for attachment in attachments:
+        db.session.delete(attachment)
 
-    db.session.delete(attachment)
-    db.session.commit()
+    db.session.flush()
 
-    try:
-        if storage.exists(storage_key):
-            storage.delete(storage_key)
-
-    except StorageError:
-        current_app.logger.exception(
-            "Attachment DB record deleted but physical "
-            "file cleanup failed: %s",
-            storage_key,
-        )
-
-    return attachment
+    return storage_keys

@@ -151,3 +151,18 @@ def update_customer_query_transaction(
     db.session.flush()
 
     return customer_query
+
+
+def delete_customer_query_transaction(customer_query_id: int):
+    customer_query = get_customer_query_record(customer_query_id)
+
+    if not customer_query:
+        raise CustomerQueryNotFoundError(
+            f"Customer query {customer_query_id} not found."
+        )
+
+    db.session.delete(customer_query)
+
+    db.session.flush()
+
+    return customer_query

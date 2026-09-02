@@ -43,6 +43,9 @@ from app.models.role import Role
 from app.models.project_step import ProjectStep
 from app.models.attachment import Attachment
 from app.models.material import Material
+from app.models.cost_sheet import CostSheet
+from app.models.cost_sheet_item import CostSheetItem
+from app.models.item_price_history import ItemPriceHistory
 
 
 __all__ = [
@@ -89,5 +92,8 @@ __all__ = [
     "SupplierPayment",
     "ProjectStep",
     "Attachment",
-    "Material"
+    "Material",
+    "CostSheet",
+    "CostSheetItem",
+    "ItemPriceHistory",
 ]

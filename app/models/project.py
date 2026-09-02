@@ -71,6 +71,14 @@ class Project(db.Model):
         lazy="select",
     )
 
+    cost_sheets = db.relationship(
+        "CostSheet",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+        order_by="CostSheet.version_number.desc()",
+    )
+
     customer_quotations = db.relationship(
         "CustomerQuotation",
         back_populates="project",

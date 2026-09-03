@@ -4,6 +4,7 @@ from flask_smorest import Blueprint
 
 from app.extensions.database import db
 from app.schemas.cost_sheet import (
+    LatestCostSheetQuerySchema,
     ProjectCostSheetCreateSchema,
     ProjectCostSheetMetadataResponseSchema,
     ProjectCostSheetQuerySchema,
@@ -71,11 +72,19 @@ def create_cost_sheet(data=None):
 
 
 # GET /api/cost-sheet/latest?project_id=1 - Get latest cost sheet for a project
-@cost_sheet_bp.get("/latest/<int:project_id>")
+@cost_sheet_bp.get("/latest")
 @cost_sheet_bp.doc(security=[{"BearerAuth": []}])
+@cost_sheet_bp.arguments(LatestCostSheetQuerySchema, location="query")
 @cost_sheet_bp.response(200, ProjectCostSheetMetadataResponseSchema)
 @jwt_required()
-def get_latest_cost_sheet(project_id):
+def get_latest_cost_sheet(args=None):
+    if args is None:
+        args = {}
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("product_id")
+    )
     if not project_id:
         return _error("PROJECT_ID_REQUIRED", "project_id query parameter is required.", 400)
     try:
@@ -95,16 +104,16 @@ def get_latest_cost_sheet(project_id):
 
 
 # 2. GET /api/cost-sheet/<int:cost_sheet_id> - Get particular cost sheet data
-# @cost_sheet_bp.get("/<int:cost_sheet_id>")
-# @cost_sheet_bp.doc(security=[{"BearerAuth": []}])
-# @cost_sheet_bp.response(200, ProjectCostSheetMetadataResponseSchema)
-# @jwt_required()
-# def get_cost_sheet(cost_sheet_id):
-#     try:
-#         cost_sheet = get_project_cost_sheet(cost_sheet_id)
-#     except CostSheetNotFoundError as exc:
-#         return _error("COST_SHEET_NOT_FOUND", str(exc), 404)
-#     return serialize_cost_sheet_metadata(cost_sheet), 200
+@cost_sheet_bp.get("/<int:cost_sheet_id>")
+@cost_sheet_bp.doc(security=[{"BearerAuth": []}])
+@cost_sheet_bp.response(200, ProjectCostSheetMetadataResponseSchema)
+@jwt_required()
+def get_cost_sheet(cost_sheet_id):
+    try:
+        cost_sheet = get_project_cost_sheet(cost_sheet_id)
+    except CostSheetNotFoundError as exc:
+        return _error("COST_SHEET_NOT_FOUND", str(exc), 404)
+    return serialize_cost_sheet_metadata(cost_sheet), 200
 
 
 # GET /api/cost-sheet - List cost sheets (filtered by project_id if provided)

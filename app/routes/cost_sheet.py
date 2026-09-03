@@ -103,17 +103,6 @@ def get_latest_cost_sheet(args=None):
         return _error("COST_SHEET_NOT_FOUND", str(exc), 404)
 
 
-# 2. GET /api/cost-sheet/<int:cost_sheet_id> - Get particular cost sheet data
-@cost_sheet_bp.get("/<int:cost_sheet_id>")
-@cost_sheet_bp.doc(security=[{"BearerAuth": []}])
-@cost_sheet_bp.response(200, ProjectCostSheetMetadataResponseSchema)
-@jwt_required()
-def get_cost_sheet(cost_sheet_id):
-    try:
-        cost_sheet = get_project_cost_sheet(cost_sheet_id)
-    except CostSheetNotFoundError as exc:
-        return _error("COST_SHEET_NOT_FOUND", str(exc), 404)
-    return serialize_cost_sheet_metadata(cost_sheet), 200
 
 
 # GET /api/cost-sheet - List cost sheets (filtered by project_id if provided)

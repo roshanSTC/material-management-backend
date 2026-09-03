@@ -34,7 +34,7 @@ def _normalize_rate(val):
     return num
 
 
-RATE_VALIDATOR = validate.And(validate.Range(min=0, max=1), _finite)
+RATE_VALIDATOR = validate.And(validate.Range(min=0), _finite)
 POSITIVE_VALUE_VALIDATOR = validate.And(validate.Range(min=0.000001), _finite)
 NON_BLANK_SHORT_TEXT = validate.And(validate.Length(min=1, max=100), _not_blank)
 

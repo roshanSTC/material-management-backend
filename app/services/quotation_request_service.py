@@ -159,41 +159,38 @@ def update_quotation_request_transaction(
 
     previous_project_id = quotation_request.project_id
 
-    # Only validate project if it is being changed
-    if project_id is not None:
-
-        project = get_project(project_id)
-
-        if not project:
-            raise ProjectNotFoundError(
-                "Project not found."
-            )
-
-        quotation_request.project_id = project_id
-
-    # Only validate supplier if it is being changed
-    if supplier_id is not None:
-
-        supplier = get_supplier(supplier_id)
-
-        if not supplier:
-            raise SupplierNotFoundError(
-                "Supplier not found."
-            )
-
-        # Validate supplier belongs to project
+    # Validate project and supplier if either is being updated
+    if project_id is not None or supplier_id is not None:
         final_project_id = (
             project_id
             if project_id is not None
             else quotation_request.project_id
         )
+        final_supplier_id = (
+            supplier_id
+            if supplier_id is not None
+            else quotation_request.supplier_id
+        )
 
-        if supplier.project_id != final_project_id:
-            raise SupplierProjectMismatchError(
-                "Supplier does not belong to the selected project."
+        project = get_project(final_project_id)
+        if not project:
+            raise ProjectNotFoundError(
+                f"Project with id {final_project_id} was not found."
             )
 
-        quotation_request.supplier_id = supplier_id
+        supplier = get_supplier(final_supplier_id)
+        if not supplier:
+            raise SupplierNotFoundError(
+                f"Supplier with id {final_supplier_id} was not found."
+            )
+
+        if project.supplier_id != supplier.id:
+            raise SupplierProjectMismatchError(
+                "The selected supplier does not belong to the selected project."
+            )
+
+        quotation_request.project_id = final_project_id
+        quotation_request.supplier_id = final_supplier_id
 
     # Update scalar fields only when supplied
     if quotation_requested_date is not None:

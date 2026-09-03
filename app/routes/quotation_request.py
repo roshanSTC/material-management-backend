@@ -189,6 +189,8 @@ def create():
         )
 
         for file in files:
+            if not file or not getattr(file, "filename", None):
+                continue
 
             attachment, storage_key = create_attachment(
                 file=file,
@@ -420,6 +422,8 @@ def update(quotation_request_id):
 
             # Add new attachments
             for file in files:
+                if not file or not getattr(file, "filename", None):
+                    continue
 
                 attachment, storage_key = create_attachment(
                     file=file,

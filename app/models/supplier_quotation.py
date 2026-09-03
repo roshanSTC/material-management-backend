@@ -40,7 +40,7 @@ class SupplierQuotation(db.Model):
         nullable=False,
     )
 
-    value_symbol = db.Column(
+    currency_unit = db.Column(
         db.String(20),
         nullable=True,
     )

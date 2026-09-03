@@ -50,7 +50,7 @@ def _supplier_quotation_response(supplier_quotation):
         "quotation_number": supplier_quotation.quotation_number,
         "quotation_date": supplier_quotation.quotation_date,
         "quotation_value": supplier_quotation.quotation_value,
-        "value_symbol": supplier_quotation.value_symbol,
+        "currency_unit": supplier_quotation.currency_unit,
         "validity": supplier_quotation.validity,
         "incoterms": supplier_quotation.incoterms,
         "payment_terms": supplier_quotation.payment_terms,
@@ -164,7 +164,7 @@ def _positive_query_int(name: str):
                     "properties": {
                         "data": {
                             "type": "string",
-                            "example": ('{"project_id":1,"supplier_id":1,"quotation_number":"SQ-2026-00891","quotation_date":"2026-09-02","value_symbol":"USA", "quotation_value":"15000.00","validity":"60 Days","incoterms":"FOB","payment_terms":"50% Advance, 50% against Delivery","delivery_period":"5 Weeks","remark":"Prices include standard 1-year operational warranty.","items":[{"material_name":"High-Pressure Hydraulic Valve","quantity":10, "unit_price" : 100, "net_amount": 1000},{"material_name":"Stainless Steel Connecting Pipe","quantity":50, "unit_price" : 2, "net_amount": 100}]}'),
+                            "example": ('{"project_id":1,"supplier_id":1,"quotation_number":"SQ-2026-00891","quotation_date":"2026-09-02","currency_unit":"USA", "quotation_value":"15000.00","validity":"60 Days","incoterms":"FOB","payment_terms":"50% Advance, 50% against Delivery","delivery_period":"5 Weeks","remark":"Prices include standard 1-year operational warranty.","items":[{"material_name":"High-Pressure Hydraulic Valve","quantity":10, "unit_price" : 100, "net_amount": 1000},{"material_name":"Stainless Steel Connecting Pipe","quantity":50, "unit_price" : 2, "net_amount": 100}]}'),
                         },
                         "file": {
                             "type": "array",
@@ -262,7 +262,7 @@ def list_all():
                     "properties": {
                         "data": {
                             "type": "string",
-                            "example": ('{"project_id":1,"supplier_id":1,"quotation_number":"SQ-2026-00891","quotation_date":"2026-09-02","value_symbol":"USA", "quotation_value":"15000.00","validity":"60 Days","incoterms":"FOB","payment_terms":"50% Advance, 50% against Delivery","delivery_period":"5 Weeks","remark":"Prices include standard 1-year operational warranty.","items":[{"material_name":"High-Pressure Hydraulic Valve","quantity":10, "unit_price":100, "net_amount": 1000 },{"material_name":"Stainless Steel Connecting Pipe","quantity":50, "unit_price" : 2, "net_amount": 100 }]}'),
+                            "example": ('{"project_id":1,"supplier_id":1,"quotation_number":"SQ-2026-00891","quotation_date":"2026-09-02","currency_unit":"USA", "quotation_value":"15000.00","validity":"60 Days","incoterms":"FOB","payment_terms":"50% Advance, 50% against Delivery","delivery_period":"5 Weeks","remark":"Prices include standard 1-year operational warranty.","items":[{"material_name":"High-Pressure Hydraulic Valve","quantity":10, "unit_price":100, "net_amount": 1000 },{"material_name":"Stainless Steel Connecting Pipe","quantity":50, "unit_price" : 2, "net_amount": 100 }]}'),
                         },
                         "file": {
                             "type": "array",

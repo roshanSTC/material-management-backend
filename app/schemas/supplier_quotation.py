@@ -11,11 +11,11 @@ def _not_blank(value: str) -> None:
         raise ValidationError("Field must not be blank.")
 
 
-def _parse_quotation_value_and_symbol(raw_val, explicit_symbol=None):
+def _parse_quotation_value_and_unit(raw_val, explicit_unit=None):
     if raw_val is None:
-        return None, explicit_symbol
+        return None, explicit_unit
     if isinstance(raw_val, (int, float, Decimal)):
-        return Decimal(str(raw_val)), explicit_symbol
+        return Decimal(str(raw_val)), explicit_unit
 
     s = str(raw_val).strip()
     match = re.search(r"[-+]?(?:\d*\.\d+|\d+)", s)
@@ -23,9 +23,9 @@ def _parse_quotation_value_and_symbol(raw_val, explicit_symbol=None):
         raise ValidationError("quotation_value must contain a valid number.")
 
     num_str = match.group(0)
-    extracted_symbol = (s[:match.start()] + s[match.end():]).strip()
-    final_symbol = explicit_symbol if explicit_symbol else (extracted_symbol or None)
-    return Decimal(num_str), final_symbol
+    extracted_unit = (s[:match.start()] + s[match.end():]).strip()
+    final_unit = explicit_unit if explicit_unit else (extracted_unit or None)
+    return Decimal(num_str), final_unit
 
 
 class SupplierQuotationItemSchema(Schema):
@@ -92,7 +92,7 @@ class SupplierQuotationCreateSchema(Schema):
         places=2,
         validate=validate.Range(min=0.01),
     )
-    value_symbol = fields.String(
+    currency_unit = fields.String(
         required=False,
         allow_none=True,
         validate=validate.Length(max=20),
@@ -129,14 +129,17 @@ class SupplierQuotationCreateSchema(Schema):
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
+        explicit_unit = normalized.get("currency_unit") or normalized.get("value_symbol")
         if "quotation_value" in normalized and normalized["quotation_value"] is not None:
-            val, sym = _parse_quotation_value_and_symbol(
+            val, unit = _parse_quotation_value_and_unit(
                 normalized["quotation_value"],
-                normalized.get("value_symbol"),
+                explicit_unit,
             )
             normalized["quotation_value"] = str(val)
-            if sym:
-                normalized["value_symbol"] = sym
+            if unit:
+                normalized["currency_unit"] = unit
+        elif explicit_unit:
+            normalized["currency_unit"] = explicit_unit
         return normalized
 
 
@@ -155,7 +158,7 @@ class SupplierQuotationUpdateSchema(Schema):
         places=2,
         validate=validate.Range(min=0.01),
     )
-    value_symbol = fields.String(
+    currency_unit = fields.String(
         allow_none=True,
         validate=validate.Length(max=20),
     )
@@ -177,14 +180,17 @@ class SupplierQuotationUpdateSchema(Schema):
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
+        explicit_unit = normalized.get("currency_unit") or normalized.get("value_symbol")
         if "quotation_value" in normalized and normalized["quotation_value"] is not None:
-            val, sym = _parse_quotation_value_and_symbol(
+            val, unit = _parse_quotation_value_and_unit(
                 normalized["quotation_value"],
-                normalized.get("value_symbol"),
+                explicit_unit,
             )
             normalized["quotation_value"] = str(val)
-            if sym:
-                normalized["value_symbol"] = sym
+            if unit:
+                normalized["currency_unit"] = unit
+        elif explicit_unit:
+            normalized["currency_unit"] = explicit_unit
         return normalized
 
     @validates_schema
@@ -210,7 +216,7 @@ class SupplierQuotationResponseSchema(Schema):
     quotation_number = fields.String(required=True)
     quotation_date = fields.Date(required=True)
     quotation_value = fields.Decimal(required=True, as_string=True, places=2)
-    value_symbol = fields.String(allow_none=True)
+    currency_unit = fields.String(allow_none=True)
     validity = fields.String(allow_none=True)
     incoterms = fields.String(allow_none=True)
     payment_terms = fields.String(allow_none=True)

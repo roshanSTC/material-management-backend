@@ -13,13 +13,14 @@ def get_supplier(supplier_id: int) -> Supplier | None:
 
 
 def create_supplier_quotation(*, data: dict) -> SupplierQuotation:
+    currency_unit = data.get("currency_unit") or data.get("value_symbol")
     supplier_quotation = SupplierQuotation(
         project_id=data["project_id"],
         supplier_id=data["supplier_id"],
         quotation_number=data["quotation_number"].strip(),
         quotation_date=data["quotation_date"],
         quotation_value=data["quotation_value"],
-        value_symbol=_normalize_optional_string(data.get("value_symbol")),
+        currency_unit=_normalize_optional_string(currency_unit),
         validity=_normalize_optional_string(data.get("validity")),
         incoterms=_normalize_optional_string(data.get("incoterms")),
         payment_terms=_normalize_optional_string(data.get("payment_terms")),
@@ -66,7 +67,7 @@ def update_supplier_quotation(
 ) -> SupplierQuotation:
     string_fields = {
         "quotation_number",
-        "value_symbol",
+        "currency_unit",
         "validity",
         "incoterms",
         "payment_terms",

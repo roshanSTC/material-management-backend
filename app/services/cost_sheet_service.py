@@ -34,43 +34,10 @@ GLOBAL_PARAMETER_ROWS = (
 )
 
 
-def _normalize_rate(val):
-    if val is None:
-        return None
-    try:
-        num = float(val)
-    except (ValueError, TypeError):
-        return val
-    if num >= 1.0:
-        return num / 100.0
-    return num
-
-
 def calculate_cost_sheet(*, global_params: dict, items: list[dict]) -> dict:
     """Calculate each cost component with the supplied IEEE-754 float values."""
-    normalized_params = dict(global_params)
-    for rate_key in (
-        "insuranceFreightRate",
-        "defaultCustomsDutyRate",
-        "igstRate",
-        "transportationRate",
-        "financeChargesRate",
-        "marginRate",
-        "gstRate",
-    ):
-        if rate_key in normalized_params:
-            normalized_params[rate_key] = _normalize_rate(normalized_params[rate_key])
-
-    normalized_items = []
-    for item in items:
-        item_copy = dict(item)
-        if "customsDutyRate" in item_copy and item_copy["customsDutyRate"] is not None:
-            item_copy["customsDutyRate"] = _normalize_rate(item_copy["customsDutyRate"])
-        normalized_items.append(item_copy)
-
     calculated_items = [
         _calculate_item(global_params=global_params, item=item) for item in items
-        _calculate_item(global_params=normalized_params, item=item) for item in normalized_items
     ]
     column_totals = {
         field: sum(item[field] for item in calculated_items)
@@ -78,10 +45,8 @@ def calculate_cost_sheet(*, global_params: dict, items: list[dict]) -> dict:
     }
     total_selling_price_excl_gst = column_totals["sellingPriceExclGst"]
     total_gst = total_selling_price_excl_gst * global_params["gstRate"]
-    total_gst = total_selling_price_excl_gst * normalized_params["gstRate"]
     return {
         "globalParams": global_params,
-        "globalParams": normalized_params,
         "items": calculated_items,
         "columnTotals": column_totals,
         "totalSellingPriceExclGst": total_selling_price_excl_gst,
@@ -92,26 +57,6 @@ def calculate_cost_sheet(*, global_params: dict, items: list[dict]) -> dict:
 
 def build_cost_sheet_workbook(*, global_params: dict, items: list[dict]) -> BytesIO:
     """Build a workbook whose formulas recalculate when its inputs are edited."""
-    normalized_params = dict(global_params)
-    for rate_key in (
-        "insuranceFreightRate",
-        "defaultCustomsDutyRate",
-        "igstRate",
-        "transportationRate",
-        "financeChargesRate",
-        "marginRate",
-        "gstRate",
-    ):
-        if rate_key in normalized_params:
-            normalized_params[rate_key] = _normalize_rate(normalized_params[rate_key])
-
-    normalized_items = []
-    for item in items:
-        item_copy = dict(item)
-        if "customsDutyRate" in item_copy and item_copy["customsDutyRate"] is not None:
-            item_copy["customsDutyRate"] = _normalize_rate(item_copy["customsDutyRate"])
-        normalized_items.append(item_copy)
-
     workbook = Workbook()
     workbook.calculation = CalcProperties(
         calcMode="auto", fullCalcOnLoad=True, forceFullCalc=True
@@ -121,8 +66,6 @@ def build_cost_sheet_workbook(*, global_params: dict, items: list[dict]) -> Byte
     worksheet.freeze_panes = "A11"
     _write_global_parameters(worksheet, global_params)
     _write_table(worksheet, items)
-    _write_global_parameters(worksheet, normalized_params)
-    _write_table(worksheet, normalized_items)
     stream = BytesIO()
     workbook.save(stream)
     stream.seek(0)

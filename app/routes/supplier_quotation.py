@@ -1,6 +1,6 @@
 import json
 
-from flask import current_app, request
+from flask import current_app, jsonify, make_response, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_smorest import Blueprint
 
@@ -50,6 +50,7 @@ def _supplier_quotation_response(supplier_quotation):
         "quotation_number": supplier_quotation.quotation_number,
         "quotation_date": supplier_quotation.quotation_date,
         "quotation_value": supplier_quotation.quotation_value,
+        "value_symbol": supplier_quotation.value_symbol,
         "validity": supplier_quotation.validity,
         "incoterms": supplier_quotation.incoterms,
         "payment_terms": supplier_quotation.payment_terms,
@@ -62,6 +63,8 @@ def _supplier_quotation_response(supplier_quotation):
                 "id": item.id,
                 "material_name": item.material_name,
                 "quantity": item.quantity,
+                "unit_price": item.unit_price,
+                "net_amount": item.net_amount,
             }
             for item in supplier_quotation.items
         ],
@@ -99,7 +102,10 @@ def _parse_form_data(schema):
 
 
 def _error(code: str, message: str, status: int):
-    return {"success": False, "error": {"code": code, "message": message}}, status
+    return make_response(
+        jsonify({"success": False, "error": {"code": code, "message": message}}),
+        status,
+    )
 
 
 def _cleanup_uploaded_files(storage_keys: list[str]) -> None:
@@ -158,7 +164,7 @@ def _positive_query_int(name: str):
                     "properties": {
                         "data": {
                             "type": "string",
-                            "example": ('{"project_id":1,"supplier_id":1,"quotation_number":"SQ-2026-00891","quotation_date":"2026-09-02","quotation_value":"15000.00","validity":"60 Days","incoterms":"FOB","payment_terms":"50% Advance, 50% against Delivery","delivery_period":"5 Weeks","remark":"Prices include standard 1-year operational warranty.","items":[{"material_name":"High-Pressure Hydraulic Valve","quantity":10},{"material_name":"Stainless Steel Connecting Pipe","quantity":50}]}'),
+                            "example": ('{"project_id":1,"supplier_id":1,"quotation_number":"SQ-2026-00891","quotation_date":"2026-09-02","value_symbol":"USA", "quotation_value":"15000.00","validity":"60 Days","incoterms":"FOB","payment_terms":"50% Advance, 50% against Delivery","delivery_period":"5 Weeks","remark":"Prices include standard 1-year operational warranty.","items":[{"material_name":"High-Pressure Hydraulic Valve","quantity":10, "unit_price" : 100, "net_amount": 1000},{"material_name":"Stainless Steel Connecting Pipe","quantity":50, "unit_price" : 2, "net_amount": 100}]}'),
                         },
                         "file": {
                             "type": "array",
@@ -211,7 +217,7 @@ def create():
 
 @supplier_quotation_bp.get("")
 @supplier_quotation_bp.doc(security=[{"BearerAuth": []}])
-@supplier_quotation_bp.response(200, SupplierQuotationResponseSchema(many=True))
+# @supplier_quotation_bp.response(200, SupplierQuotationResponseSchema(many=True))
 @jwt_required()
 def list_all():
     project_id, error = _positive_query_int("project_id")
@@ -233,7 +239,7 @@ def list_all():
 
 # @supplier_quotation_bp.get("/<int:supplier_quotation_id>")
 # @supplier_quotation_bp.doc(security=[{"BearerAuth": []}])
-# # @supplier_quotation_bp.response(200, SupplierQuotationResponseSchema)
+# @supplier_quotation_bp.response(200, SupplierQuotationResponseSchema)
 # @jwt_required()
 # def get(supplier_quotation_id):
 #     try:
@@ -256,7 +262,7 @@ def list_all():
                     "properties": {
                         "data": {
                             "type": "string",
-                            "example": ('{"project_id":1,"supplier_id":1,"quotation_number":"SQ-2026-00891","quotation_date":"2026-09-02","quotation_value":"15000.00","validity":"60 Days","incoterms":"FOB","payment_terms":"50% Advance, 50% against Delivery","delivery_period":"5 Weeks","remark":"Prices include standard 1-year operational warranty.","items":[{"material_name":"High-Pressure Hydraulic Valve","quantity":10},{"material_name":"Stainless Steel Connecting Pipe","quantity":50}]}'),
+                            "example": ('{"project_id":1,"supplier_id":1,"quotation_number":"SQ-2026-00891","quotation_date":"2026-09-02","value_symbol":"USA", "quotation_value":"15000.00","validity":"60 Days","incoterms":"FOB","payment_terms":"50% Advance, 50% against Delivery","delivery_period":"5 Weeks","remark":"Prices include standard 1-year operational warranty.","items":[{"material_name":"High-Pressure Hydraulic Valve","quantity":10, "unit_price":100, "net_amount": 1000 },{"material_name":"Stainless Steel Connecting Pipe","quantity":50, "unit_price" : 2, "net_amount": 100 }]}'),
                         },
                         "file": {
                             "type": "array",

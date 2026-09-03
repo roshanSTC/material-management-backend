@@ -19,6 +19,7 @@ def create_supplier_quotation(*, data: dict) -> SupplierQuotation:
         quotation_number=data["quotation_number"].strip(),
         quotation_date=data["quotation_date"],
         quotation_value=data["quotation_value"],
+        value_symbol=_normalize_optional_string(data.get("value_symbol")),
         validity=_normalize_optional_string(data.get("validity")),
         incoterms=_normalize_optional_string(data.get("incoterms")),
         payment_terms=_normalize_optional_string(data.get("payment_terms")),
@@ -65,6 +66,7 @@ def update_supplier_quotation(
 ) -> SupplierQuotation:
     string_fields = {
         "quotation_number",
+        "value_symbol",
         "validity",
         "incoterms",
         "payment_terms",
@@ -102,10 +104,21 @@ def _replace_items(
 ) -> None:
     supplier_quotation.items.clear()
     for item_data in items:
+        quantity = item_data["quantity"]
+        unit_price = item_data.get("unit_price")
+        net_amount = item_data.get("net_amount")
+        if net_amount is None and unit_price is not None and quantity is not None:
+            try:
+                net_amount = quantity * unit_price
+            except Exception:
+                pass
+
         supplier_quotation.items.append(
             SupplierQuotationItem(
                 material_name=item_data["material_name"].strip(),
-                quantity=item_data["quantity"],
+                quantity=quantity,
+                unit_price=unit_price,
+                net_amount=net_amount,
             )
         )
 

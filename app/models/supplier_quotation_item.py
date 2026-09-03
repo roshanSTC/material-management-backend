@@ -28,6 +28,16 @@ class SupplierQuotationItem(db.Model):
         nullable=False,
     )
 
+    unit_price = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    net_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
     created_at = db.Column(
         db.DateTime,
         nullable=False,

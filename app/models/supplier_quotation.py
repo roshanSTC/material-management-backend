@@ -40,6 +40,11 @@ class SupplierQuotation(db.Model):
         nullable=False,
     )
 
+    value_symbol = db.Column(
+        db.String(20),
+        nullable=True,
+    )
+
     validity = db.Column(
         db.String(100),
         nullable=True,

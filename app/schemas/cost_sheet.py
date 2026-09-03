@@ -414,12 +414,13 @@ class ProjectCostSheetItemResponseSchema(Schema):
     id = fields.Integer(required=True)
     quotationNumber = fields.String(required=False, allow_none=True)
     quotationIndex = fields.String(required=False, allow_none=True)
-    itemDescription = fields.String(required=True)
     itemCode = fields.String(required=True)
-    pricePerUnitEur = fields.Float(required=True)
+    itemDescription = fields.String(required=True)
     pricePerUnitInr = fields.Float(required=False, allow_none=True)
-    totalPriceInr = fields.Float(required=False, allow_none=True)
     quantity = fields.Float(required=True)
+    totalPriceInr = fields.Float(required=False, allow_none=True)
+    pricePerUnitEur = fields.Float(required=True)
+    totalPriceEur = fields.Float(required=False, allow_none=True)
     customsDutyRate = fields.Float(allow_none=True)
     hasRateIncrease = fields.Boolean(required=True)
     latestPriceChange = fields.Nested(
@@ -439,6 +440,11 @@ class ProjectCostSheetMetadataResponseSchema(Schema):
     product_id = fields.Integer(required=True)
     versionNumber = fields.Integer(required=True)
     title = fields.String(required=True)
+    totalPriceInr = fields.Float(required=False, allow_none=True)
+    cumulativeProjectCostInr = fields.Float(required=True)
+    grandTotalInclGst = fields.Float(required=False, allow_none=True)
+    totalSellingPriceExclGst = fields.Float(required=False, allow_none=True)
+    totalGst = fields.Float(required=False, allow_none=True)
     globalParams = fields.Nested(CostSheetGlobalParamsSchema, required=True)
     output = fields.Dict(required=False, allow_none=True)
     status = fields.String(required=True)
@@ -446,7 +452,6 @@ class ProjectCostSheetMetadataResponseSchema(Schema):
     createdAt = fields.DateTime(required=True)
     updatedAt = fields.DateTime(required=True)
     totalItemCount = fields.Integer(required=True)
-    cumulativeProjectCostInr = fields.Float(required=True)
     hasRateIncrease = fields.Boolean(required=True)
     latestPriceChange = fields.Nested(
         ItemPriceHistoryResponseSchema,
@@ -457,3 +462,26 @@ class ProjectCostSheetMetadataResponseSchema(Schema):
         required=True,
     )
     items = fields.List(fields.Nested(ProjectCostSheetItemResponseSchema), required=True)
+
+
+class LatestCostSheetItemResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    itemCode = fields.String(required=True)
+    itemDescription = fields.String(required=True)
+    pricePerUnitInr = fields.Float(required=True)
+    quantity = fields.Float(required=True)
+    totalPriceInr = fields.Float(required=True)
+
+
+class LatestCostSheetResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    id = fields.Integer(required=True)
+    project_id = fields.Integer(required=True)
+    title = fields.String(required=True)
+    totalPriceInr = fields.Float(required=True)
+    items = fields.List(fields.Nested(LatestCostSheetItemResponseSchema), required=True)
+

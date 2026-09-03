@@ -217,11 +217,20 @@ def serialize_cost_sheet_metadata(cost_sheet: CostSheet) -> dict:
     price_histories.sort(key=lambda history: (history.created_at, history.id), reverse=True)
     latest_price_change = price_histories[0] if price_histories else None
 
-    cumulative_cost = (
-        output.get("columnTotals", {}).get("totalCostInr", 0.0)
-        if isinstance(output, dict)
-        else 0.0
-    )
+    column_totals = output.get("columnTotals", {}) if isinstance(output, dict) else {}
+    cumulative_cost = column_totals.get("totalCostInr", 0.0)
+    total_price_inr = column_totals.get("totalPriceInr")
+    if total_price_inr is None:
+        total_price_inr = float(
+            sum(
+                Decimal(str(item.price_per_unit_eur))
+                * Decimal(str(item.quantity))
+                * eur_to_inr
+                for item in cost_sheet.items
+            )
+        )
+    else:
+        total_price_inr = float(total_price_inr)
 
     return {
         "id": cost_sheet.id,
@@ -229,6 +238,23 @@ def serialize_cost_sheet_metadata(cost_sheet: CostSheet) -> dict:
         "product_id": cost_sheet.project_id,
         "versionNumber": cost_sheet.version_number,
         "title": cost_sheet.title,
+        "totalPriceInr": total_price_inr,
+        "cumulativeProjectCostInr": cumulative_cost,
+        "grandTotalInclGst": (
+            float(output.get("grandTotalInclGst", 0.0))
+            if isinstance(output, dict) and output.get("grandTotalInclGst") is not None
+            else None
+        ),
+        "totalSellingPriceExclGst": (
+            float(output.get("totalSellingPriceExclGst", 0.0))
+            if isinstance(output, dict) and output.get("totalSellingPriceExclGst") is not None
+            else None
+        ),
+        "totalGst": (
+            float(output.get("totalGst", 0.0))
+            if isinstance(output, dict) and output.get("totalGst") is not None
+            else None
+        ),
         "globalParams": cost_sheet.global_params,
         "output": output,
         "status": cost_sheet.status,
@@ -236,7 +262,6 @@ def serialize_cost_sheet_metadata(cost_sheet: CostSheet) -> dict:
         "createdAt": cost_sheet.created_at,
         "updatedAt": cost_sheet.updated_at,
         "totalItemCount": len(cost_sheet.items),
-        "cumulativeProjectCostInr": cumulative_cost,
         "hasRateIncrease": any(
             history.new_price_eur > history.old_price_eur
             for history in price_histories
@@ -246,6 +271,36 @@ def serialize_cost_sheet_metadata(cost_sheet: CostSheet) -> dict:
             _serialize_price_history(history) for history in price_histories[:10]
         ],
         "items": [_serialize_item(item, eur_to_inr) for item in cost_sheet.items],
+    }
+
+
+def serialize_latest_cost_sheet(cost_sheet: CostSheet) -> dict:
+    global_params = cost_sheet.global_params or {}
+    eur_to_inr = Decimal(str(global_params.get("eurToInr", 1.0)))
+
+    items_list = []
+    total_price_inr = Decimal("0")
+    for item in cost_sheet.items:
+        price_eur = Decimal(str(item.price_per_unit_eur))
+        qty = Decimal(str(item.quantity))
+        price_inr = price_eur * eur_to_inr
+        item_total_inr = price_inr * qty
+        total_price_inr += item_total_inr
+
+        items_list.append({
+            "itemCode": item.item_code,
+            "itemDescription": item.item_description,
+            "pricePerUnitInr": float(price_inr),
+            "quantity": float(qty),
+            "totalPriceInr": float(item_total_inr),
+        })
+
+    return {
+        "id": cost_sheet.id,
+        "project_id": cost_sheet.project_id,
+        "title": cost_sheet.title,
+        "totalPriceInr": float(total_price_inr),
+        "items": items_list,
     }
 
 
@@ -310,10 +365,11 @@ def _serialize_item(item: CostSheetItem, eur_to_inr: Decimal | None = None) -> d
         "quotationIndex": item.quotation_index,
         "itemCode": item.item_code,
         "itemDescription": item.item_description,
-        "pricePerUnitEur": float(price_eur),
         "pricePerUnitInr": float(price_inr),
-        "totalPriceInr": float(total_price_inr),
         "quantity": float(qty),
+        "totalPriceInr": float(total_price_inr),
+        "pricePerUnitEur": float(price_eur),
+        "totalPriceEur": float(price_eur * qty),
         "customsDutyRate": (
             float(item.customs_duty_rate)
             if item.customs_duty_rate is not None

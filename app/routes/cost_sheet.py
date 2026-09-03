@@ -38,7 +38,7 @@ def _error(code: str, message: str, status: int):
 # 1. POST /api/cost-sheet - Create cost sheet, calculate and store in DB
 @cost_sheet_bp.post("")
 @cost_sheet_bp.doc(security=[{"BearerAuth": []}])
-@cost_sheet_bp.arguments(ProjectCostSheetCreateSchema)
+# @cost_sheet_bp.arguments(ProjectCostSheetCreateSchema)
 @cost_sheet_bp.response(201, ProjectCostSheetMetadataResponseSchema)
 @jwt_required()
 def create_cost_sheet(data):

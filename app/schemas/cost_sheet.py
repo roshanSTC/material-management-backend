@@ -1,6 +1,15 @@
 from math import isfinite
 
-from marshmallow import EXCLUDE, Schema, ValidationError, fields, post_load, pre_load, validate
+from marshmallow import (
+    EXCLUDE,
+    Schema,
+    ValidationError,
+    fields,
+    post_load,
+    pre_load,
+    validate,
+    validates_schema,
+)
 
 
 def _finite(value: float) -> None:
@@ -195,7 +204,13 @@ class ProjectCostSheetItemSchema(Schema):
         validate=NON_BLANK_SHORT_TEXT,
     )
     pricePerUnitEur = fields.Float(
-        required=True,
+        required=False,
+        allow_none=True,
+        validate=POSITIVE_VALUE_VALIDATOR,
+    )
+    pricePerUnitInr = fields.Float(
+        required=False,
+        allow_none=True,
         validate=POSITIVE_VALUE_VALIDATOR,
     )
     quantity = fields.Float(
@@ -218,6 +233,7 @@ class ProjectCostSheetItemSchema(Schema):
             "item_description": "itemDescription",
             "item_code": "itemCode",
             "price_per_unit_eur": "pricePerUnitEur",
+            "price_per_unit_inr": "pricePerUnitInr",
             "customs_duty_rate": "customsDutyRate",
         }
         normalized = dict(data)
@@ -231,6 +247,11 @@ class ProjectCostSheetItemSchema(Schema):
             normalized["customsDutyRate"] = _normalize_rate(normalized["customsDutyRate"])
 
         return normalized
+
+    @validates_schema
+    def validate_price(self, data, **kwargs):
+        if data.get("pricePerUnitEur") is None and data.get("pricePerUnitInr") is None:
+            raise ValidationError("Either pricePerUnitEur or pricePerUnitInr must be provided.")
 
 
 class ProjectCostSheetCreateSchema(Schema):
@@ -358,12 +379,17 @@ class ItemPriceHistoryResponseSchema(Schema):
 
 
 class ProjectCostSheetItemResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     id = fields.Integer(required=True)
     quotationNumber = fields.String(required=False, allow_none=True)
     quotationIndex = fields.String(required=False, allow_none=True)
     itemDescription = fields.String(required=True)
     itemCode = fields.String(required=True)
     pricePerUnitEur = fields.Float(required=True)
+    pricePerUnitInr = fields.Float(required=False, allow_none=True)
+    totalPriceInr = fields.Float(required=False, allow_none=True)
     quantity = fields.Float(required=True)
     customsDutyRate = fields.Float(allow_none=True)
     hasRateIncrease = fields.Boolean(required=True)
@@ -376,6 +402,9 @@ class ProjectCostSheetItemResponseSchema(Schema):
 
 
 class ProjectCostSheetMetadataResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     id = fields.Integer(required=True)
     project_id = fields.Integer(required=True)
     product_id = fields.Integer(required=True)

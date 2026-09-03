@@ -26,6 +26,17 @@ def get_cost_sheet(cost_sheet_id: int) -> CostSheet | None:
     ).scalar_one_or_none()
 
 
+def get_latest_cost_sheet(project_id: int) -> CostSheet | None:
+    return db.session.execute(
+        db.select(CostSheet)
+        .options(
+            selectinload(CostSheet.items).selectinload(CostSheetItem.price_history)
+        )
+        .where(CostSheet.project_id == project_id)
+        .order_by(CostSheet.version_number.desc(), CostSheet.id.desc())
+    ).scalars().first()
+
+
 def list_cost_sheets_by_project(project_id: int | None = None) -> list[CostSheet]:
     statement = db.select(CostSheet).options(
         selectinload(CostSheet.items).selectinload(CostSheetItem.price_history)
@@ -65,6 +76,15 @@ def create_cost_sheet(
         created_by=created_by,
     )
     for item_data in data["items"]:
+        price_per_unit_eur = (
+            item_data.get("pricePerUnitEur")
+            if item_data.get("pricePerUnitEur") is not None
+            else (
+                float(item_data["pricePerUnitInr"]) / float(data["globalParams"]["eurToInr"])
+                if item_data.get("pricePerUnitInr") is not None and data.get("globalParams", {}).get("eurToInr")
+                else 0.0
+            )
+        )
         cost_sheet.items.append(
             CostSheetItem(
                 quotation_number=(
@@ -77,7 +97,7 @@ def create_cost_sheet(
                 ),
                 item_code=item_data["itemCode"].strip(),
                 item_description=item_data["itemDescription"].strip(),
-                price_per_unit_eur=item_data["pricePerUnitEur"],
+                price_per_unit_eur=price_per_unit_eur,
                 quantity=item_data["quantity"],
                 customs_duty_rate=item_data.get("customsDutyRate"),
             )

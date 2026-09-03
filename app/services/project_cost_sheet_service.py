@@ -8,6 +8,7 @@ from app.repositories.project_cost_sheet_repository import (
     create_price_history,
     get_cost_sheet,
     get_cost_sheet_item,
+    get_latest_cost_sheet,
     get_project,
     get_user,
     list_cost_sheets_by_project,
@@ -48,16 +49,33 @@ def create_project_cost_sheet(*, project_id: int, data: dict, created_by: int) -
     # Compute calculation output
     items_for_calc = [
         {
-            "quotationNumber": item.get("quotationNumber") or "",
-            "quotationIndex": item.get("quotationIndex") or "",
-            "itemDescription": item.get("itemDescription", ""),
-            "itemCode": item.get("itemCode", ""),
-            "pricePerUnitEur": float(item["pricePerUnitEur"]),
+            "quotationNumber": item.get("quotationNumber") or item.get("quotation_number") or "",
+            "quotationIndex": item.get("quotationIndex") or item.get("quotation_index") or "",
+            "itemDescription": item.get("itemDescription") or item.get("item_description", ""),
+            "itemCode": item.get("itemCode") or item.get("item_code", ""),
+            "pricePerUnitEur": (
+                float(item["pricePerUnitEur"])
+                if item.get("pricePerUnitEur") is not None
+                else None
+            ),
+            "pricePerUnitInr": (
+                float(item["pricePerUnitInr"])
+                if item.get("pricePerUnitInr") is not None
+                else (
+                    float(item["price_per_unit_inr"])
+                    if item.get("price_per_unit_inr") is not None
+                    else None
+                )
+            ),
             "quantity": float(item["quantity"]),
             "customsDutyRate": (
                 float(item["customsDutyRate"])
                 if item.get("customsDutyRate") is not None
-                else None
+                else (
+                    float(item["customs_duty_rate"])
+                    if item.get("customs_duty_rate") is not None
+                    else None
+                )
             ),
         }
         for item in data["items"]
@@ -88,6 +106,16 @@ def get_project_cost_sheet(cost_sheet_id: int) -> CostSheet:
     if cost_sheet is None:
         raise CostSheetNotFoundError(
             f"Cost sheet with id {cost_sheet_id} was not found."
+        )
+    return cost_sheet
+
+
+def get_latest_project_cost_sheet(project_id: int) -> CostSheet:
+    _get_project_or_raise(project_id)
+    cost_sheet = get_latest_cost_sheet(project_id)
+    if cost_sheet is None:
+        raise CostSheetNotFoundError(
+            f"No cost sheet found for project {project_id}."
         )
     return cost_sheet
 
@@ -130,6 +158,45 @@ def update_cost_sheet_item_rate(
     return cost_sheet, item, True
 
 
+def _enrich_output_with_inr(output: dict, global_params: dict) -> dict:
+    if not isinstance(output, dict):
+        return output
+    enriched = dict(output)
+    eur_to_inr = Decimal(str(global_params.get("eurToInr", 1.0)))
+
+    # Enrich items in output
+    if "items" in enriched and isinstance(enriched["items"], list):
+        new_items = []
+        for it in enriched["items"]:
+            item_copy = dict(it)
+            price_eur = Decimal(str(item_copy.get("pricePerUnitEur", 0)))
+            qty = Decimal(str(item_copy.get("quantity", 0)))
+            total_eur = Decimal(str(item_copy.get("totalPriceEur", price_eur * qty)))
+            ins_eur = Decimal(str(item_copy.get("insuranceFreightEur", 0)))
+
+            if "pricePerUnitInr" not in item_copy:
+                item_copy["pricePerUnitInr"] = float(price_eur * eur_to_inr)
+            if "totalPriceInr" not in item_copy:
+                item_copy["totalPriceInr"] = float(total_eur * eur_to_inr)
+            if "insuranceFreightInr" not in item_copy:
+                item_copy["insuranceFreightInr"] = float(ins_eur * eur_to_inr)
+            new_items.append(item_copy)
+        enriched["items"] = new_items
+
+    # Enrich columnTotals in output
+    if "columnTotals" in enriched and isinstance(enriched["columnTotals"], dict):
+        totals = dict(enriched["columnTotals"])
+        total_eur = Decimal(str(totals.get("totalPriceEur", 0)))
+        ins_eur = Decimal(str(totals.get("insuranceFreightEur", 0)))
+        if "totalPriceInr" not in totals:
+            totals["totalPriceInr"] = float(total_eur * eur_to_inr)
+        if "insuranceFreightInr" not in totals:
+            totals["insuranceFreightInr"] = float(ins_eur * eur_to_inr)
+        enriched["columnTotals"] = totals
+
+    return enriched
+
+
 def serialize_cost_sheet_metadata(cost_sheet: CostSheet) -> dict:
     output = cost_sheet.output
     if not output:
@@ -137,6 +204,10 @@ def serialize_cost_sheet_metadata(cost_sheet: CostSheet) -> dict:
             global_params=cost_sheet.global_params,
             items=[_calculation_item(item) for item in cost_sheet.items],
         )
+
+    global_params = cost_sheet.global_params or {}
+    output = _enrich_output_with_inr(output, global_params)
+    eur_to_inr = Decimal(str(global_params.get("eurToInr", 1.0)))
 
     price_histories = [
         history
@@ -174,7 +245,7 @@ def serialize_cost_sheet_metadata(cost_sheet: CostSheet) -> dict:
         "recentPriceChanges": [
             _serialize_price_history(history) for history in price_histories[:10]
         ],
-        "items": [_serialize_item(item) for item in cost_sheet.items],
+        "items": [_serialize_item(item, eur_to_inr) for item in cost_sheet.items],
     }
 
 
@@ -225,16 +296,24 @@ def _calculation_item(item: CostSheetItem) -> dict:
     }
 
 
-def _serialize_item(item: CostSheetItem) -> dict:
+def _serialize_item(item: CostSheetItem, eur_to_inr: Decimal | None = None) -> dict:
     latest_price_change = item.price_history[0] if item.price_history else None
+    rate = eur_to_inr if eur_to_inr is not None else Decimal("1")
+    price_eur = Decimal(str(item.price_per_unit_eur))
+    qty = Decimal(str(item.quantity))
+    price_inr = price_eur * rate
+    total_price_inr = price_inr * qty
+
     return {
         "id": item.id,
         "quotationNumber": item.quotation_number,
         "quotationIndex": item.quotation_index,
         "itemCode": item.item_code,
         "itemDescription": item.item_description,
-        "pricePerUnitEur": float(item.price_per_unit_eur),
-        "quantity": float(item.quantity),
+        "pricePerUnitEur": float(price_eur),
+        "pricePerUnitInr": float(price_inr),
+        "totalPriceInr": float(total_price_inr),
+        "quantity": float(qty),
         "customsDutyRate": (
             float(item.customs_duty_rate)
             if item.customs_duty_rate is not None

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from io import BytesIO
 
 from openpyxl import Workbook
@@ -7,7 +8,9 @@ from openpyxl.workbook.properties import CalcProperties
 
 
 CALCULATED_FIELDS = (
-    "totalPriceEur", "insuranceFreightEur", "landedCostEur", "landedCostInr",
+    "totalPriceEur", "totalPriceInr",
+    "insuranceFreightEur", "insuranceFreightInr",
+    "landedCostEur", "landedCostInr",
     "customsDutyInr", "igstInr", "transportationInr", "financingChargesInr",
     "totalCostInr", "lessIgstInr", "marginInr", "sellingPriceExclGst",
     "sellingPriceInclGst",
@@ -35,23 +38,28 @@ GLOBAL_PARAMETER_ROWS = (
 
 
 def calculate_cost_sheet(*, global_params: dict, items: list[dict]) -> dict:
-    """Calculate each cost component with the supplied IEEE-754 float values."""
+    """Calculate each cost component with production-grade Decimal precision."""
     calculated_items = [
         _calculate_item(global_params=global_params, item=item) for item in items
     ]
     column_totals = {
-        field: sum(item[field] for item in calculated_items)
+        field: float(sum(Decimal(str(item[field])) for item in calculated_items))
         for field in CALCULATED_FIELDS
     }
     total_selling_price_excl_gst = column_totals["sellingPriceExclGst"]
-    total_gst = total_selling_price_excl_gst * global_params["gstRate"]
+    total_gst = float(
+        Decimal(str(total_selling_price_excl_gst)) * Decimal(str(global_params["gstRate"]))
+    )
+    grand_total_incl_gst = float(
+        Decimal(str(total_selling_price_excl_gst)) + Decimal(str(total_gst))
+    )
     return {
         "globalParams": global_params,
         "items": calculated_items,
         "columnTotals": column_totals,
         "totalSellingPriceExclGst": total_selling_price_excl_gst,
         "totalGst": total_gst,
-        "grandTotalInclGst": total_selling_price_excl_gst + total_gst,
+        "grandTotalInclGst": grand_total_incl_gst,
     }
 
 
@@ -76,41 +84,70 @@ def _calculate_item(*, global_params: dict, item: dict) -> dict:
     customs_duty_rate = item.get("customsDutyRate")
     if customs_duty_rate is None:
         customs_duty_rate = global_params["defaultCustomsDutyRate"]
-    total_price_eur = item["pricePerUnitEur"] * item["quantity"]
-    insurance_freight_eur = total_price_eur * global_params["insuranceFreightRate"]
+
+    qty = Decimal(str(item["quantity"]))
+    eur_to_inr = Decimal(str(global_params["eurToInr"]))
+    ins_freight_rate = Decimal(str(global_params["insuranceFreightRate"]))
+    cd_rate = Decimal(str(customs_duty_rate))
+    igst_rate = Decimal(str(global_params["igstRate"]))
+    trans_rate = Decimal(str(global_params["transportationRate"]))
+    fin_rate = Decimal(str(global_params["financeChargesRate"]))
+    margin_rate = Decimal(str(global_params["marginRate"]))
+    gst_rate = Decimal(str(global_params["gstRate"]))
+
+    # Resolve pricePerUnitEur and pricePerUnitInr
+    if item.get("pricePerUnitEur") is not None:
+        price_per_unit_eur = Decimal(str(item["pricePerUnitEur"]))
+        price_per_unit_inr = price_per_unit_eur * eur_to_inr
+    elif item.get("pricePerUnitInr") is not None:
+        price_per_unit_inr = Decimal(str(item["pricePerUnitInr"]))
+        price_per_unit_eur = price_per_unit_inr / eur_to_inr if eur_to_inr else price_per_unit_inr
+    else:
+        price_per_unit_eur = Decimal("0")
+        price_per_unit_inr = Decimal("0")
+
+    total_price_eur = price_per_unit_eur * qty
+    total_price_inr = total_price_eur * eur_to_inr
+    insurance_freight_eur = total_price_eur * ins_freight_rate
+    insurance_freight_inr = insurance_freight_eur * eur_to_inr
     landed_cost_eur = total_price_eur + insurance_freight_eur
-    landed_cost_inr = landed_cost_eur * global_params["eurToInr"]
-    customs_duty_inr = landed_cost_inr * customs_duty_rate
-    igst_inr = (landed_cost_inr + customs_duty_inr) * global_params["igstRate"]
+    landed_cost_inr = landed_cost_eur * eur_to_inr
+    customs_duty_inr = landed_cost_inr * cd_rate
+    igst_inr = (landed_cost_inr + customs_duty_inr) * igst_rate
     transportation_inr = (
         landed_cost_inr + customs_duty_inr + igst_inr
-    ) * global_params["transportationRate"]
+    ) * trans_rate
     financing_charges_inr = (
         landed_cost_inr + customs_duty_inr + igst_inr + transportation_inr
-    ) * global_params["financeChargesRate"]
+    ) * fin_rate
     total_cost_inr = (
         landed_cost_inr + customs_duty_inr + igst_inr + transportation_inr
         + financing_charges_inr
     )
     less_igst_inr = total_cost_inr - igst_inr
-    margin_inr = less_igst_inr * global_params["marginRate"]
+    margin_inr = less_igst_inr * margin_rate
     selling_price_excl_gst = less_igst_inr + margin_inr
-    selling_price_incl_gst = selling_price_excl_gst * (1 + global_params["gstRate"])
+    selling_price_incl_gst = selling_price_excl_gst * (Decimal("1") + gst_rate)
+
     return {
         **item,
-        "totalPriceEur": total_price_eur,
-        "insuranceFreightEur": insurance_freight_eur,
-        "landedCostEur": landed_cost_eur,
-        "landedCostInr": landed_cost_inr,
-        "customsDutyInr": customs_duty_inr,
-        "igstInr": igst_inr,
-        "transportationInr": transportation_inr,
-        "financingChargesInr": financing_charges_inr,
-        "totalCostInr": total_cost_inr,
-        "lessIgstInr": less_igst_inr,
-        "marginInr": margin_inr,
-        "sellingPriceExclGst": selling_price_excl_gst,
-        "sellingPriceInclGst": selling_price_incl_gst,
+        "pricePerUnitEur": float(price_per_unit_eur),
+        "pricePerUnitInr": float(price_per_unit_inr),
+        "totalPriceEur": float(total_price_eur),
+        "totalPriceInr": float(total_price_inr),
+        "insuranceFreightEur": float(insurance_freight_eur),
+        "insuranceFreightInr": float(insurance_freight_inr),
+        "landedCostEur": float(landed_cost_eur),
+        "landedCostInr": float(landed_cost_inr),
+        "customsDutyInr": float(customs_duty_inr),
+        "igstInr": float(igst_inr),
+        "transportationInr": float(transportation_inr),
+        "financingChargesInr": float(financing_charges_inr),
+        "totalCostInr": float(total_cost_inr),
+        "lessIgstInr": float(less_igst_inr),
+        "marginInr": float(margin_inr),
+        "sellingPriceExclGst": float(selling_price_excl_gst),
+        "sellingPriceInclGst": float(selling_price_incl_gst),
     }
 
 

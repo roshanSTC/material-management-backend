@@ -44,17 +44,42 @@ def create_project_cost_sheet(*, project_id: int, data: dict, created_by: int) -
     if project is None:
         raise ProjectNotFoundError(f"Project with id {project_id} was not found.")
     _validate_user(created_by)
+
+    # Compute calculation output
+    items_for_calc = [
+        {
+            "quotationNumber": item.get("quotationNumber") or "",
+            "quotationIndex": item.get("quotationIndex") or "",
+            "itemDescription": item.get("itemDescription", ""),
+            "itemCode": item.get("itemCode", ""),
+            "pricePerUnitEur": float(item["pricePerUnitEur"]),
+            "quantity": float(item["quantity"]),
+            "customsDutyRate": (
+                float(item["customsDutyRate"])
+                if item.get("customsDutyRate") is not None
+                else None
+            ),
+        }
+        for item in data["items"]
+    ]
+    output = calculate_cost_sheet(
+        global_params=data["globalParams"],
+        items=items_for_calc,
+    )
+
     cost_sheet = create_cost_sheet(
         data=data,
         project_id=project.id,
         created_by=created_by,
+        output=output,
     )
     db.session.flush()
     return cost_sheet
 
 
-def list_project_cost_sheets(project_id: int) -> list[CostSheet]:
-    _get_project_or_raise(project_id)
+def list_project_cost_sheets(project_id: int | None = None) -> list[CostSheet]:
+    if project_id is not None:
+        _get_project_or_raise(project_id)
     return list_cost_sheets_by_project(project_id)
 
 
@@ -93,15 +118,26 @@ def update_cost_sheet_item_rate(
     history_data = {**data, "pricePerUnitEur": new_price}
     create_price_history(item=item, data=history_data, changed_by=changed_by)
     cost_sheet.updated_at = datetime.utcnow()
+
+    # Recalculate and persist updated output
+    output = calculate_cost_sheet(
+        global_params=cost_sheet.global_params,
+        items=[_calculation_item(i) for i in cost_sheet.items],
+    )
+    cost_sheet.output = output
+
     db.session.flush()
     return cost_sheet, item, True
 
 
 def serialize_cost_sheet_metadata(cost_sheet: CostSheet) -> dict:
-    calculation = calculate_cost_sheet(
-        global_params=cost_sheet.global_params,
-        items=[_calculation_item(item) for item in cost_sheet.items],
-    )
+    output = cost_sheet.output
+    if not output:
+        output = calculate_cost_sheet(
+            global_params=cost_sheet.global_params,
+            items=[_calculation_item(item) for item in cost_sheet.items],
+        )
+
     price_histories = [
         history
         for item in cost_sheet.items
@@ -110,18 +146,26 @@ def serialize_cost_sheet_metadata(cost_sheet: CostSheet) -> dict:
     price_histories.sort(key=lambda history: (history.created_at, history.id), reverse=True)
     latest_price_change = price_histories[0] if price_histories else None
 
+    cumulative_cost = (
+        output.get("columnTotals", {}).get("totalCostInr", 0.0)
+        if isinstance(output, dict)
+        else 0.0
+    )
+
     return {
         "id": cost_sheet.id,
-        "projectId": cost_sheet.project_id,
+        "project_id": cost_sheet.project_id,
+        "product_id": cost_sheet.project_id,
         "versionNumber": cost_sheet.version_number,
         "title": cost_sheet.title,
         "globalParams": cost_sheet.global_params,
+        "output": output,
         "status": cost_sheet.status,
         "createdBy": cost_sheet.created_by,
         "createdAt": cost_sheet.created_at,
         "updatedAt": cost_sheet.updated_at,
         "totalItemCount": len(cost_sheet.items),
-        "cumulativeProjectCostInr": calculation["columnTotals"]["totalCostInr"],
+        "cumulativeProjectCostInr": cumulative_cost,
         "hasRateIncrease": any(
             history.new_price_eur > history.old_price_eur
             for history in price_histories
@@ -137,8 +181,8 @@ def serialize_cost_sheet_metadata(cost_sheet: CostSheet) -> dict:
 def cost_sheet_export_payload(cost_sheet: CostSheet) -> tuple[dict, list[dict]]:
     return cost_sheet.global_params, [
         {
-            "quotationNumber": cost_sheet.title,
-            "quotationIndex": f"V{cost_sheet.version_number}-{item.id}",
+            "quotationNumber": item.quotation_number or cost_sheet.title,
+            "quotationIndex": item.quotation_index or f"V{cost_sheet.version_number}-{item.id}",
             "itemDescription": item.item_description,
             "itemCode": item.item_code,
             "pricePerUnitEur": float(item.price_per_unit_eur),
@@ -167,8 +211,8 @@ def _validate_user(user_id: int) -> None:
 
 def _calculation_item(item: CostSheetItem) -> dict:
     return {
-        "quotationNumber": "",
-        "quotationIndex": "",
+        "quotationNumber": item.quotation_number or "",
+        "quotationIndex": item.quotation_index or "",
         "itemDescription": item.item_description,
         "itemCode": item.item_code,
         "pricePerUnitEur": float(item.price_per_unit_eur),
@@ -185,6 +229,8 @@ def _serialize_item(item: CostSheetItem) -> dict:
     latest_price_change = item.price_history[0] if item.price_history else None
     return {
         "id": item.id,
+        "quotationNumber": item.quotation_number,
+        "quotationIndex": item.quotation_index,
         "itemCode": item.item_code,
         "itemDescription": item.item_description,
         "pricePerUnitEur": float(item.price_per_unit_eur),

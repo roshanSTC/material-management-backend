@@ -26,15 +26,17 @@ def get_cost_sheet(cost_sheet_id: int) -> CostSheet | None:
     ).scalar_one_or_none()
 
 
-def list_cost_sheets_by_project(project_id: int) -> list[CostSheet]:
-    return db.session.execute(
-        db.select(CostSheet)
-        .options(
-            selectinload(CostSheet.items).selectinload(CostSheetItem.price_history)
+def list_cost_sheets_by_project(project_id: int | None = None) -> list[CostSheet]:
+    statement = db.select(CostSheet).options(
+        selectinload(CostSheet.items).selectinload(CostSheetItem.price_history)
+    )
+    if project_id is not None:
+        statement = statement.where(CostSheet.project_id == project_id).order_by(
+            CostSheet.version_number.desc()
         )
-        .where(CostSheet.project_id == project_id)
-        .order_by(CostSheet.version_number.desc())
-    ).scalars().all()
+    else:
+        statement = statement.order_by(CostSheet.created_at.desc())
+    return db.session.execute(statement).scalars().all()
 
 
 def get_next_version_number(project_id: int) -> int:
@@ -46,18 +48,33 @@ def get_next_version_number(project_id: int) -> int:
     return (latest_version or 0) + 1
 
 
-def create_cost_sheet(*, data: dict, project_id: int, created_by: int) -> CostSheet:
+def create_cost_sheet(
+    *,
+    data: dict,
+    project_id: int,
+    created_by: int,
+    output: dict | None = None,
+) -> CostSheet:
     cost_sheet = CostSheet(
         project_id=project_id,
         version_number=get_next_version_number(project_id),
         title=data["title"].strip(),
         global_params=data["globalParams"],
-        status=data["status"],
+        output=output or {},
+        status=data.get("status", "Draft"),
         created_by=created_by,
     )
     for item_data in data["items"]:
         cost_sheet.items.append(
             CostSheetItem(
+                quotation_number=(
+                    item_data.get("quotationNumber")
+                    or item_data.get("quotation_number")
+                ),
+                quotation_index=(
+                    item_data.get("quotationIndex")
+                    or item_data.get("quotation_index")
+                ),
                 item_code=item_data["itemCode"].strip(),
                 item_description=item_data["itemDescription"].strip(),
                 price_per_unit_eur=item_data["pricePerUnitEur"],
@@ -80,7 +97,12 @@ def get_cost_sheet_item(
     return db.session.execute(statement).scalar_one_or_none()
 
 
-def create_price_history(*, item: CostSheetItem, data: dict, changed_by: int) -> ItemPriceHistory:
+def create_price_history(
+    *,
+    item: CostSheetItem,
+    data: dict,
+    changed_by: int,
+) -> ItemPriceHistory:
     price_history = ItemPriceHistory(
         old_price_eur=item.price_per_unit_eur,
         new_price_eur=data["pricePerUnitEur"],

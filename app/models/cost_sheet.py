@@ -16,6 +16,7 @@ class CostSheet(db.Model):
     version_number = db.Column(db.Integer, nullable=False)
     title = db.Column(db.String(255), nullable=False)
     global_params = db.Column(db.JSON, nullable=False)
+    output = db.Column(db.JSON, nullable=False, default=dict)
     status = db.Column(db.String(20), nullable=False, default="Draft")
     created_by = db.Column(
         db.Integer,

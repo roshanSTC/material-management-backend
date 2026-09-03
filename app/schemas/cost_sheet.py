@@ -1,6 +1,6 @@
 from math import isfinite
 
-from marshmallow import Schema, ValidationError, fields, validate
+from marshmallow import EXCLUDE, Schema, ValidationError, fields, post_load, pre_load, validate
 
 
 def _finite(value: float) -> None:
@@ -9,8 +9,20 @@ def _finite(value: float) -> None:
 
 
 def _not_blank(value: str) -> None:
-    if not value.strip():
+    if not value or not str(value).strip():
         raise ValidationError("Field must not be blank.")
+
+
+def _normalize_rate(val):
+    if val is None:
+        return None
+    try:
+        num = float(val)
+    except (ValueError, TypeError):
+        return val
+    if num >= 1.0:
+        return num / 100.0
+    return num
 
 
 RATE_VALIDATOR = validate.And(validate.Range(min=0, max=1), _finite)
@@ -19,6 +31,9 @@ NON_BLANK_SHORT_TEXT = validate.And(validate.Length(min=1, max=100), _not_blank)
 
 
 class CostSheetGlobalParamsSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     eurToInr = fields.Float(required=True, validate=POSITIVE_VALUE_VALIDATOR)
     insuranceFreightRate = fields.Float(required=True, validate=RATE_VALIDATOR)
     defaultCustomsDutyRate = fields.Float(required=True, validate=RATE_VALIDATOR)
@@ -28,10 +43,48 @@ class CostSheetGlobalParamsSchema(Schema):
     marginRate = fields.Float(required=True, validate=RATE_VALIDATOR)
     gstRate = fields.Float(required=True, validate=RATE_VALIDATOR)
 
+    @pre_load
+    def normalize_keys(self, data, **kwargs):
+        if not isinstance(data, dict):
+            return data
+        mapping = {
+            "eur_to_inr": "eurToInr",
+            "insurance_freight_rate": "insuranceFreightRate",
+            "default_customs_duty_rate": "defaultCustomsDutyRate",
+            "igst_rate": "igstRate",
+            "transportation_rate": "transportationRate",
+            "finance_charges_rate": "financeChargesRate",
+            "margin_rate": "marginRate",
+            "gst_rate": "gstRate",
+        }
+        normalized = dict(data)
+        for snake_key, camel_key in mapping.items():
+            if snake_key in normalized:
+                val = normalized.pop(snake_key)
+                if camel_key not in normalized:
+                    normalized[camel_key] = val
+
+        for rate_key in (
+            "insuranceFreightRate",
+            "defaultCustomsDutyRate",
+            "igstRate",
+            "transportationRate",
+            "financeChargesRate",
+            "marginRate",
+            "gstRate",
+        ):
+            if rate_key in normalized:
+                normalized[rate_key] = _normalize_rate(normalized[rate_key])
+
+        return normalized
+
 
 class CostSheetItemSchema(Schema):
-    quotationNumber = fields.String(required=True, validate=NON_BLANK_SHORT_TEXT)
-    quotationIndex = fields.String(required=True, validate=NON_BLANK_SHORT_TEXT)
+    class Meta:
+        unknown = EXCLUDE
+
+    quotationNumber = fields.String(required=False, allow_none=True)
+    quotationIndex = fields.String(required=False, allow_none=True)
     itemDescription = fields.String(
         required=True,
         validate=validate.And(validate.Length(min=1, max=500), _not_blank),
@@ -45,14 +98,52 @@ class CostSheetItemSchema(Schema):
         validate=RATE_VALIDATOR,
     )
 
+    @pre_load
+    def normalize_keys(self, data, **kwargs):
+        if not isinstance(data, dict):
+            return data
+        mapping = {
+            "quotation_number": "quotationNumber",
+            "quotation_index": "quotationIndex",
+            "item_description": "itemDescription",
+            "item_code": "itemCode",
+            "price_per_unit_eur": "pricePerUnitEur",
+            "customs_duty_rate": "customsDutyRate",
+        }
+        normalized = dict(data)
+        for snake_key, camel_key in mapping.items():
+            if snake_key in normalized:
+                val = normalized.pop(snake_key)
+                if camel_key not in normalized:
+                    normalized[camel_key] = val
+
+        if "customsDutyRate" in normalized:
+            normalized["customsDutyRate"] = _normalize_rate(normalized["customsDutyRate"])
+
+        return normalized
+
 
 class CostSheetRequestSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     globalParams = fields.Nested(CostSheetGlobalParamsSchema, required=True)
     items = fields.List(
         fields.Nested(CostSheetItemSchema),
         required=True,
         validate=validate.Length(min=1),
     )
+
+    @pre_load
+    def normalize_keys(self, data, **kwargs):
+        if not isinstance(data, dict):
+            return data
+        normalized = dict(data)
+        if "global_params" in normalized:
+            gp = normalized.pop("global_params")
+            if "globalParams" not in normalized:
+                normalized["globalParams"] = gp
+        return normalized
 
 
 class CostSheetCalculatedItemSchema(CostSheetItemSchema):
@@ -81,22 +172,17 @@ class CostSheetCalculationResponseSchema(Schema):
 
 
 class ProjectCostSheetItemSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
 
     quotationNumber = fields.String(
-        required=True,
-        validate=NON_BLANK_SHORT_TEXT,
+        required=False,
+        allow_none=True,
     )
-
     quotationIndex = fields.String(
-        required=True,
-        validate=NON_BLANK_SHORT_TEXT,
+        required=False,
+        allow_none=True,
     )
-
-    itemCode = fields.String(
-        required=True,
-        validate=NON_BLANK_SHORT_TEXT,
-    )
-
     itemDescription = fields.String(
         required=True,
         validate=validate.And(
@@ -104,43 +190,134 @@ class ProjectCostSheetItemSchema(Schema):
             _not_blank,
         ),
     )
-
+    itemCode = fields.String(
+        required=True,
+        validate=NON_BLANK_SHORT_TEXT,
+    )
     pricePerUnitEur = fields.Float(
         required=True,
         validate=POSITIVE_VALUE_VALIDATOR,
     )
-
     quantity = fields.Float(
         required=True,
         validate=POSITIVE_VALUE_VALIDATOR,
     )
-
     customsDutyRate = fields.Float(
         required=False,
         allow_none=True,
         validate=RATE_VALIDATOR,
     )
-    
-    
+
+    @pre_load
+    def normalize_keys(self, data, **kwargs):
+        if not isinstance(data, dict):
+            return data
+        mapping = {
+            "quotation_number": "quotationNumber",
+            "quotation_index": "quotationIndex",
+            "item_description": "itemDescription",
+            "item_code": "itemCode",
+            "price_per_unit_eur": "pricePerUnitEur",
+            "customs_duty_rate": "customsDutyRate",
+        }
+        normalized = dict(data)
+        for snake_key, camel_key in mapping.items():
+            if snake_key in normalized:
+                val = normalized.pop(snake_key)
+                if camel_key not in normalized:
+                    normalized[camel_key] = val
+
+        if "customsDutyRate" in normalized:
+            normalized["customsDutyRate"] = _normalize_rate(normalized["customsDutyRate"])
+
+        return normalized
+
 
 class ProjectCostSheetCreateSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    project_id = fields.Integer(
+        required=True,
+        metadata={"description": "Project ID"},
+    )
     title = fields.String(
         required=True,
         validate=validate.And(validate.Length(min=1, max=255), _not_blank),
     )
     globalParams = fields.Nested(CostSheetGlobalParamsSchema, required=True)
-    status = fields.String(
-        load_default="Draft",
-        validate=validate.OneOf(["Draft", "Approved", "Archived"]),
-    )
     items = fields.List(
         fields.Nested(ProjectCostSheetItemSchema),
         required=True,
         validate=validate.Length(min=1),
     )
 
+    @pre_load
+    def normalize_payload(self, data, **kwargs):
+        if not isinstance(data, dict):
+            return data
+        normalized = dict(data)
+        # Normalize globalParams
+        if "global_params" in normalized:
+            gp = normalized.pop("global_params")
+            if "globalParams" not in normalized:
+                normalized["globalParams"] = gp
+        # Normalize project_id / product_id aliases
+        resolved_id = (
+            normalized.get("project_id")
+            if normalized.get("project_id") is not None
+            else normalized.get("product_id")
+            if normalized.get("product_id") is not None
+            else normalized.get("projectId")
+            if normalized.get("projectId") is not None
+            else normalized.get("productId")
+        )
+        if resolved_id is not None:
+            normalized["project_id"] = resolved_id
+        return normalized
+
+    @post_load
+    def finalize_payload(self, data, **kwargs):
+        resolved_id = data.get("project_id") or data.get("product_id")
+        data["project_id"] = resolved_id
+        data["product_id"] = resolved_id
+        data.setdefault("status", "Draft")
+        return data
+
+
+class ProjectCostSheetQuerySchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    project_id = fields.Integer(
+        required=False,
+        allow_none=True,
+        metadata={"description": "Filter by Project ID"},
+    )
+
+    @pre_load
+    def normalize_keys(self, data, **kwargs):
+        if not isinstance(data, dict):
+            return data
+        normalized = dict(data)
+        resolved_id = (
+            normalized.get("project_id")
+            if normalized.get("project_id") is not None
+            else normalized.get("product_id")
+            if normalized.get("product_id") is not None
+            else normalized.get("projectId")
+            if normalized.get("projectId") is not None
+            else normalized.get("productId")
+        )
+        if resolved_id is not None:
+            normalized["project_id"] = resolved_id
+        return normalized
+
 
 class CostSheetItemRateUpdateSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     pricePerUnitEur = fields.Float(required=True, validate=POSITIVE_VALUE_VALIDATOR)
     supplierName = fields.String(
         required=True,
@@ -150,6 +327,23 @@ class CostSheetItemRateUpdateSchema(Schema):
         required=True,
         validate=validate.And(validate.Length(min=1), _not_blank),
     )
+
+    @pre_load
+    def normalize_keys(self, data, **kwargs):
+        if not isinstance(data, dict):
+            return data
+        mapping = {
+            "price_per_unit_eur": "pricePerUnitEur",
+            "supplier_name": "supplierName",
+            "change_reason": "changeReason",
+        }
+        normalized = dict(data)
+        for snake_key, camel_key in mapping.items():
+            if snake_key in normalized:
+                val = normalized.pop(snake_key)
+                if camel_key not in normalized:
+                    normalized[camel_key] = val
+        return normalized
 
 
 class ItemPriceHistoryResponseSchema(Schema):
@@ -165,11 +359,11 @@ class ItemPriceHistoryResponseSchema(Schema):
 
 class ProjectCostSheetItemResponseSchema(Schema):
     id = fields.Integer(required=True)
-    itemCode = fields.String(required=True)
+    quotationNumber = fields.String(required=False, allow_none=True)
+    quotationIndex = fields.String(required=False, allow_none=True)
     itemDescription = fields.String(required=True)
+    itemCode = fields.String(required=True)
     pricePerUnitEur = fields.Float(required=True)
-    quotationNumber = fields.String(required=True)
-    quotationIndex = fields.String(required=True)
     quantity = fields.Float(required=True)
     customsDutyRate = fields.Float(allow_none=True)
     hasRateIncrease = fields.Boolean(required=True)
@@ -183,10 +377,12 @@ class ProjectCostSheetItemResponseSchema(Schema):
 
 class ProjectCostSheetMetadataResponseSchema(Schema):
     id = fields.Integer(required=True)
-    projectId = fields.Integer(required=True)
+    project_id = fields.Integer(required=True)
+    product_id = fields.Integer(required=True)
     versionNumber = fields.Integer(required=True)
     title = fields.String(required=True)
     globalParams = fields.Nested(CostSheetGlobalParamsSchema, required=True)
+    output = fields.Dict(required=False, allow_none=True)
     status = fields.String(required=True)
     createdBy = fields.Integer(required=True)
     createdAt = fields.DateTime(required=True)

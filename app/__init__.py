@@ -50,7 +50,7 @@ def create_app(config_class=Config):
     from app.routes.attachment import attachment_bp
     from app.routes.quotation_request import quotation_request_bp
     from app.routes.supplier_quotation import supplier_quotation_bp
-    from app.routes.cost_sheet import project_cost_sheet_bp
+    from app.routes.cost_sheet import cost_sheet_bp
     
     
     api.register_blueprint(auth_bp)
@@ -63,6 +63,6 @@ def create_app(config_class=Config):
     api.register_blueprint(attachment_bp)
     api.register_blueprint(quotation_request_bp)
     api.register_blueprint(supplier_quotation_bp)
-    api.register_blueprint(project_cost_sheet_bp)
+    api.register_blueprint(cost_sheet_bp)
 
     return app

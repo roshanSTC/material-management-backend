@@ -71,14 +71,6 @@ class QuotationRequest(db.Model):
         lazy="select",
     )
 
-    __table_args__ = (
-        db.UniqueConstraint(
-            "project_id",
-            "supplier_id",
-            name="uq_quotation_request_project_supplier",
-        ),
-    )
-
     def __repr__(self) -> str:
         return (
             f"<QuotationRequest "

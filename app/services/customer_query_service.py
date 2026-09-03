@@ -1,3 +1,5 @@
+from datetime import date
+
 from app.extensions.database import db
 from app.models import CustomerQuery
 
@@ -9,6 +11,7 @@ from app.repositories.customer_query_repository import (
     get_customer_query,
     list_customer_queries,
 )
+from app.services.project_step_service import sync_customer_query_step
 
 
 class CustomerQueryError(Exception):
@@ -75,6 +78,9 @@ def create_customer_query_transaction(
             "The selected customer does not belong to the selected project."
         )
 
+    if isinstance(qo_date, str):
+        qo_date = date.fromisoformat(qo_date)
+
     customer_query = create_customer_query(
         project_id=project_id,
         customer_id=customer_id,
@@ -84,6 +90,8 @@ def create_customer_query_transaction(
     )
 
     db.session.flush()
+
+    sync_customer_query_step(project_id)
 
     return customer_query
 
@@ -129,6 +137,11 @@ def update_customer_query_transaction(
             "belong to the selected project."
         )
 
+    if isinstance(qo_date, str):
+        qo_date = date.fromisoformat(qo_date)
+
+    previous_project_id = customer_query.project_id
+
     customer_query.project_id = project_id
     customer_query.customer_id = customer_id
     customer_query.qo_date = qo_date
@@ -150,6 +163,10 @@ def update_customer_query_transaction(
 
     db.session.flush()
 
+    sync_customer_query_step(project_id)
+    if previous_project_id != project_id:
+        sync_customer_query_step(previous_project_id)
+
     return customer_query
 
 
@@ -161,8 +178,12 @@ def delete_customer_query_transaction(customer_query_id: int):
             f"Customer query {customer_query_id} not found."
         )
 
+    project_id = customer_query.project_id
+
     db.session.delete(customer_query)
 
     db.session.flush()
+
+    sync_customer_query_step(project_id)
 
     return customer_query

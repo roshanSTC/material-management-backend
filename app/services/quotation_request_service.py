@@ -1,3 +1,5 @@
+from datetime import date
+
 from flask_jwt_extended import get_jwt_identity
 
 from app.extensions.database import db
@@ -16,6 +18,7 @@ from app.repositories.quotation_request_repository import (
 from app.services.attachment_service import (
     create_attachment,
 )
+from app.services.project_step_service import sync_quotation_request_step
 
 class QuotationRequestError(Exception):
     """Base error for quotation request operations."""
@@ -94,6 +97,9 @@ def create_quotation_request_transaction(
             "to the selected project."
         )
 
+    if isinstance(quotation_requested_date, str):
+        quotation_requested_date = date.fromisoformat(quotation_requested_date)
+
     quotation_request = create_quotation_request(
         project_id=project_id,
         supplier_id=supplier_id,
@@ -104,6 +110,8 @@ def create_quotation_request_transaction(
     )
 
     db.session.flush()
+
+    sync_quotation_request_step(project_id)
 
     # -----------------------------------------
     # Attachments
@@ -149,6 +157,8 @@ def update_quotation_request_transaction(
             "Quotation request not found."
         )
 
+    previous_project_id = quotation_request.project_id
+
     # Only validate project if it is being changed
     if project_id is not None:
 
@@ -187,6 +197,8 @@ def update_quotation_request_transaction(
 
     # Update scalar fields only when supplied
     if quotation_requested_date is not None:
+        if isinstance(quotation_requested_date, str):
+            quotation_requested_date = date.fromisoformat(quotation_requested_date)
         quotation_request.quotation_requested_date = (
             quotation_requested_date
         )
@@ -219,6 +231,10 @@ def update_quotation_request_transaction(
 
     db.session.flush()
 
+    sync_quotation_request_step(quotation_request.project_id)
+    if previous_project_id != quotation_request.project_id:
+        sync_quotation_request_step(previous_project_id)
+
     return quotation_request
 
 
@@ -233,8 +249,12 @@ def delete_quotation_request_transaction(quotation_request_id: int):
             f"Quotation request {quotation_request_id} not found."
         )
 
+    project_id = quotation_request.project_id
+
     db.session.delete(quotation_request)
 
     db.session.flush()
+
+    sync_quotation_request_step(project_id)
 
     return quotation_request

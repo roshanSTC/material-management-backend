@@ -13,7 +13,7 @@ STEP_DEFINITIONS = {
         ),
         "required_fields": {
             "qo_date",
-            "remark",
+            "remark",  
         },
     },
     2: {
@@ -35,10 +35,15 @@ STEP_DEFINITIONS = {
             "for the requested material."
         ),
         "required_fields": {
-            "quotation_amount",
+            "quotation_number",
+            "quotation_value",
             "quotation_date",
-            "validity_days",
-            "remarks",
+            "currency_unit",
+            "validity",
+            "incoterms",
+            "payment_terms",
+            "delivery_period",
+            "remark",
         },
     },
     4: {
@@ -569,3 +574,191 @@ def serialize_project_step(step: ProjectStep) -> dict:
         "completed_at": step.completed_at,
         "data": step.data,
     }
+
+
+def upsert_project_step_record(
+    *,
+    project_id: int,
+    step_number: int,
+    data: dict | None,
+) -> ProjectStep:
+    definition = _get_step_definition(step_number)
+
+    status, progress_percentage = _calculate_step_state(
+        step_number,
+        data,
+    )
+
+    step = ProjectStep.query.filter_by(
+        project_id=project_id,
+        step_number=step_number,
+    ).first()
+
+    if step is None:
+        step = ProjectStep(
+            project_id=project_id,
+            step_number=step_number,
+            step_name=definition["name"],
+            description=definition["description"],
+            status=status,
+            completed_at=(
+                datetime.now(timezone.utc)
+                if status == "completed"
+                else None
+            ),
+            data=data,
+        )
+        db.session.add(step)
+    else:
+        step.status = status
+        step.data = data
+        step.completed_at = (
+            datetime.now(timezone.utc)
+            if status == "completed"
+            else None
+        )
+
+    db.session.flush()
+    return step
+
+
+def sync_customer_query_step(project_id: int) -> ProjectStep | None:
+    from app.models.customer_query import CustomerQuery
+
+    project = db.session.get(Project, project_id)
+    if project is None:
+        return None
+
+    customer_query = (
+        CustomerQuery.query
+        .filter_by(project_id=project_id)
+        .order_by(CustomerQuery.updated_at.desc(), CustomerQuery.id.desc())
+        .first()
+    )
+
+    if customer_query is None:
+        existing_step = ProjectStep.query.filter_by(
+            project_id=project_id,
+            step_number=1,
+        ).first()
+
+        if existing_step is not None:
+            db.session.delete(existing_step)
+            db.session.flush()
+        return None
+
+    step_data = {
+        "qo_date": (
+            customer_query.qo_date.isoformat()
+            if hasattr(customer_query.qo_date, "isoformat")
+            else str(customer_query.qo_date)
+        ) if customer_query.qo_date else None,
+        "remark": customer_query.remark,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=1,
+        data=step_data,
+    )
+
+
+def sync_quotation_request_step(project_id: int) -> ProjectStep | None:
+    from app.models.quotation_request import QuotationRequest
+
+    project = db.session.get(Project, project_id)
+    if project is None:
+        return None
+
+    quotation_request = (
+        QuotationRequest.query
+        .filter_by(project_id=project_id)
+        .order_by(QuotationRequest.updated_at.desc(), QuotationRequest.id.desc())
+        .first()
+    )
+
+    if quotation_request is None:
+        existing_step = ProjectStep.query.filter_by(
+            project_id=project_id,
+            step_number=2,
+        ).first()
+
+        if existing_step is not None:
+            db.session.delete(existing_step)
+            db.session.flush()
+        return None
+
+    step_data = {
+        "quotation_requested_date": (
+            quotation_request.quotation_requested_date.isoformat()
+            if hasattr(quotation_request.quotation_requested_date, "isoformat")
+            else str(quotation_request.quotation_requested_date)
+        ) if quotation_request.quotation_requested_date else None,
+        "supplier_contacted": quotation_request.supplier_contacted,
+        "remarks": quotation_request.remarks,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=2,
+        data=step_data,
+    )
+
+
+def sync_supplier_quotation_step(project_id: int) -> ProjectStep | None:
+    from app.models.supplier_quotation import SupplierQuotation
+
+    project = db.session.get(Project, project_id)
+    if project is None:
+        return None
+
+    supplier_quotation = (
+        SupplierQuotation.query
+        .filter_by(project_id=project_id)
+        .order_by(SupplierQuotation.updated_at.desc(), SupplierQuotation.id.desc())
+        .first()
+    )
+
+    if supplier_quotation is None:
+        existing_step = ProjectStep.query.filter_by(
+            project_id=project_id,
+            step_number=3,
+        ).first()
+
+        if existing_step is not None:
+            db.session.delete(existing_step)
+            db.session.flush()
+        return None
+
+    val_str = (
+        str(supplier_quotation.quotation_value)
+        if supplier_quotation.quotation_value is not None
+        else None
+    )
+    q_date = (
+        supplier_quotation.quotation_date.isoformat()
+        if hasattr(supplier_quotation.quotation_date, "isoformat")
+        else str(supplier_quotation.quotation_date)
+    ) if supplier_quotation.quotation_date else None
+
+    step_data = {
+        "quotation_number": supplier_quotation.quotation_number,
+        "quotation_value": val_str,
+        "quotation_amount": val_str,
+        "quotation_date": q_date,
+        "currency_unit": supplier_quotation.currency_unit,
+        "validity": supplier_quotation.validity,
+        "validity_days": supplier_quotation.validity,
+        "incoterms": supplier_quotation.incoterms,
+        "payment_terms": supplier_quotation.payment_terms,
+        "delivery_period": supplier_quotation.delivery_period,
+        "remark": supplier_quotation.remark,
+        "remarks": supplier_quotation.remark,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=3,
+        data=step_data,
+    )
+

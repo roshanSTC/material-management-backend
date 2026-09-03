@@ -1,7 +1,15 @@
 import re
 from decimal import Decimal
 
-from marshmallow import Schema, ValidationError, fields, pre_load, validate, validates_schema
+from marshmallow import (
+    EXCLUDE,
+    Schema,
+    ValidationError,
+    fields,
+    pre_load,
+    validate,
+    validates_schema,
+)
 
 from app.schemas.attachment import AttachmentResponseSchema
 
@@ -29,6 +37,9 @@ def _parse_quotation_value_and_unit(raw_val, explicit_unit=None):
 
 
 class SupplierQuotationItemSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     material_name = fields.String(
         required=True,
         validate=validate.And(
@@ -70,6 +81,9 @@ class SupplierQuotationItemSchema(Schema):
 
 
 class SupplierQuotationCreateSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     project_id = fields.Integer(
         required=True,
         validate=validate.Range(min=1),
@@ -129,7 +143,24 @@ class SupplierQuotationCreateSchema(Schema):
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
-        explicit_unit = normalized.get("currency_unit") or normalized.get("value_symbol")
+
+        # Support currency_symbol / value_symbol as aliases for currency_unit
+        currency_symbol = normalized.pop("currency_symbol", None)
+        value_symbol = normalized.pop("value_symbol", None)
+        explicit_unit = (
+            normalized.get("currency_unit")
+            or currency_symbol
+            or value_symbol
+        )
+
+        # Support total_net_amount as alias for quotation_value
+        total_net_amount = normalized.pop("total_net_amount", None)
+        if (
+            "quotation_value" not in normalized
+            or normalized["quotation_value"] is None
+        ) and total_net_amount is not None:
+            normalized["quotation_value"] = total_net_amount
+
         if "quotation_value" in normalized and normalized["quotation_value"] is not None:
             val, unit = _parse_quotation_value_and_unit(
                 normalized["quotation_value"],
@@ -140,10 +171,14 @@ class SupplierQuotationCreateSchema(Schema):
                 normalized["currency_unit"] = unit
         elif explicit_unit:
             normalized["currency_unit"] = explicit_unit
+
         return normalized
 
 
 class SupplierQuotationUpdateSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     project_id = fields.Integer(validate=validate.Range(min=1))
     supplier_id = fields.Integer(validate=validate.Range(min=1))
     quotation_number = fields.String(
@@ -180,7 +215,24 @@ class SupplierQuotationUpdateSchema(Schema):
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
-        explicit_unit = normalized.get("currency_unit") or normalized.get("value_symbol")
+
+        # Support currency_symbol / value_symbol as aliases for currency_unit
+        currency_symbol = normalized.pop("currency_symbol", None)
+        value_symbol = normalized.pop("value_symbol", None)
+        explicit_unit = (
+            normalized.get("currency_unit")
+            or currency_symbol
+            or value_symbol
+        )
+
+        # Support total_net_amount as alias for quotation_value
+        total_net_amount = normalized.pop("total_net_amount", None)
+        if (
+            "quotation_value" not in normalized
+            or normalized["quotation_value"] is None
+        ) and total_net_amount is not None:
+            normalized["quotation_value"] = total_net_amount
+
         if "quotation_value" in normalized and normalized["quotation_value"] is not None:
             val, unit = _parse_quotation_value_and_unit(
                 normalized["quotation_value"],
@@ -191,6 +243,7 @@ class SupplierQuotationUpdateSchema(Schema):
                 normalized["currency_unit"] = unit
         elif explicit_unit:
             normalized["currency_unit"] = explicit_unit
+
         return normalized
 
     @validates_schema
@@ -202,6 +255,9 @@ class SupplierQuotationUpdateSchema(Schema):
 
 
 class SupplierQuotationItemResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     id = fields.Integer(required=True)
     material_name = fields.String(required=True)
     quantity = fields.Decimal(required=True, as_string=True, places=3)
@@ -210,13 +266,18 @@ class SupplierQuotationItemResponseSchema(Schema):
 
 
 class SupplierQuotationResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     id = fields.Integer(required=True)
     project_id = fields.Integer(required=True)
     supplier_id = fields.Integer(required=True)
     quotation_number = fields.String(required=True)
     quotation_date = fields.Date(required=True)
     quotation_value = fields.Decimal(required=True, as_string=True, places=2)
+    total_net_amount = fields.Decimal(allow_none=True, as_string=True, places=2)
     currency_unit = fields.String(allow_none=True)
+    currency_symbol = fields.String(allow_none=True)
     validity = fields.String(allow_none=True)
     incoterms = fields.String(allow_none=True)
     payment_terms = fields.String(allow_none=True)

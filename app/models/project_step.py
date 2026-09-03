@@ -1,6 +1,7 @@
 
 from datetime import datetime
 
+from sqlalchemy import JSON
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.extensions.database import db
@@ -48,7 +49,7 @@ class ProjectStep(db.Model):
     )
 
     data = db.Column(
-        JSONB,
+        JSONB().with_variant(JSON, "sqlite"),
         nullable=True,
     )
 

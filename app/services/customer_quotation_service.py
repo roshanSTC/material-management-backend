@@ -59,10 +59,13 @@ def _validate_project_customer(project_id: int, customer_id: int | None) -> int:
 def list_customer_quotation_records(
     *,
     project_id: int | None = None,
-    
+    customer_id: int | None = None,
+    quotation_number: str | None = None,
 ) -> list[CustomerQuotation]:
     return list_customer_quotations(
         project_id=project_id,
+        customer_id=customer_id,
+        quotation_number=quotation_number,
     )
 
 

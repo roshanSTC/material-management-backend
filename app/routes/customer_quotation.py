@@ -205,23 +205,70 @@ def create_customer_quotation():
         return _error("CUSTOMER_QUOTATION_CREATE_FAILED", "Failed to create customer quotation.", 500)
 
 
-# @customer_quotation_bp.get("")
-# @customer_quotation_bp.doc(security=[{"BearerAuth": []}])
-# @customer_quotation_bp.arguments(CustomerQuotationQuerySchema, location="query")
-# @customer_quotation_bp.response(200, CustomerQuotationResponseSchema(many=True))
-# @jwt_required()
-# def list_customer_quotations(args):
-#     try:
-#         quotations = list_customer_quotation_records(
-#             project_id=args.get("project_id"),
-#         )
-#         return [_customer_quotation_response(cq) for cq in quotations], 200
-#     except Exception:
-#         current_app.logger.exception("Failed to list customer quotations")
-#         return _error("CUSTOMER_QUOTATION_LIST_FAILED", "Failed to list customer quotations.", 500)
+@customer_quotation_bp.get("")
+@customer_quotation_bp.doc(security=[{"BearerAuth": []}])
+@customer_quotation_bp.arguments(CustomerQuotationQuerySchema, location="query")
+@customer_quotation_bp.response(200, CustomerQuotationResponseSchema(many=True))
+@jwt_required()
+def list_customer_quotations(args=None):
+    if args is None:
+        args = {}
+
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+        or request.args.get("product_id")
+    )
+    if project_id is not None:
+        try:
+            project_id = int(project_id)
+        except (ValueError, TypeError):
+            project_id = None
+
+    customer_id = (
+        args.get("customer_id")
+        or request.args.get("customer_id")
+        or request.args.get("customerId")
+    )
+    if customer_id is not None:
+        try:
+            customer_id = int(customer_id)
+        except (ValueError, TypeError):
+            customer_id = None
+
+    quotation_number = (
+        args.get("quotation_number")
+        or request.args.get("quotation_number")
+        or request.args.get("quotationNumber")
+        or request.args.get("qo_number")
+    )
+
+    try:
+        quotations = list_customer_quotation_records(
+            project_id=project_id,
+            customer_id=customer_id,
+            quotation_number=quotation_number,
+        )
+        return [_customer_quotation_response(cq) for cq in quotations], 200
+    except Exception:
+        current_app.logger.exception("Failed to list customer quotations")
+        return _error("CUSTOMER_QUOTATION_LIST_FAILED", "Failed to list customer quotations.", 500)
 
 
-
+@customer_quotation_bp.get("/<int:customer_quotation_id>")
+@customer_quotation_bp.doc(security=[{"BearerAuth": []}])
+@customer_quotation_bp.response(200, CustomerQuotationResponseSchema)
+@jwt_required()
+def get_customer_quotation(customer_quotation_id):
+    try:
+        quotation = get_customer_quotation_record(customer_quotation_id)
+        return _customer_quotation_response(quotation), 200
+    except CustomerQuotationNotFoundError as exc:
+        return _error("CUSTOMER_QUOTATION_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get customer quotation")
+        return _error("CUSTOMER_QUOTATION_GET_FAILED", "Failed to get customer quotation.", 500)
 
 
 @customer_quotation_bp.patch("/<int:customer_quotation_id>")

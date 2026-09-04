@@ -1,4 +1,5 @@
 import re
+from collections.abc import Mapping
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -255,6 +256,63 @@ class CustomerQuotationQuerySchema(Schema):
         required=False,
         validate=validate.Range(min=1),
     )
+    customer_id = fields.Integer(
+        required=False,
+        validate=validate.Range(min=1),
+    )
+    quotation_number = fields.String(
+        required=False,
+        allow_none=True,
+    )
+
+    @pre_load
+    def normalize_keys(self, data, **kwargs):
+        if not isinstance(data, (dict, Mapping)):
+            return data
+        normalized = dict(data)
+        resolved_id = (
+            normalized.get("project_id")
+            if normalized.get("project_id") is not None
+            else normalized.get("product_id")
+            if normalized.get("product_id") is not None
+            else normalized.get("projectId")
+            if normalized.get("projectId") is not None
+            else normalized.get("productId")
+        )
+        if resolved_id is not None and str(resolved_id).strip() != "":
+            normalized["project_id"] = str(resolved_id).strip()
+        else:
+            normalized.pop("project_id", None)
+            normalized.pop("projectId", None)
+            normalized.pop("product_id", None)
+            normalized.pop("productId", None)
+
+        resolved_cust = (
+            normalized.get("customer_id")
+            if normalized.get("customer_id") is not None
+            else normalized.get("customerId")
+        )
+        if resolved_cust is not None and str(resolved_cust).strip() != "":
+            normalized["customer_id"] = str(resolved_cust).strip()
+        else:
+            normalized.pop("customer_id", None)
+            normalized.pop("customerId", None)
+
+        resolved_q = (
+            normalized.get("quotation_number")
+            if normalized.get("quotation_number") is not None
+            else normalized.get("quotationNumber")
+            if normalized.get("quotationNumber") is not None
+            else normalized.get("qo_number")
+        )
+        if resolved_q is not None and str(resolved_q).strip() != "":
+            normalized["quotation_number"] = str(resolved_q).strip()
+        else:
+            normalized.pop("quotation_number", None)
+            normalized.pop("quotationNumber", None)
+            normalized.pop("qo_number", None)
+
+        return normalized
     
 
 class CustomerQuotationItemResponseSchema(Schema):

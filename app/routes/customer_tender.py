@@ -290,13 +290,6 @@ def get_latest_customer_tender(args=None):
     return _handle_get_latest_customer_tender(args)
 
 
-@customer_tender_alias_bp.get("/latest")
-@customer_tender_alias_bp.doc(security=[{"BearerAuth": []}])
-@customer_tender_alias_bp.arguments(LatestCustomerTenderQuerySchema, location="query")
-@customer_tender_alias_bp.response(200, CustomerTenderResponseSchema)
-@jwt_required()
-def get_latest_customer_tender_alias(args=None):
-    return _handle_get_latest_customer_tender(args)
 
 
 def _handle_get_customer_tender_by_id(customer_tender_id: int):
@@ -308,14 +301,6 @@ def _handle_get_customer_tender_by_id(customer_tender_id: int):
     except Exception:
         current_app.logger.exception("Failed to get customer tender")
         return _error("CUSTOMER_TENDER_GET_FAILED", "Failed to retrieve customer tender.", 500)
-
-
-@customer_tender_bp.get("/<int:customer_tender_id>")
-@customer_tender_bp.doc(security=[{"BearerAuth": []}])
-@customer_tender_bp.response(200, CustomerTenderResponseSchema)
-@jwt_required()
-def get_customer_tender(customer_tender_id):
-    return _handle_get_customer_tender_by_id(customer_tender_id)
 
 
 

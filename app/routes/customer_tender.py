@@ -41,12 +41,6 @@ customer_tender_bp = Blueprint(
     description="Customer Tender APIs",
 )
 
-customer_tender_alias_bp = Blueprint(
-    "customer_tender_alias",
-    __name__,
-    url_prefix="/api/customer-tender",
-    description="Customer Tender API Alias",
-)
 
 
 def _error(code: str, message: str, status: int):

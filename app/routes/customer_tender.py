@@ -318,13 +318,6 @@ def get_customer_tender(customer_tender_id):
     return _handle_get_customer_tender_by_id(customer_tender_id)
 
 
-@customer_tender_alias_bp.get("/<int:customer_tender_id>")
-@customer_tender_alias_bp.doc(security=[{"BearerAuth": []}])
-@customer_tender_alias_bp.response(200, CustomerTenderResponseSchema)
-@jwt_required()
-def get_customer_tender_alias(customer_tender_id):
-    return _handle_get_customer_tender_by_id(customer_tender_id)
-
 
 @customer_tender_bp.patch("/<int:customer_tender_id>")
 @customer_tender_bp.doc(
@@ -409,5 +402,39 @@ def update_customer_tender(customer_tender_id):
         db.session.rollback()
         current_app.logger.exception("Failed to update customer tender")
         return _error("CUSTOMER_TENDER_UPDATE_FAILED", "Failed to update customer tender.", 500)
+
+
+@customer_tender_bp.delete("/<int:customer_tender_id>")
+@customer_tender_bp.doc(security=[{"BearerAuth": []}])
+@jwt_required()
+def delete_customer_tender(customer_tender_id):
+    try:
+        storage_keys = delete_customer_tender_transaction(customer_tender_id)
+        db.session.commit()
+
+        storage = get_storage()
+        for storage_key in storage_keys:
+            try:
+                if storage.exists(storage_key):
+                    storage.delete(storage_key)
+            except Exception:
+                current_app.logger.exception(
+                    "Failed to delete storage file: %s",
+                    storage_key,
+                )
+
+        return jsonify({"success": True, "message": "Customer tender deleted successfully."}), 200
+    except CustomerTenderNotFoundError as exc:
+        db.session.rollback()
+        return _error("CUSTOMER_TENDER_NOT_FOUND", str(exc), 404)
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Failed to delete customer tender")
+        return _error("CUSTOMER_TENDER_DELETE_FAILED", "Failed to delete customer tender.", 500)
+
+
+
+
+
 
 

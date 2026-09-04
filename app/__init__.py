@@ -52,7 +52,7 @@ def create_app(config_class=Config):
     from app.routes.supplier_quotation import supplier_quotation_bp
     from app.routes.cost_sheet import cost_sheet_bp
     from app.routes.customer_quotation import customer_quotation_bp
-    from app.routes.customer_tender import customer_tender_bp, customer_tender_alias_bp
+    from app.routes.customer_tender import customer_tender_bp
     from app.routes.bid_submission import bid_submission_bp
     
     
@@ -69,7 +69,6 @@ def create_app(config_class=Config):
     api.register_blueprint(cost_sheet_bp)
     api.register_blueprint(customer_quotation_bp)
     api.register_blueprint(customer_tender_bp)
-    api.register_blueprint(customer_tender_alias_bp)
     api.register_blueprint(bid_submission_bp)
 
     return app

@@ -12,6 +12,7 @@ from app.schemas.customer_tender import (
     CustomerTenderQuerySchema,
     CustomerTenderResponseSchema,
     CustomerTenderUpdateSchema,
+    LatestCustomerTenderQuerySchema,
 )
 from app.services.attachment_service import (
     AttachmentValidationError,
@@ -27,6 +28,7 @@ from app.services.customer_tender_service import (
     create_customer_tender_transaction,
     delete_customer_tender_transaction,
     get_customer_tender_record,
+    get_latest_customer_tender_record,
     list_customer_tender_records,
     update_customer_tender_transaction,
 )
@@ -37,6 +39,13 @@ customer_tender_bp = Blueprint(
     __name__,
     url_prefix="/api/v1/customer-tenders",
     description="Customer Tender APIs",
+)
+
+customer_tender_alias_bp = Blueprint(
+    "customer_tender_alias",
+    __name__,
+    url_prefix="/api/customer-tender",
+    description="Customer Tender API Alias",
 )
 
 
@@ -240,6 +249,83 @@ def list_customer_tenders(args=None):
         return _error("CUSTOMER_TENDER_LIST_FAILED", "Failed to list customer tenders.", 500)
 
 
+def _handle_get_latest_customer_tender(args=None):
+    if args is None:
+        args = {}
+
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+        or request.args.get("product_id")
+    )
+    if not project_id:
+        return _error("PROJECT_ID_REQUIRED", "project_id query parameter is required.", 400)
+
+    try:
+        project_id = int(project_id)
+        if project_id <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+
+    try:
+        tender = get_latest_customer_tender_record(project_id)
+        return _customer_tender_response(tender), 200
+    except ProjectNotFoundError as exc:
+        return _error("PROJECT_NOT_FOUND", str(exc), 404)
+    except CustomerTenderNotFoundError as exc:
+        return _error("CUSTOMER_TENDER_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get latest customer tender")
+        return _error("CUSTOMER_TENDER_GET_FAILED", "Failed to get latest customer tender.", 500)
+
+
+@customer_tender_bp.get("/latest")
+@customer_tender_bp.doc(security=[{"BearerAuth": []}])
+@customer_tender_bp.arguments(LatestCustomerTenderQuerySchema, location="query")
+@customer_tender_bp.response(200, CustomerTenderResponseSchema)
+@jwt_required()
+def get_latest_customer_tender(args=None):
+    return _handle_get_latest_customer_tender(args)
+
+
+@customer_tender_alias_bp.get("/latest")
+@customer_tender_alias_bp.doc(security=[{"BearerAuth": []}])
+@customer_tender_alias_bp.arguments(LatestCustomerTenderQuerySchema, location="query")
+@customer_tender_alias_bp.response(200, CustomerTenderResponseSchema)
+@jwt_required()
+def get_latest_customer_tender_alias(args=None):
+    return _handle_get_latest_customer_tender(args)
+
+
+def _handle_get_customer_tender_by_id(customer_tender_id: int):
+    try:
+        tender = get_customer_tender_record(customer_tender_id)
+        return _customer_tender_response(tender), 200
+    except CustomerTenderNotFoundError as exc:
+        return _error("CUSTOMER_TENDER_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get customer tender")
+        return _error("CUSTOMER_TENDER_GET_FAILED", "Failed to retrieve customer tender.", 500)
+
+
+@customer_tender_bp.get("/<int:customer_tender_id>")
+@customer_tender_bp.doc(security=[{"BearerAuth": []}])
+@customer_tender_bp.response(200, CustomerTenderResponseSchema)
+@jwt_required()
+def get_customer_tender(customer_tender_id):
+    return _handle_get_customer_tender_by_id(customer_tender_id)
+
+
+@customer_tender_alias_bp.get("/<int:customer_tender_id>")
+@customer_tender_alias_bp.doc(security=[{"BearerAuth": []}])
+@customer_tender_alias_bp.response(200, CustomerTenderResponseSchema)
+@jwt_required()
+def get_customer_tender_alias(customer_tender_id):
+    return _handle_get_customer_tender_by_id(customer_tender_id)
+
+
 @customer_tender_bp.patch("/<int:customer_tender_id>")
 @customer_tender_bp.doc(
     security=[{"BearerAuth": []}],
@@ -323,39 +409,5 @@ def update_customer_tender(customer_tender_id):
         db.session.rollback()
         current_app.logger.exception("Failed to update customer tender")
         return _error("CUSTOMER_TENDER_UPDATE_FAILED", "Failed to update customer tender.", 500)
-
-
-@customer_tender_bp.delete("/<int:customer_tender_id>")
-@customer_tender_bp.doc(security=[{"BearerAuth": []}])
-@jwt_required()
-def delete_customer_tender(customer_tender_id):
-    try:
-        storage_keys = delete_customer_tender_transaction(customer_tender_id)
-        db.session.commit()
-
-        storage = get_storage()
-        for storage_key in storage_keys:
-            try:
-                if storage.exists(storage_key):
-                    storage.delete(storage_key)
-            except Exception:
-                current_app.logger.exception(
-                    "Failed to delete storage file: %s",
-                    storage_key,
-                )
-
-        return jsonify({"success": True, "message": "Customer tender deleted successfully."}), 200
-    except CustomerTenderNotFoundError as exc:
-        db.session.rollback()
-        return _error("CUSTOMER_TENDER_NOT_FOUND", str(exc), 404)
-    except Exception:
-        db.session.rollback()
-        current_app.logger.exception("Failed to delete customer tender")
-        return _error("CUSTOMER_TENDER_DELETE_FAILED", "Failed to delete customer tender.", 500)
-
-
-
-
-
 
 

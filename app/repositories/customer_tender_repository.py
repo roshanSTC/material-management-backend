@@ -131,6 +131,15 @@ def list_customer_tenders(
     ).scalars().all()
 
 
+def get_latest_customer_tender_for_project(project_id: int) -> CustomerTender | None:
+    return db.session.execute(
+        db.select(CustomerTender)
+        .options(selectinload(CustomerTender.items))
+        .where(CustomerTender.project_id == project_id)
+        .order_by(CustomerTender.id.desc())
+    ).scalars().first()
+
+
 def update_customer_tender(
     customer_tender: CustomerTender,
     *,

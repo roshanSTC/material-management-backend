@@ -5,6 +5,7 @@ from app.repositories.customer_tender_repository import (
     delete_customer_tender,
     get_customer,
     get_customer_tender,
+    get_latest_customer_tender_for_project,
     get_project,
     list_customer_tenders,
     update_customer_tender,
@@ -73,6 +74,17 @@ def get_customer_tender_record(customer_tender_id: int) -> CustomerTender:
     tender = get_customer_tender(customer_tender_id)
     if tender is None:
         raise CustomerTenderNotFoundError(f"Customer tender with ID {customer_tender_id} not found.")
+    return tender
+
+
+def get_latest_customer_tender_record(project_id: int) -> CustomerTender:
+    project = get_project(project_id)
+    if project is None:
+        raise ProjectNotFoundError(f"Project with ID {project_id} not found.")
+
+    tender = get_latest_customer_tender_for_project(project_id)
+    if tender is None:
+        raise CustomerTenderNotFoundError(f"No customer tender found for project ID {project_id}.")
     return tender
 
 

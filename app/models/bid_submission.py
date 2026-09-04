@@ -21,21 +21,21 @@ class BidSubmission(db.Model):
     tender_id = db.Column(
         db.Integer,
         db.ForeignKey("customer_tenders.id"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 
-    tender_name = db.Column(
+    tender_title = db.Column(
         db.String(255),
-        nullable=False,
+        nullable=True,
     )
 
     submission_date = db.Column(
-        db.Date,
-        nullable=False,
+        db.DateTime,
+        nullable=True,
     )
 
-    submission_number = db.Column(
+    tender_number = db.Column(
         db.String(100),
         nullable=False,
     )
@@ -104,6 +104,38 @@ class BidSubmission(db.Model):
         cascade="all, delete-orphan",
         lazy="select",
     )
+
+    @property
+    def tender_name(self) -> str | None:
+        return self.tender_title
+
+    @tender_name.setter
+    def tender_name(self, val: str | None) -> None:
+        self.tender_title = val
+
+    @property
+    def submission_number(self) -> str:
+        return self.tender_number
+
+    @submission_number.setter
+    def submission_number(self, val: str) -> None:
+        self.tender_number = val
+
+    @property
+    def delivery_terms(self) -> str | None:
+        return self.delivery_term
+
+    @delivery_terms.setter
+    def delivery_terms(self, val: str | None) -> None:
+        self.delivery_term = val
+
+    @property
+    def payment_terms(self) -> str | None:
+        return self.payment_term
+
+    @payment_terms.setter
+    def payment_terms(self, val: str | None) -> None:
+        self.payment_term = val
 
     def __repr__(self) -> str:
         return f"<BidSubmission {self.id}>"

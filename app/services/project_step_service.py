@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from app.extensions.database import db
-from app.models import CustomerTender, Project, ProjectStep
+from app.models import BidSubmission, CustomerTender, Project, ProjectStep
 
 
 STEP_DEFINITIONS = {
@@ -878,6 +878,62 @@ def sync_customer_tender_step(project_id: int):
         step_number=6,
         data=step_data,
     )
+
+
+def sync_bid_submission_step(project_id: int):
+    bid_submission = (
+        BidSubmission.query.filter_by(project_id=project_id)
+        .order_by(BidSubmission.id.desc())
+        .first()
+    )
+
+    if bid_submission is None:
+        step = (
+            ProjectStep.query.filter_by(
+                project_id=project_id,
+                step_number=7,
+            ).first()
+        )
+        if step is not None:
+            db.session.delete(step)
+            db.session.flush()
+        return None
+
+    sub_date = None
+    if bid_submission.submission_date:
+        sub_date = (
+            bid_submission.submission_date.date().isoformat()
+            if hasattr(bid_submission.submission_date, "date")
+            else str(bid_submission.submission_date)[:10]
+        )
+
+    doc_ref = bid_submission.tender_number or bid_submission.submission_number or ""
+
+    step_data = {
+        "document_reference": doc_ref,
+        "tender_number": doc_ref,
+        "submitted_date": sub_date,
+        "submission_date": sub_date,
+        "tender_title": bid_submission.tender_title,
+        "tender_name": bid_submission.tender_title,
+        "delivery_term": bid_submission.delivery_term,
+        "delivery_terms": bid_submission.delivery_term,
+        "period": bid_submission.period,
+        "payment_term": bid_submission.payment_term,
+        "payment_terms": bid_submission.payment_term,
+        "validity": bid_submission.validity,
+        "warranty_period": bid_submission.warranty_period,
+        "gst_rate": str(bid_submission.gst_rate) if bid_submission.gst_rate is not None else None,
+        "remarks": bid_submission.remark,
+        "remark": bid_submission.remark,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=7,
+        data=step_data,
+    )
+
 
 
 

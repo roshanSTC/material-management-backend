@@ -404,3 +404,32 @@ class CustomerTenderResponseSchema(Schema):
         fields.Nested(AttachmentResponseSchema),
         required=False,
     )
+
+
+class LatestCustomerTenderItemResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    material_name = fields.String(required=True)
+    quantity = fields.Decimal(as_string=True, places=3, required=True)
+
+
+class LatestCustomerTenderResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    id = fields.Integer(required=True)
+    project_id = fields.Integer(required=True)
+    customer_id = fields.Integer(allow_none=True)
+    tender_title = fields.String(allow_none=True)
+    tender_number = fields.String(required=True)
+    delivery_terms = fields.String(allow_none=True)
+    incoterms = fields.String(allow_none=True)
+    delivery_period = fields.String(allow_none=True)
+    payment_terms = fields.String(allow_none=True)
+    validity = fields.String(allow_none=True)
+    warranty_period = fields.String(allow_none=True)
+    items = fields.List(
+        fields.Nested(LatestCustomerTenderItemResponseSchema),
+        required=True,
+    )

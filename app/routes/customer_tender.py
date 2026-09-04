@@ -13,6 +13,7 @@ from app.schemas.customer_tender import (
     CustomerTenderResponseSchema,
     CustomerTenderUpdateSchema,
     LatestCustomerTenderQuerySchema,
+    LatestCustomerTenderResponseSchema,
 )
 from app.services.attachment_service import (
     AttachmentValidationError,
@@ -40,6 +41,7 @@ customer_tender_bp = Blueprint(
     url_prefix="/api/v1/customer-tenders",
     description="Customer Tender APIs",
 )
+
 
 
 
@@ -106,6 +108,40 @@ def _customer_tender_response(customer_tender):
             }
             for attachment in attachments
         ],
+    }
+
+
+def _format_quantity(val):
+    if val is None:
+        return "0.000"
+    try:
+        from decimal import Decimal
+        d = Decimal(str(val).strip())
+        return f"{d:.3f}"
+    except Exception:
+        return str(val)
+
+
+def _latest_customer_tender_response(customer_tender):
+    return {
+        "customer_id": customer_tender.customer_id,
+        "delivery_period": customer_tender.delivery_period,
+        "delivery_terms": customer_tender.delivery_terms,
+        "id": customer_tender.id,
+        "incoterms": customer_tender.delivery_terms,
+        "items": [
+            {
+                "material_name": item.material_name or item.description,
+                "quantity": _format_quantity(item.quantity),
+            }
+            for item in customer_tender.items
+        ],
+        "payment_terms": customer_tender.payment_terms,
+        "project_id": customer_tender.project_id,
+        "tender_number": customer_tender.tender_number,
+        "tender_title": customer_tender.tender_title,
+        "validity": customer_tender.validity,
+        "warranty_period": customer_tender.warranty_period,
     }
 
 
@@ -265,7 +301,7 @@ def _handle_get_latest_customer_tender(args=None):
 
     try:
         tender = get_latest_customer_tender_record(project_id)
-        return _customer_tender_response(tender), 200
+        return _latest_customer_tender_response(tender), 200
     except ProjectNotFoundError as exc:
         return _error("PROJECT_NOT_FOUND", str(exc), 404)
     except CustomerTenderNotFoundError as exc:
@@ -278,23 +314,11 @@ def _handle_get_latest_customer_tender(args=None):
 @customer_tender_bp.get("/latest")
 @customer_tender_bp.doc(security=[{"BearerAuth": []}])
 @customer_tender_bp.arguments(LatestCustomerTenderQuerySchema, location="query")
-@customer_tender_bp.response(200, CustomerTenderResponseSchema)
+@customer_tender_bp.response(200, LatestCustomerTenderResponseSchema)
 @jwt_required()
 def get_latest_customer_tender(args=None):
     return _handle_get_latest_customer_tender(args)
 
-
-
-
-def _handle_get_customer_tender_by_id(customer_tender_id: int):
-    try:
-        tender = get_customer_tender_record(customer_tender_id)
-        return _customer_tender_response(tender), 200
-    except CustomerTenderNotFoundError as exc:
-        return _error("CUSTOMER_TENDER_NOT_FOUND", str(exc), 404)
-    except Exception:
-        current_app.logger.exception("Failed to get customer tender")
-        return _error("CUSTOMER_TENDER_GET_FAILED", "Failed to retrieve customer tender.", 500)
 
 
 

@@ -18,19 +18,26 @@ class CustomerTender(db.Model):
         index=True,
     )
 
-    company_business_name = db.Column(
+    customer_id = db.Column(
+        db.Integer,
+        db.ForeignKey("customers.id"),
+        nullable=True,
+        index=True,
+    )
+
+    officer_name = db.Column(
         db.String(255),
-        nullable=False,
+        nullable=True,
     )
 
     email = db.Column(
         db.String(255),
-        nullable=False,
+        nullable=True,
     )
 
     address = db.Column(
         db.Text,
-        nullable=False,
+        nullable=True,
     )
 
     website = db.Column(
@@ -40,12 +47,12 @@ class CustomerTender(db.Model):
 
     contact_number = db.Column(
         db.String(30),
-        nullable=False,
+        nullable=True,
     )
 
     tender_title = db.Column(
         db.String(255),
-        nullable=False,
+        nullable=True,
     )
 
     tender_number = db.Column(
@@ -54,32 +61,17 @@ class CustomerTender(db.Model):
     )
 
     tender_date = db.Column(
-        db.Date,
-        nullable=False,
+        db.DateTime,
+        nullable=True,
     )
 
-    tender_opening_date = db.Column(
-        db.Date,
-        nullable=False,
+    opening_date_time = db.Column(
+        db.DateTime,
+        nullable=True,
     )
 
-    opening_time = db.Column(
-        db.Time,
-        nullable=False,
-    )
-
-    closing_date = db.Column(
-        db.Date,
-        nullable=False,
-    )
-
-    closing_time = db.Column(
-        db.Time,
-        nullable=False,
-    )
-
-    gst_rate = db.Column(
-        db.Numeric(5, 2),
+    closing_date_time = db.Column(
+        db.DateTime,
         nullable=True,
     )
 
@@ -93,8 +85,8 @@ class CustomerTender(db.Model):
         nullable=True,
     )
 
-    incoterms = db.Column(
-        db.String(50),
+    delivery_terms = db.Column(
+        db.String(255),
         nullable=True,
     )
 
@@ -136,13 +128,18 @@ class CustomerTender(db.Model):
         back_populates="customer_tenders",
     )
 
+    customer = db.relationship(
+        "Customer",
+        lazy="select",
+    )
+
     items = db.relationship(
         "CustomerTenderItem",
         back_populates="customer_tender",
         cascade="all, delete-orphan",
         lazy="select",
     )
-    
+
     bid_submissions = db.relationship(
         "BidSubmission",
         back_populates="tender",
@@ -154,6 +151,22 @@ class CustomerTender(db.Model):
         back_populates="tender",
         lazy="select",
     )
+
+    @property
+    def company_business_name(self) -> str | None:
+        return self.officer_name
+
+    @company_business_name.setter
+    def company_business_name(self, val: str | None) -> None:
+        self.officer_name = val
+
+    @property
+    def incoterms(self) -> str | None:
+        return self.delivery_terms
+
+    @incoterms.setter
+    def incoterms(self, val: str | None) -> None:
+        self.delivery_terms = val
 
     def __repr__(self) -> str:
         return f"<CustomerTender {self.id}>"

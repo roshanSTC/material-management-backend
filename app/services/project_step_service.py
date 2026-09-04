@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from app.extensions.database import db
-from app.models import Project, ProjectStep
+from app.models import CustomerTender, Project, ProjectStep
 
 
 STEP_DEFINITIONS = {
@@ -827,5 +827,57 @@ def sync_customer_quotation_step(project_id: int) -> ProjectStep | None:
         step_number=5,
         data=step_data,
     )
+
+
+def sync_customer_tender_step(project_id: int):
+    customer_tender = (
+        CustomerTender.query.filter_by(project_id=project_id)
+        .order_by(CustomerTender.id.desc())
+        .first()
+    )
+
+    if customer_tender is None:
+        step = (
+            ProjectStep.query.filter_by(
+                project_id=project_id,
+                step_number=6,
+            ).first()
+        )
+        if step is not None:
+            db.session.delete(step)
+            db.session.flush()
+        return None
+
+    sub_date = None
+    if customer_tender.closing_date_time:
+        sub_date = (
+            customer_tender.closing_date_time.date().isoformat()
+            if hasattr(customer_tender.closing_date_time, "date")
+            else str(customer_tender.closing_date_time)[:10]
+        )
+    elif customer_tender.tender_date:
+        sub_date = (
+            customer_tender.tender_date.date().isoformat()
+            if hasattr(customer_tender.tender_date, "date")
+            else str(customer_tender.tender_date)[:10]
+        )
+
+    step_data = {
+        "tender_number": customer_tender.tender_number,
+        "submission_date": sub_date,
+        "tender_title": customer_tender.tender_title,
+        "officer_name": customer_tender.officer_name,
+        "delivery_terms": customer_tender.delivery_terms,
+        "validity": customer_tender.validity,
+        "remarks": customer_tender.remark,
+        "remark": customer_tender.remark,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=6,
+        data=step_data,
+    )
+
 
 

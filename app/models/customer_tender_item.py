@@ -18,19 +18,14 @@ class CustomerTenderItem(db.Model):
         index=True,
     )
 
+    item_code = db.Column(
+        db.String(100),
+        nullable=True,
+    )
+
     description = db.Column(
         db.String(500),
         nullable=False,
-    )
-
-    hsn_sac = db.Column(
-        db.String(50),
-        nullable=True,
-    )
-
-    unit_price = db.Column(
-        db.Numeric(18, 2),
-        nullable=True,
     )
 
     quantity = db.Column(
@@ -48,6 +43,14 @@ class CustomerTenderItem(db.Model):
         "CustomerTender",
         back_populates="items",
     )
+
+    @property
+    def material_name(self) -> str | None:
+        return self.description
+
+    @material_name.setter
+    def material_name(self, val: str | None) -> None:
+        self.description = val
 
     def __repr__(self) -> str:
         return f"<CustomerTenderItem {self.id}>"

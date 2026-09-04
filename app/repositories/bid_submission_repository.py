@@ -77,9 +77,6 @@ def _replace_items(bid_submission: BidSubmission, items: list[dict]) -> None:
         net_total_val = _parse_decimal_val(
             item.get("net_total") or item.get("net_amount")
         )
-        total_val = _parse_decimal_val(
-            item.get("total") or item.get("total_amount")
-        )
         hsn_sac_val = _normalize_optional_string(item.get("hsn_sac"))
 
         sub_item = BidSubmissionItem(
@@ -88,7 +85,6 @@ def _replace_items(bid_submission: BidSubmission, items: list[dict]) -> None:
             unit_price=unit_price_val,
             quantity=quantity_val,
             net_total=net_total_val,
-            total=total_val,
         )
         bid_submission.items.append(sub_item)
 
@@ -107,7 +103,9 @@ def create_bid_submission(*, data: dict) -> BidSubmission:
         delivery_term=_normalize_optional_string(
             data.get("delivery_term") or data.get("delivery_terms")
         ),
-        period=_normalize_optional_string(data.get("period")),
+        delivery_period=_normalize_optional_string(
+            data.get("delivery_period") or data.get("period")
+        ),
         payment_term=_normalize_optional_string(
             data.get("payment_term") or data.get("payment_terms")
         ),
@@ -173,8 +171,10 @@ def update_bid_submission(
         bid_submission.delivery_term = _normalize_optional_string(
             data.get("delivery_term") or data.get("delivery_terms")
         )
-    if "period" in data:
-        bid_submission.period = _normalize_optional_string(data["period"])
+    if "delivery_period" in data or "period" in data:
+        bid_submission.delivery_period = _normalize_optional_string(
+            data.get("delivery_period") or data.get("period")
+        )
     if "payment_term" in data or "payment_terms" in data:
         bid_submission.payment_term = _normalize_optional_string(
             data.get("payment_term") or data.get("payment_terms")

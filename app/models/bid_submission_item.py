@@ -43,11 +43,6 @@ class BidSubmissionItem(db.Model):
         nullable=True,
     )
 
-    total = db.Column(
-        db.Numeric(18, 2),
-        nullable=True,
-    )
-
     created_at = db.Column(
         db.DateTime,
         nullable=False,
@@ -74,14 +69,6 @@ class BidSubmissionItem(db.Model):
     @net_amount.setter
     def net_amount(self, val):
         self.net_total = val
-
-    @property
-    def total_amount(self):
-        return self.total
-
-    @total_amount.setter
-    def total_amount(self, val):
-        self.total = val
 
     def __repr__(self) -> str:
         return f"<BidSubmissionItem {self.id}>"

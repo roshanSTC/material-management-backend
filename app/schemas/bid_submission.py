@@ -72,12 +72,6 @@ class BidSubmissionItemCreateSchema(Schema):
         as_string=True,
         places=2,
     )
-    total = fields.Decimal(
-        required=False,
-        allow_none=True,
-        as_string=True,
-        places=2,
-    )
 
     @pre_load
     def normalize_item(self, data, **kwargs):
@@ -88,16 +82,12 @@ class BidSubmissionItemCreateSchema(Schema):
             normalized["description"] = normalized["material_name"]
         if "net_amount" in normalized and not normalized.get("net_total"):
             normalized["net_total"] = normalized["net_amount"]
-        if "total_amount" in normalized and not normalized.get("total"):
-            normalized["total"] = normalized["total_amount"]
         if "quantity" in normalized and normalized["quantity"] is not None:
             normalized["quantity"] = str(normalized["quantity"]).strip()
         if "unit_price" in normalized and normalized["unit_price"] is not None:
             normalized["unit_price"] = str(normalized["unit_price"]).strip()
         if "net_total" in normalized and normalized["net_total"] is not None:
             normalized["net_total"] = str(normalized["net_total"]).strip()
-        if "total" in normalized and normalized["total"] is not None:
-            normalized["total"] = str(normalized["total"]).strip()
         return normalized
 
 
@@ -135,12 +125,6 @@ class BidSubmissionItemUpdateSchema(Schema):
         as_string=True,
         places=2,
     )
-    total = fields.Decimal(
-        required=False,
-        allow_none=True,
-        as_string=True,
-        places=2,
-    )
 
     @pre_load
     def normalize_item(self, data, **kwargs):
@@ -151,16 +135,12 @@ class BidSubmissionItemUpdateSchema(Schema):
             normalized["description"] = normalized["material_name"]
         if "net_amount" in normalized and not normalized.get("net_total"):
             normalized["net_total"] = normalized["net_amount"]
-        if "total_amount" in normalized and not normalized.get("total"):
-            normalized["total"] = normalized["total_amount"]
         if "quantity" in normalized and normalized["quantity"] is not None:
             normalized["quantity"] = str(normalized["quantity"]).strip()
         if "unit_price" in normalized and normalized["unit_price"] is not None:
             normalized["unit_price"] = str(normalized["unit_price"]).strip()
         if "net_total" in normalized and normalized["net_total"] is not None:
             normalized["net_total"] = str(normalized["net_total"]).strip()
-        if "total" in normalized and normalized["total"] is not None:
-            normalized["total"] = str(normalized["total"]).strip()
         return normalized
 
 
@@ -193,6 +173,11 @@ class BidSubmissionCreateSchema(Schema):
         allow_none=True,
     )
     delivery_term = fields.String(
+        required=False,
+        allow_none=True,
+        validate=validate.Length(max=100),
+    )
+    delivery_period = fields.String(
         required=False,
         allow_none=True,
         validate=validate.Length(max=100),
@@ -281,6 +266,14 @@ class BidSubmissionCreateSchema(Schema):
         elif "deliveryTerms" in normalized and not normalized.get("delivery_term"):
             normalized["delivery_term"] = normalized["deliveryTerms"]
 
+        # delivery_period / period / deliveryPeriod
+        if "deliveryPeriod" in normalized and not normalized.get("delivery_period"):
+            normalized["delivery_period"] = normalized["deliveryPeriod"]
+        elif "period" in normalized and not normalized.get("delivery_period"):
+            normalized["delivery_period"] = normalized["period"]
+        if "delivery_period" in normalized and not normalized.get("period"):
+            normalized["period"] = normalized["delivery_period"]
+
         # payment_term / payment_terms
         if "payment_terms" in normalized and not normalized.get("payment_term"):
             normalized["payment_term"] = normalized["payment_terms"]
@@ -318,6 +311,7 @@ class BidSubmissionUpdateSchema(Schema):
     tender_number = fields.String(required=False, allow_none=True)
     submission_date = fields.Raw(required=False, allow_none=True)
     delivery_term = fields.String(required=False, allow_none=True)
+    delivery_period = fields.String(required=False, allow_none=True)
     period = fields.String(required=False, allow_none=True)
     payment_term = fields.String(required=False, allow_none=True)
     validity = fields.String(required=False, allow_none=True)
@@ -348,6 +342,12 @@ class BidSubmissionUpdateSchema(Schema):
             normalized["tender_number"] = normalized["submission_number"]
         if "delivery_terms" in normalized and not normalized.get("delivery_term"):
             normalized["delivery_term"] = normalized["delivery_terms"]
+        if "deliveryPeriod" in normalized and not normalized.get("delivery_period"):
+            normalized["delivery_period"] = normalized["deliveryPeriod"]
+        elif "period" in normalized and not normalized.get("delivery_period"):
+            normalized["delivery_period"] = normalized["period"]
+        if "delivery_period" in normalized and not normalized.get("period"):
+            normalized["period"] = normalized["delivery_period"]
         if "payment_terms" in normalized and not normalized.get("payment_term"):
             normalized["payment_term"] = normalized["payment_terms"]
         if "warrantyPeriod" in normalized and not normalized.get("warranty_period"):
@@ -402,8 +402,6 @@ class BidSubmissionItemResponseSchema(Schema):
     quantity = fields.Decimal(as_string=True, places=3, required=True)
     net_total = fields.Decimal(as_string=True, places=2, allow_none=True)
     net_amount = fields.Decimal(attribute="net_total", as_string=True, places=2, allow_none=True, dump_only=True)
-    total = fields.Decimal(as_string=True, places=2, allow_none=True)
-    total_amount = fields.Decimal(attribute="total", as_string=True, places=2, allow_none=True, dump_only=True)
     created_at = fields.DateTime(required=True)
 
 
@@ -421,7 +419,8 @@ class BidSubmissionResponseSchema(Schema):
     submission_number = fields.String(attribute="tender_number", allow_none=True, dump_only=True)
     delivery_term = fields.String(allow_none=True)
     delivery_terms = fields.String(attribute="delivery_term", allow_none=True, dump_only=True)
-    period = fields.String(allow_none=True)
+    delivery_period = fields.String(allow_none=True)
+    period = fields.String(attribute="delivery_period", allow_none=True, dump_only=True)
     payment_term = fields.String(allow_none=True)
     payment_terms = fields.String(attribute="payment_term", allow_none=True, dump_only=True)
     validity = fields.String(allow_none=True)

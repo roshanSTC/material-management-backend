@@ -45,7 +45,7 @@ class BidSubmission(db.Model):
         nullable=True,
     )
 
-    period = db.Column(
+    delivery_period = db.Column(
         db.String(100),
         nullable=True,
     )
@@ -136,6 +136,14 @@ class BidSubmission(db.Model):
     @payment_terms.setter
     def payment_terms(self, val: str | None) -> None:
         self.payment_term = val
+
+    @property
+    def period(self) -> str | None:
+        return self.delivery_period
+
+    @period.setter
+    def period(self, val: str | None) -> None:
+        self.delivery_period = val
 
     def __repr__(self) -> str:
         return f"<BidSubmission {self.id}>"

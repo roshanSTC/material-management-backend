@@ -62,7 +62,8 @@ def _bid_submission_response(bid_submission):
         "submission_number": bid_submission.tender_number,
         "delivery_term": bid_submission.delivery_term,
         "delivery_terms": bid_submission.delivery_term,
-        "period": bid_submission.period,
+        "delivery_period": bid_submission.delivery_period,
+        "period": bid_submission.delivery_period,
         "payment_term": bid_submission.payment_term,
         "payment_terms": bid_submission.payment_term,
         "validity": bid_submission.validity,
@@ -82,8 +83,6 @@ def _bid_submission_response(bid_submission):
                 "quantity": item.quantity,
                 "net_total": item.net_total,
                 "net_amount": item.net_total,
-                "total": item.total,
-                "total_amount": item.total,
                 "created_at": item.created_at,
             }
             for item in bid_submission.items

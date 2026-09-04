@@ -9,7 +9,7 @@ from app.repositories.customer_quotation_repository import (
     list_customer_quotations,
     update_customer_quotation,
 )
-from app.services.attachment_service import delete_attachment, list_attachments
+from app.services.attachment_service import delete_attachment
 from app.services.project_step_service import sync_customer_quotation_step
 
 
@@ -112,19 +112,18 @@ def update_customer_quotation_transaction(
     return customer_quotation
 
 
-def delete_customer_quotation_transaction(customer_quotation_id: int) -> None:
+def delete_customer_quotation_transaction(customer_quotation_id: int) -> list[str]:
     customer_quotation = get_customer_quotation_record(customer_quotation_id)
     project_id = customer_quotation.project_id
 
     # Clean up associated attachments
-    attachments = list_attachments(
+    storage_keys = delete_attachment(
         entity_type="customer_quotation",
         entity_id=customer_quotation_id,
     )
-    for attachment in attachments:
-        delete_attachment(attachment.id)
 
     delete_customer_quotation(customer_quotation)
     db.session.flush()
     sync_customer_quotation_step(project_id)
+    return storage_keys
 

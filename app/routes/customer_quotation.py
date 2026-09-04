@@ -361,8 +361,20 @@ def update_customer_quotation(customer_quotation_id):
 @jwt_required()
 def delete_customer_quotation(customer_quotation_id):
     try:
-        delete_customer_quotation_transaction(customer_quotation_id)
+        storage_keys = delete_customer_quotation_transaction(customer_quotation_id)
         db.session.commit()
+
+        storage = get_storage()
+        for storage_key in storage_keys:
+            try:
+                if storage.exists(storage_key):
+                    storage.delete(storage_key)
+            except Exception:
+                current_app.logger.exception(
+                    "Failed to delete storage file: %s",
+                    storage_key,
+                )
+
         return jsonify({"success": True, "message": "Customer quotation deleted successfully."}), 200
     except CustomerQuotationNotFoundError as exc:
         db.session.rollback()

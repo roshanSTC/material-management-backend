@@ -247,21 +247,38 @@ def get_attachment(
     return attachment
 
 
-def delete_attachment(*, entity_type: str, entity_id: int):
-    attachments = (
-        Attachment.query
-        .filter(
-            Attachment.entity_type == entity_type,
-            Attachment.entity_id == entity_id,
-        )
-        .all()
-    )
-
-    storage_keys = [attachment.storage_key for attachment in attachments]
-
-    for attachment in attachments:
+def delete_attachment(
+    attachment_id: int | None = None,
+    *,
+    entity_type: str | None = None,
+    entity_id: int | None = None,
+):
+    if attachment_id is not None:
+        attachment = db.session.get(Attachment, attachment_id)
+        if attachment is None:
+            return []
+        storage_key = attachment.storage_key
         db.session.delete(attachment)
+        db.session.flush()
+        return [storage_key] if storage_key else []
 
-    db.session.flush()
+    if entity_type is not None and entity_id is not None:
+        attachments = (
+            Attachment.query
+            .filter(
+                Attachment.entity_type == entity_type,
+                Attachment.entity_id == entity_id,
+            )
+            .all()
+        )
 
-    return storage_keys
+        storage_keys = [attachment.storage_key for attachment in attachments]
+
+        for attachment in attachments:
+            db.session.delete(attachment)
+
+        db.session.flush()
+
+        return storage_keys
+
+    return []

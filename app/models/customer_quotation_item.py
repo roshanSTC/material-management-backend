@@ -18,19 +18,45 @@ class CustomerQuotationItem(db.Model):
         index=True,
     )
 
-    material_name = db.Column(
-        db.String(255),
-        nullable=False,
+    cost_sheet_item_id = db.Column(
+        db.Integer,
+        db.ForeignKey("cost_sheet_items.id"),
+        nullable=True,
     )
 
-    unit_price = db.Column(
-        db.Numeric(18, 2),
+    quotation_number = db.Column(
+        db.String(100),
+        nullable=True,
+    )
+
+    item_code = db.Column(
+        db.String(100),
+        nullable=True,
+    )
+
+    material_name = db.Column(
+        db.String(255),
         nullable=False,
     )
 
     quantity = db.Column(
         db.Numeric(18, 3),
         nullable=False,
+    )
+
+    unit_price = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    net_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    customs_duty_rate = db.Column(
+        db.Numeric(5, 4),
+        nullable=True,
     )
 
     created_at = db.Column(

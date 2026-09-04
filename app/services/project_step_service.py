@@ -762,3 +762,70 @@ def sync_supplier_quotation_step(project_id: int) -> ProjectStep | None:
         data=step_data,
     )
 
+
+def sync_customer_quotation_step(project_id: int) -> ProjectStep | None:
+    from app.models.customer_quotation import CustomerQuotation
+
+    project = db.session.get(Project, project_id)
+    if project is None:
+        return None
+
+    customer_quotation = (
+        CustomerQuotation.query
+        .filter_by(project_id=project_id)
+        .order_by(CustomerQuotation.updated_at.desc(), CustomerQuotation.id.desc())
+        .first()
+    )
+
+    if customer_quotation is None:
+        existing_step = ProjectStep.query.filter_by(
+            project_id=project_id,
+            step_number=5,
+        ).first()
+
+        if existing_step is not None:
+            db.session.delete(existing_step)
+            db.session.flush()
+        return None
+
+    val_str = (
+        str(customer_quotation.quotation_value)
+        if customer_quotation.quotation_value is not None
+        else (
+            str(customer_quotation.total_net_amount)
+            if customer_quotation.total_net_amount is not None
+            else None
+        )
+    )
+    q_date = (
+        customer_quotation.quotation_date.isoformat()
+        if hasattr(customer_quotation.quotation_date, "isoformat")
+        else str(customer_quotation.quotation_date)
+    ) if customer_quotation.quotation_date else None
+
+    step_data = {
+        "quotation_number": customer_quotation.quotation_number or customer_quotation.qo_number,
+        "quotation_amount": val_str,
+        "quotation_value": val_str,
+        "quotation_date": q_date,
+        "sent_date": q_date,
+        "currency_unit": customer_quotation.currency_unit,
+        "currency_symbol": customer_quotation.currency_symbol,
+        "total_net_amount": (
+            str(customer_quotation.total_net_amount)
+            if customer_quotation.total_net_amount is not None
+            else val_str
+        ),
+        "validity": customer_quotation.validity,
+        "validity_days": customer_quotation.validity,
+        "remark": customer_quotation.remark,
+        "remarks": customer_quotation.remark,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=5,
+        data=step_data,
+    )
+
+

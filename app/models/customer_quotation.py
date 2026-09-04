@@ -27,7 +27,12 @@ class CustomerQuotation(db.Model):
 
     qo_number = db.Column(
         db.String(100),
-        nullable=False,
+        nullable=True,
+    )
+
+    quotation_number = db.Column(
+        db.String(100),
+        nullable=True,
     )
 
     quotation_date = db.Column(
@@ -38,6 +43,26 @@ class CustomerQuotation(db.Model):
     quotation_value = db.Column(
         db.Numeric(18, 2),
         nullable=False,
+    )
+
+    currency_unit = db.Column(
+        db.String(20),
+        nullable=True,
+    )
+
+    currency_symbol = db.Column(
+        db.String(20),
+        nullable=True,
+    )
+
+    total_net_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    validity = db.Column(
+        db.String(100),
+        nullable=True,
     )
 
     remark = db.Column(

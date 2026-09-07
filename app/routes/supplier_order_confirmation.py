@@ -7,6 +7,7 @@ from marshmallow import ValidationError
 
 from app.extensions.database import db
 from app.schemas.supplier_order_confirmation import (
+    LatestSupplierOrderConfirmationResponseSchema,
     SupplierOrderConfirmationCreateSchema,
     SupplierOrderConfirmationQuerySchema,
     SupplierOrderConfirmationResponseSchema,
@@ -113,6 +114,47 @@ def _order_confirmation_response(confirmation):
             }
             for attachment in attachments
         ],
+    }
+
+
+def _format_decimal_str(val, places=2):
+    if val is None:
+        return None
+    try:
+        from decimal import Decimal
+        d = Decimal(str(val).strip())
+        return f"{d:.{places}f}"
+    except Exception:
+        return str(val)
+
+
+def _latest_order_confirmation_response(confirmation):
+    items_list = []
+    for item in confirmation.items:
+        qty = item.quantity
+        price = item.unit_price
+        net_amt = item.net_amount
+        if net_amt is None and qty is not None and price is not None:
+            try:
+                from decimal import Decimal
+                net_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
+            except Exception:
+                pass
+
+        items_list.append({
+            "unit_price": _format_decimal_str(price, places=2),
+            "quantity": _format_decimal_str(qty, places=3) or "0.000",
+            "material_name": item.material_name or item.description,
+            "hsn_code": item.hsn_code,
+            "net_amount": _format_decimal_str(net_amt, places=2),
+        })
+
+    return {
+        "payment_terms": confirmation.payment_terms,
+        "warranty_period": confirmation.warranty_period,
+        "shipping_terms": confirmation.shipping_terms,
+        "delivery_period": confirmation.delivery_period,
+        "items": items_list,
     }
 
 
@@ -224,9 +266,13 @@ def _handle_list_order_confirmations(args=None):
         )
 
 
-def _handle_get_latest_order_confirmation():
+def _handle_get_latest_order_confirmation(args=None):
+    if args is None:
+        args = {}
+
     project_id = (
-        request.args.get("project_id")
+        args.get("project_id")
+        or request.args.get("project_id")
         or request.args.get("projectId")
     )
     if not project_id:
@@ -241,7 +287,7 @@ def _handle_get_latest_order_confirmation():
 
     try:
         confirmation = get_latest_supplier_order_confirmation_record(project_id)
-        return _order_confirmation_response(confirmation), 200
+        return _latest_order_confirmation_response(confirmation), 200
     except ProjectNotFoundError as exc:
         return _error("PROJECT_NOT_FOUND", str(exc), 404)
     except OrderConfirmationNotFoundError as exc:
@@ -255,19 +301,7 @@ def _handle_get_latest_order_confirmation():
         )
 
 
-def _handle_get_order_confirmation(order_confirmation_id: int):
-    try:
-        confirmation = get_supplier_order_confirmation_record(order_confirmation_id)
-        return _order_confirmation_response(confirmation), 200
-    except OrderConfirmationNotFoundError as exc:
-        return _error("ORDER_CONFIRMATION_NOT_FOUND", str(exc), 404)
-    except Exception:
-        current_app.logger.exception("Failed to get order confirmation")
-        return _error(
-            "ORDER_CONFIRMATION_GET_FAILED",
-            "Failed to get order confirmation.",
-            500,
-        )
+
 
 
 def _handle_update_order_confirmation(order_confirmation_id: int):
@@ -433,10 +467,11 @@ def list_order_confirmations(args=None):
 
 @order_confirmation_bp.get("/latest")
 @order_confirmation_bp.doc(security=[{"BearerAuth": []}])
-@order_confirmation_bp.response(200, SupplierOrderConfirmationResponseSchema)
+@order_confirmation_bp.arguments(SupplierOrderConfirmationQuerySchema, location="query")
+@order_confirmation_bp.response(200, LatestSupplierOrderConfirmationResponseSchema)
 @jwt_required()
-def get_latest_order_confirmation():
-    return _handle_get_latest_order_confirmation()
+def get_latest_order_confirmation(args=None):
+    return _handle_get_latest_order_confirmation(args)
 
 
 

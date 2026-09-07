@@ -664,3 +664,54 @@ class SupplierOrderConfirmationResponseSchema(Schema):
         fields.Nested(AttachmentResponseSchema),
         required=False,
     )
+
+
+class LatestSupplierOrderConfirmationQuerySchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    project_id = fields.Integer(
+        required=True,
+        validate=validate.Range(min=1),
+    )
+
+    @pre_load
+    def normalize_keys(self, data, **kwargs):
+        if not isinstance(data, (dict, Mapping)):
+            return data
+        normalized = dict(data)
+        resolved_id = (
+            normalized.get("project_id")
+            if normalized.get("project_id") is not None
+            else normalized.get("projectId")
+            if normalized.get("projectId") is not None
+            else normalized.get("product_id")
+        )
+        if resolved_id is not None and str(resolved_id).strip() != "":
+            normalized["project_id"] = str(resolved_id).strip()
+        return normalized
+
+
+class LatestSupplierOrderConfirmationItemResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    unit_price = fields.Decimal(as_string=True, places=2, required=True)
+    quantity = fields.Decimal(as_string=True, places=3, required=True)
+    material_name = fields.String(allow_none=True)
+    hsn_code = fields.String(allow_none=True)
+    net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+
+
+class LatestSupplierOrderConfirmationResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    payment_terms = fields.String(allow_none=True)
+    warranty_period = fields.String(allow_none=True)
+    shipping_terms = fields.String(allow_none=True)
+    delivery_period = fields.String(allow_none=True)
+    items = fields.List(
+        fields.Nested(LatestSupplierOrderConfirmationItemResponseSchema),
+        required=True,
+    )

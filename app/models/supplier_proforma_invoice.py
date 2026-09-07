@@ -1,8 +1,4 @@
-from datetime import date, datetime
-from decimal import Decimal
-
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import datetime
 
 from app.extensions.database import db
 
@@ -10,82 +6,150 @@ from app.extensions.database import db
 class SupplierProformaInvoice(db.Model):
     __tablename__ = "supplier_proforma_invoices"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+    )
 
-    project_id: Mapped[int] = mapped_column(
-        ForeignKey("projects.id"),
+    project_id = db.Column(
+        db.Integer,
+        db.ForeignKey("projects.id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    supplier_id = db.Column(
+        db.Integer,
+        db.ForeignKey("suppliers.id"),
         nullable=False,
         index=True,
     )
 
-    supplier_id: Mapped[int] = mapped_column(
-        ForeignKey("suppliers.id"),
-        nullable=False,
-        index=True,
-    )
-
-    order_confirmation_id: Mapped[int | None] = mapped_column(
-        ForeignKey("supplier_order_confirmations.id"),
+    order_confirmation_id = db.Column(
+        db.Integer,
+        db.ForeignKey("supplier_order_confirmations.id"),
         nullable=True,
         index=True,
     )
 
-    proforma_invoice_number: Mapped[str] = mapped_column(
-        String(100),
+    proforma_invoice_no = db.Column(
+        db.String(100),
         nullable=False,
     )
 
-    invoice_date: Mapped[date] = mapped_column(
-        Date,
+    proforma_invoice_date = db.Column(
+        db.Date,
         nullable=False,
     )
 
-    currency: Mapped[str] = mapped_column(
-        String(10),
+    delivery_terms = db.Column(
+        db.String(100),
+        nullable=True,
+    )
+
+    delivery_period = db.Column(
+        db.String(100),
+        nullable=True,
+    )
+
+    delivery_date = db.Column(
+        db.Date,
+        nullable=True,
+    )
+
+    payment_terms = db.Column(
+        db.String(255),
+        nullable=True,
+    )
+
+    warranty_period = db.Column(
+        db.String(100),
+        nullable=True,
+    )
+
+    total_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    total_net_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    remark = db.Column(
+        db.Text,
+        nullable=True,
+    )
+
+    created_at = db.Column(
+        db.DateTime,
         nullable=False,
+        default=datetime.utcnow,
     )
 
-    delivery_terms: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-    )
-
-    delivery_date: Mapped[date | None] = mapped_column(
-        Date,
-        nullable=True,
-    )
-
-    payment_terms: Mapped[str | None] = mapped_column(
-        String(255),
-        nullable=True,
-    )
-
-    warranty_period: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-    )
-
-    remark: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True,
-    )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
+    updated_at = db.Column(
+        db.DateTime,
         nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
     )
 
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        nullable=False,
+    project = db.relationship(
+        "Project",
+        lazy="select",
     )
 
-    project = relationship("Project")
-    supplier = relationship("Supplier")
-    order_confirmation = relationship("SupplierOrderConfirmation")
+    supplier = db.relationship(
+        "Supplier",
+        lazy="select",
+    )
 
-    items = relationship(
+    order_confirmation = db.relationship(
+        "SupplierOrderConfirmation",
+        lazy="select",
+    )
+
+    items = db.relationship(
         "SupplierProformaInvoiceItem",
         back_populates="proforma_invoice",
         cascade="all, delete-orphan",
+        lazy="select",
     )
+
+    # Property aliases for backward/forward compatibility
+    @property
+    def proforma_invoice_number(self):
+        return self.proforma_invoice_no
+
+    @proforma_invoice_number.setter
+    def proforma_invoice_number(self, val):
+        self.proforma_invoice_no = val
+
+    @property
+    def invoice_date(self):
+        return self.proforma_invoice_date
+
+    @invoice_date.setter
+    def invoice_date(self, val):
+        self.proforma_invoice_date = val
+
+    @property
+    def remarks(self):
+        return self.remark
+
+    @remarks.setter
+    def remarks(self, val):
+        self.remark = val
+
+    @property
+    def delivery_term(self):
+        return self.delivery_terms
+
+    @delivery_term.setter
+    def delivery_term(self, val):
+        self.delivery_terms = val
+
+    def __repr__(self) -> str:
+        return f"<SupplierProformaInvoice {self.id}>"

@@ -1067,3 +1067,75 @@ def sync_supplier_order_confirmation_step(project_id: int):
         step_number=9,
         data=step_data,
     )
+
+
+def sync_supplier_proforma_invoice_step(project_id: int):
+    from app.models import SupplierProformaInvoice
+
+    invoice = (
+        SupplierProformaInvoice.query.filter_by(project_id=project_id)
+        .order_by(SupplierProformaInvoice.id.desc())
+        .first()
+    )
+
+    if invoice is None:
+        step = (
+            ProjectStep.query.filter_by(
+                project_id=project_id,
+                step_number=10,
+            ).first()
+        )
+        if step is not None:
+            db.session.delete(step)
+            db.session.flush()
+        return None
+
+    inv_date_str = None
+    if invoice.proforma_invoice_date:
+        inv_date_str = (
+            invoice.proforma_invoice_date.isoformat()
+            if hasattr(invoice.proforma_invoice_date, "isoformat")
+            else str(invoice.proforma_invoice_date)[:10]
+        )
+
+    del_date_str = None
+    if invoice.delivery_date:
+        del_date_str = (
+            invoice.delivery_date.isoformat()
+            if hasattr(invoice.delivery_date, "isoformat")
+            else str(invoice.delivery_date)[:10]
+        )
+
+    invoice_amt = (
+        str(invoice.total_amount)
+        if invoice.total_amount is not None
+        else str(invoice.total_net_amount)
+        if invoice.total_net_amount is not None
+        else None
+    )
+
+    step_data = {
+        "invoice_number": invoice.proforma_invoice_no,
+        "proforma_invoice_no": invoice.proforma_invoice_no,
+        "proforma_invoice_number": invoice.proforma_invoice_no,
+        "invoice_date": inv_date_str,
+        "proforma_invoice_date": inv_date_str,
+        "invoice_amount": invoice_amt,
+        "total_amount": str(invoice.total_amount) if invoice.total_amount is not None else None,
+        "total_net_amount": str(invoice.total_net_amount) if invoice.total_net_amount is not None else None,
+        "delivery_terms": invoice.delivery_terms,
+        "delivery_term": invoice.delivery_terms,
+        "delivery_period": invoice.delivery_period,
+        "delivery_date": del_date_str,
+        "payment_terms": invoice.payment_terms,
+        "payment_term": invoice.payment_terms,
+        "warranty_period": invoice.warranty_period,
+        "remarks": invoice.remark,
+        "remark": invoice.remark,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=10,
+        data=step_data,
+    )

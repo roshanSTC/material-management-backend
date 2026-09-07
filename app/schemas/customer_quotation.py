@@ -256,14 +256,6 @@ class CustomerQuotationQuerySchema(Schema):
         required=False,
         validate=validate.Range(min=1),
     )
-    customer_id = fields.Integer(
-        required=False,
-        validate=validate.Range(min=1),
-    )
-    quotation_number = fields.String(
-        required=False,
-        allow_none=True,
-    )
 
     @pre_load
     def normalize_keys(self, data, **kwargs):

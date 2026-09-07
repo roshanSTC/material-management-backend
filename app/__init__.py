@@ -67,6 +67,9 @@ def create_app(config_class=Config):
     from app.routes.supplier_proforma_invoice import (
         supplier_proforma_invoice_bp,
     )
+    from app.routes.supplier_invoice import (
+        supplier_invoice_bp,
+    )
     
     
     api.register_blueprint(auth_bp)
@@ -86,4 +89,6 @@ def create_app(config_class=Config):
     api.register_blueprint(purchase_order_bp)
     api.register_blueprint(order_confirmation_bp)
     api.register_blueprint(supplier_proforma_invoice_bp)
+    api.register_blueprint(supplier_invoice_bp)
     return app
+

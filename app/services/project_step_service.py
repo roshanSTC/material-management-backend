@@ -1070,7 +1070,15 @@ def sync_supplier_order_confirmation_step(project_id: int):
 
 
 def sync_supplier_proforma_invoice_step(project_id: int):
-    from app.models import SupplierProformaInvoice
+    from app.models import SupplierInvoice, SupplierProformaInvoice
+
+    supplier_inv = (
+        SupplierInvoice.query.filter_by(project_id=project_id)
+        .order_by(SupplierInvoice.id.desc())
+        .first()
+    )
+    if supplier_inv is not None:
+        return sync_supplier_invoice_step(project_id)
 
     invoice = (
         SupplierProformaInvoice.query.filter_by(project_id=project_id)
@@ -1139,3 +1147,73 @@ def sync_supplier_proforma_invoice_step(project_id: int):
         step_number=10,
         data=step_data,
     )
+
+
+def sync_supplier_invoice_step(project_id: int):
+    from app.models import SupplierInvoice, SupplierProformaInvoice
+
+    invoice = (
+        SupplierInvoice.query.filter_by(project_id=project_id)
+        .order_by(SupplierInvoice.id.desc())
+        .first()
+    )
+
+    if invoice is None:
+        proforma = (
+            SupplierProformaInvoice.query.filter_by(project_id=project_id)
+            .order_by(SupplierProformaInvoice.id.desc())
+            .first()
+        )
+        if proforma is not None:
+            return sync_supplier_proforma_invoice_step(project_id)
+
+        step = (
+            ProjectStep.query.filter_by(
+                project_id=project_id,
+                step_number=10,
+            ).first()
+        )
+        if step is not None:
+            db.session.delete(step)
+            db.session.flush()
+        return None
+
+    inv_date_str = None
+    if invoice.invoice_date:
+        inv_date_str = (
+            invoice.invoice_date.isoformat()
+            if hasattr(invoice.invoice_date, "isoformat")
+            else str(invoice.invoice_date)[:10]
+        )
+
+    invoice_amt = (
+        str(invoice.total_amount)
+        if invoice.total_amount is not None
+        else str(invoice.total_net_amount)
+        if invoice.total_net_amount is not None
+        else None
+    )
+
+    step_data = {
+        "invoice_number": invoice.invoice_no,
+        "invoice_no": invoice.invoice_no,
+        "invoice_date": inv_date_str,
+        "invoice_amount": invoice_amt,
+        "total_amount": str(invoice.total_amount) if invoice.total_amount is not None else None,
+        "total_net_amount": str(invoice.total_net_amount) if invoice.total_net_amount is not None else None,
+        "delivery_terms": invoice.delivery_terms,
+        "delivery_term": invoice.delivery_terms,
+        "delivery_period": invoice.delivery_period,
+        "payment_terms": invoice.payment_terms,
+        "payment_term": invoice.payment_terms,
+        "warranty_period": invoice.warranty_period,
+        "remarks": invoice.remark,
+        "remark": invoice.remark,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=10,
+        data=step_data,
+    )
+

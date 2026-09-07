@@ -1,7 +1,4 @@
-from datetime import date, datetime
-
-from sqlalchemy import Date, DateTime, ForeignKey, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import datetime
 
 from app.extensions.database import db
 
@@ -9,70 +6,133 @@ from app.extensions.database import db
 class SupplierInvoice(db.Model):
     __tablename__ = "supplier_invoices"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+    )
 
-    project_id: Mapped[int] = mapped_column(
-        ForeignKey("projects.id"),
+    project_id = db.Column(
+        db.Integer,
+        db.ForeignKey("projects.id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    supplier_id = db.Column(
+        db.Integer,
+        db.ForeignKey("suppliers.id"),
         nullable=False,
         index=True,
     )
 
-    supplier_id: Mapped[int] = mapped_column(
-        ForeignKey("suppliers.id"),
-        nullable=False,
-        index=True,
-    )
-
-    invoice_number: Mapped[str] = mapped_column(
-        String(100),
+    invoice_no = db.Column(
+        db.String(100),
         nullable=False,
     )
 
-    invoice_date: Mapped[date] = mapped_column(
-        Date,
+    invoice_date = db.Column(
+        db.Date,
         nullable=False,
     )
 
-    currency: Mapped[str] = mapped_column(
-        String(10),
-        nullable=False,
-    )
-
-    delivery_terms: Mapped[str | None] = mapped_column(
-        String(100),
+    delivery_terms = db.Column(
+        db.String(100),
         nullable=True,
     )
 
-    payment_terms: Mapped[str | None] = mapped_column(
-        String(255),
+    delivery_period = db.Column(
+        db.String(100),
         nullable=True,
     )
 
-    warranty_period: Mapped[str | None] = mapped_column(
-        String(100),
+    payment_terms = db.Column(
+        db.String(255),
         nullable=True,
     )
 
-    remark: Mapped[str | None] = mapped_column(
-        Text,
+    warranty_period = db.Column(
+        db.String(100),
         nullable=True,
     )
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
+    total_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    total_net_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    remark = db.Column(
+        db.Text,
+        nullable=True,
+    )
+
+    created_at = db.Column(
+        db.DateTime,
         nullable=False,
+        default=datetime.utcnow,
     )
 
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
+    updated_at = db.Column(
+        db.DateTime,
         nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
     )
 
-    project = relationship("Project")
-    supplier = relationship("Supplier")
+    project = db.relationship(
+        "Project",
+        lazy="select",
+    )
 
-    items = relationship(
+    supplier = db.relationship(
+        "Supplier",
+        lazy="select",
+    )
+
+    items = db.relationship(
         "SupplierInvoiceItem",
         back_populates="invoice",
         cascade="all, delete-orphan",
+        lazy="select",
     )
+
+    # Property aliases for backward/forward compatibility
+    @property
+    def invoice_number(self):
+        return self.invoice_no
+
+    @invoice_number.setter
+    def invoice_number(self, val):
+        self.invoice_no = val
+
+    @property
+    def remarks(self):
+        return self.remark
+
+    @remarks.setter
+    def remarks(self, val):
+        self.remark = val
+
+    @property
+    def delivery_term(self):
+        return self.delivery_terms
+
+    @delivery_term.setter
+    def delivery_term(self, val):
+        self.delivery_terms = val
+
+    @property
+    def payment_term(self):
+        return self.payment_terms
+
+    @payment_term.setter
+    def payment_term(self, val):
+        self.payment_terms = val
+
+    def __repr__(self) -> str:
+        return f"<SupplierInvoice {self.id}>"

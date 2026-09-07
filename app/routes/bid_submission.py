@@ -12,6 +12,8 @@ from app.schemas.bid_submission import (
     BidSubmissionQuerySchema,
     BidSubmissionResponseSchema,
     BidSubmissionUpdateSchema,
+    LatestBidSubmissionQuerySchema,
+    LatestBidSubmissionResponseSchema,
 )
 from app.services.attachment_service import (
     AttachmentValidationError,
@@ -26,6 +28,7 @@ from app.services.bid_submission_service import (
     create_bid_submission_transaction,
     delete_bid_submission_transaction,
     get_bid_submission_record,
+    get_latest_bid_submission_record,
     list_bid_submission_records,
     update_bid_submission_transaction,
 )
@@ -37,6 +40,7 @@ bid_submission_bp = Blueprint(
     url_prefix="/api/v1/bid-submissions",
     description="Bid Submission APIs",
 )
+
 
 
 def _error(code: str, message: str, status: int):
@@ -101,6 +105,34 @@ def _bid_submission_response(bid_submission):
             }
             for attachment in attachments
         ],
+    }
+
+
+def _format_decimal_str(val, places=2):
+    if val is None:
+        return None
+    try:
+        from decimal import Decimal
+        d = Decimal(str(val).strip())
+        return f"{d:.{places}f}"
+    except Exception:
+        return str(val)
+
+
+def _latest_bid_submission_response(bid_submission):
+    return {
+        "delivery_term": bid_submission.delivery_term,
+        "gst_rate": _format_decimal_str(bid_submission.gst_rate, places=2),
+        "items": [
+            {
+                "description": item.description or item.material_name or "",
+                "quantity": _format_decimal_str(item.quantity, places=3) or "0.000",
+                "unit_price": _format_decimal_str(item.unit_price, places=2),
+            }
+            for item in bid_submission.items
+        ],
+        "payment_terms": bid_submission.payment_term,
+        "warranty_period": bid_submission.warranty_period,
     }
 
 
@@ -235,6 +267,45 @@ def list_bid_submissions(args=None):
         return _error("BID_SUBMISSION_LIST_FAILED", "Failed to list bid submissions.", 500)
 
 
+def _handle_get_latest_bid_submission(args=None):
+    if args is None:
+        args = {}
+
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+        or request.args.get("product_id")
+    )
+    if not project_id:
+        return _error("VALIDATION_ERROR", "project_id is required.", 400)
+
+    try:
+        project_id = int(project_id)
+        if project_id <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+
+    try:
+        submission = get_latest_bid_submission_record(project_id)
+        return _latest_bid_submission_response(submission), 200
+    except ProjectNotFoundError as exc:
+        return _error("PROJECT_NOT_FOUND", str(exc), 404)
+    except BidSubmissionNotFoundError as exc:
+        return _error("BID_SUBMISSION_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get latest bid submission")
+        return _error("BID_SUBMISSION_GET_FAILED", "Failed to get latest bid submission.", 500)
+
+
+@bid_submission_bp.get("/latest")
+@bid_submission_bp.doc(security=[{"BearerAuth": []}])
+@bid_submission_bp.arguments(LatestBidSubmissionQuerySchema, location="query")
+@bid_submission_bp.response(200, LatestBidSubmissionResponseSchema)
+@jwt_required()
+def get_latest_bid_submission(args=None):
+    return _handle_get_latest_bid_submission(args)
 
 
 

@@ -5,6 +5,7 @@ from app.repositories.bid_submission_repository import (
     delete_bid_submission,
     get_bid_submission,
     get_customer_tender,
+    get_latest_bid_submission_for_project,
     get_latest_customer_tender_for_project,
     get_project,
     list_bid_submissions,
@@ -77,6 +78,17 @@ def get_bid_submission_record(bid_submission_id: int) -> BidSubmission:
     submission = get_bid_submission(bid_submission_id)
     if submission is None:
         raise BidSubmissionNotFoundError(f"Bid submission with ID {bid_submission_id} not found.")
+    return submission
+
+
+def get_latest_bid_submission_record(project_id: int) -> BidSubmission:
+    project = get_project(project_id)
+    if project is None:
+        raise ProjectNotFoundError(f"Project with ID {project_id} not found.")
+
+    submission = get_latest_bid_submission_for_project(project_id)
+    if submission is None:
+        raise BidSubmissionNotFoundError(f"No bid submission found for project ID {project_id}.")
     return submission
 
 

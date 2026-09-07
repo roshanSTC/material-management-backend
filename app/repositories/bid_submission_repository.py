@@ -148,6 +148,19 @@ def list_bid_submissions(
     ).scalars().all()
 
 
+def get_latest_bid_submission_for_project(project_id: int) -> BidSubmission | None:
+    return (
+        db.session.execute(
+            db.select(BidSubmission)
+            .options(selectinload(BidSubmission.items))
+            .where(BidSubmission.project_id == project_id)
+            .order_by(BidSubmission.id.desc())
+        )
+        .scalars()
+        .first()
+    )
+
+
 def update_bid_submission(
     bid_submission: BidSubmission,
     *,

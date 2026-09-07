@@ -72,5 +72,4 @@ def create_app(config_class=Config):
     api.register_blueprint(customer_tender_bp)
     api.register_blueprint(bid_submission_bp)
     api.register_blueprint(purchase_order_bp)
-
     return app

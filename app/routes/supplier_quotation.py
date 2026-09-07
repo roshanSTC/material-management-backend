@@ -6,6 +6,8 @@ from flask_smorest import Blueprint
 
 from app.extensions.database import db
 from app.schemas.supplier_quotation import (
+    LatestSupplierQuotationQuerySchema,
+    LatestSupplierQuotationResponseSchema,
     SupplierQuotationCreateSchema,
     SupplierQuotationResponseSchema,
     SupplierQuotationUpdateSchema,
@@ -24,6 +26,7 @@ from app.services.supplier_quotation_service import (
     SupplierQuotationNotFoundError,
     create_supplier_quotation_transaction,
     delete_supplier_quotation_transaction,
+    get_latest_supplier_quotation_record,
     get_supplier_quotation_record,
     list_supplier_quotation_records,
     update_supplier_quotation_transaction,
@@ -35,6 +38,27 @@ supplier_quotation_bp = Blueprint(
     __name__,
     url_prefix="/api/v1/supplier-quotations",
     description="Supplier Quotation APIs",
+)
+
+supplier_quotation_alias_bp = Blueprint(
+    "supplier_quotations_alias",
+    __name__,
+    url_prefix="/api/v1/supplier-quotation",
+    description="Supplier Quotation APIs (singular alias)",
+)
+
+supplier_quotation_v2_bp = Blueprint(
+    "supplier_quotations_v2",
+    __name__,
+    url_prefix="/api/v2/supplier-quotations",
+    description="Supplier Quotation APIs v2",
+)
+
+supplier_quotation_v2_alias_bp = Blueprint(
+    "supplier_quotations_v2_alias",
+    __name__,
+    url_prefix="/api/v2/supplier-quotation",
+    description="Supplier Quotation APIs v2 (singular alias)",
 )
 
 
@@ -86,6 +110,75 @@ def _supplier_quotation_response(supplier_quotation):
             for attachment in attachments
         ],
     }
+
+
+def _format_decimal_str(val, places=2):
+    if val is None:
+        return None
+    try:
+        from decimal import Decimal
+        d = Decimal(str(val).strip())
+        return f"{d:.{places}f}"
+    except Exception:
+        return str(val)
+
+
+def _latest_supplier_quotation_response(sq):
+    items_list = []
+    for item in sq.items:
+        qty = item.quantity
+        price = item.unit_price
+        net_amt = item.net_amount
+        if net_amt is None and qty is not None and price is not None:
+            try:
+                from decimal import Decimal
+                net_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
+            except Exception:
+                pass
+
+        items_list.append({
+            "material_name": item.material_name,
+            "unit_price": _format_decimal_str(price, places=2),
+            "quantity": _format_decimal_str(qty, places=3) or "0.000",
+            "net_amount": _format_decimal_str(net_amt, places=2),
+        })
+
+    return {
+        "items": items_list,
+        "incoterms": sq.incoterms,
+        "payment_terms": sq.payment_terms,
+    }
+
+
+def _handle_get_latest_supplier_quotation(args=None):
+    if args is None:
+        args = {}
+
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    if not project_id:
+        return _error("PROJECT_ID_REQUIRED", "project_id query parameter is required.", 400)
+
+    try:
+        project_id = int(project_id)
+        if project_id <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+
+    try:
+        sq = get_latest_supplier_quotation_record(project_id)
+        return _latest_supplier_quotation_response(sq), 200
+    except ProjectNotFoundError as exc:
+        return _error("PROJECT_NOT_FOUND", str(exc), 404)
+    except SupplierQuotationNotFoundError as exc:
+        return _error("SUPPLIER_QUOTATION_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get latest supplier quotation")
+        return _error("SUPPLIER_QUOTATION_GET_FAILED", "Failed to get latest supplier quotation.", 500)
 
 
 def _parse_form_data(schema):
@@ -239,16 +332,7 @@ def list_all():
     ], 200
 
 
-# @supplier_quotation_bp.get("/<int:supplier_quotation_id>")
-# @supplier_quotation_bp.doc(security=[{"BearerAuth": []}])
-# @supplier_quotation_bp.response(200, SupplierQuotationResponseSchema)
-# @jwt_required()
-# def get(supplier_quotation_id):
-#     try:
-#         supplier_quotation = get_supplier_quotation_record(supplier_quotation_id)
-#     except SupplierQuotationNotFoundError as exc:
-#         return _error("SUPPLIER_QUOTATION_NOT_FOUND", str(exc), 404)
-#     return _supplier_quotation_response(supplier_quotation), 200
+
 
 
 @supplier_quotation_bp.patch("/<int:supplier_quotation_id>")
@@ -405,3 +489,20 @@ def delete(supplier_quotation_id):
                 "message": str(exc),
             },
         }, 500
+
+
+
+
+
+# Backward compatibility (v1: /api/v1/supplier-quotations/latest and /api/v1/supplier-quotation/latest)
+@supplier_quotation_bp.get("/latest")
+@supplier_quotation_bp.doc(security=[{"BearerAuth": []}])
+@supplier_quotation_bp.arguments(LatestSupplierQuotationQuerySchema, location="query")
+@supplier_quotation_bp.response(200, LatestSupplierQuotationResponseSchema)
+@jwt_required()
+def get_latest_supplier_quotation_v1(args=None):
+    return _handle_get_latest_supplier_quotation(args)
+
+
+
+

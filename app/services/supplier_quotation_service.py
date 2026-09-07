@@ -2,6 +2,7 @@ from app.extensions.database import db
 from app.models import SupplierQuotation
 from app.repositories.supplier_quotation_repository import (
     create_supplier_quotation,
+    get_latest_supplier_quotation_for_project,
     get_project,
     get_supplier,
     get_supplier_quotation,
@@ -51,6 +52,20 @@ def get_supplier_quotation_record(
             f"Supplier quotation with id {supplier_quotation_id} was not found."
         )
     return supplier_quotation
+
+
+def get_latest_supplier_quotation_record(project_id: int) -> SupplierQuotation:
+    project = get_project(project_id)
+    if project is None:
+        raise ProjectNotFoundError(f"Project with id {project_id} was not found.")
+
+    supplier_quotation = get_latest_supplier_quotation_for_project(project_id)
+    if supplier_quotation is None:
+        raise SupplierQuotationNotFoundError(
+            f"No supplier quotation found for project id {project_id}."
+        )
+    return supplier_quotation
+
 
 
 def create_supplier_quotation_transaction(*, data: dict) -> SupplierQuotation:

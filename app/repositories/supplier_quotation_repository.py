@@ -60,6 +60,18 @@ def list_supplier_quotations(
     ).scalars().all()
 
 
+def get_latest_supplier_quotation_for_project(
+    project_id: int,
+) -> SupplierQuotation | None:
+    return db.session.execute(
+        db.select(SupplierQuotation)
+        .options(selectinload(SupplierQuotation.items))
+        .where(SupplierQuotation.project_id == project_id)
+        .order_by(SupplierQuotation.id.desc())
+    ).scalars().first()
+
+
+
 def update_supplier_quotation(
     supplier_quotation: SupplierQuotation,
     *,

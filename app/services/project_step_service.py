@@ -1,8 +1,14 @@
 from datetime import datetime, timezone
 
 from app.extensions.database import db
-from app.models import BidSubmission, CustomerTender, Project, ProjectStep, PurchaseOrder
-
+from app.models import (
+    BidSubmission,
+    CustomerTender,
+    Project,
+    ProjectStep,
+    PurchaseOrder,
+    SupplierOrderConfirmation,
+)
 
 STEP_DEFINITIONS = {
     1: {
@@ -1007,6 +1013,57 @@ def sync_purchase_order_step(project_id: int):
     )
 
 
+def sync_supplier_order_confirmation_step(project_id: int):
+    order_confirmation = (
+        SupplierOrderConfirmation.query.filter_by(project_id=project_id)
+        .order_by(SupplierOrderConfirmation.id.desc())
+        .first()
+    )
 
+    if order_confirmation is None:
+        step = (
+            ProjectStep.query.filter_by(
+                project_id=project_id,
+                step_number=9,
+            ).first()
+        )
+        if step is not None:
+            db.session.delete(step)
+            db.session.flush()
+        return None
 
+    conf_date_str = None
+    if order_confirmation.order_confirmation_date:
+        conf_date_str = (
+            order_confirmation.order_confirmation_date.isoformat()
+            if hasattr(order_confirmation.order_confirmation_date, "isoformat")
+            else str(order_confirmation.order_confirmation_date)[:10]
+        )
 
+    expected_delivery = order_confirmation.delivery_period or ""
+
+    step_data = {
+        "confirmation_date": conf_date_str,
+        "order_confirmation_date": conf_date_str,
+        "expected_delivery_date": expected_delivery,
+        "delivery_period": order_confirmation.delivery_period,
+        "delivery_term": order_confirmation.delivery_period,
+        "shipping_terms": order_confirmation.shipping_terms,
+        "shipping_term": order_confirmation.shipping_terms,
+        "ref_no": order_confirmation.ref_no,
+        "reference_number": order_confirmation.ref_no,
+        "email": order_confirmation.email,
+        "payment_terms": order_confirmation.payment_terms,
+        "payment_term": order_confirmation.payment_terms,
+        "warranty_period": order_confirmation.warranty_period,
+        "total_amount": str(order_confirmation.total_amount) if order_confirmation.total_amount is not None else None,
+        "total_net_amount": str(order_confirmation.total_net_amount) if order_confirmation.total_net_amount is not None else None,
+        "remarks": order_confirmation.remark,
+        "remark": order_confirmation.remark,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=9,
+        data=step_data,
+    )

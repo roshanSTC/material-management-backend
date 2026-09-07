@@ -40,26 +40,6 @@ supplier_quotation_bp = Blueprint(
     description="Supplier Quotation APIs",
 )
 
-supplier_quotation_alias_bp = Blueprint(
-    "supplier_quotations_alias",
-    __name__,
-    url_prefix="/api/v1/supplier-quotation",
-    description="Supplier Quotation APIs (singular alias)",
-)
-
-supplier_quotation_v2_bp = Blueprint(
-    "supplier_quotations_v2",
-    __name__,
-    url_prefix="/api/v2/supplier-quotations",
-    description="Supplier Quotation APIs v2",
-)
-
-supplier_quotation_v2_alias_bp = Blueprint(
-    "supplier_quotations_v2_alias",
-    __name__,
-    url_prefix="/api/v2/supplier-quotation",
-    description="Supplier Quotation APIs v2 (singular alias)",
-)
 
 
 def _supplier_quotation_response(supplier_quotation):

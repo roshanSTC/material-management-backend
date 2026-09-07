@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from app.extensions.database import db
-from app.models import BidSubmission, CustomerTender, Project, ProjectStep
+from app.models import BidSubmission, CustomerTender, Project, ProjectStep, PurchaseOrder
 
 
 STEP_DEFINITIONS = {
@@ -934,6 +934,78 @@ def sync_bid_submission_step(project_id: int):
         step_number=7,
         data=step_data,
     )
+
+
+def sync_purchase_order_step(project_id: int):
+    purchase_order = (
+        PurchaseOrder.query.filter_by(project_id=project_id)
+        .order_by(PurchaseOrder.id.desc())
+        .first()
+    )
+
+    if purchase_order is None:
+        step = (
+            ProjectStep.query.filter_by(
+                project_id=project_id,
+                step_number=8,
+            ).first()
+        )
+        if step is not None:
+            db.session.delete(step)
+            db.session.flush()
+        return None
+
+    po_date_str = None
+    if purchase_order.po_date:
+        po_date_str = (
+            purchase_order.po_date.isoformat()
+            if hasattr(purchase_order.po_date, "isoformat")
+            else str(purchase_order.po_date)[:10]
+        )
+
+    po_amount_str = None
+    if purchase_order.total_gross_amount is not None:
+        po_amount_str = str(purchase_order.total_gross_amount)
+    elif purchase_order.total_net_amount is not None:
+        po_amount_str = str(purchase_order.total_net_amount)
+
+    del_date_str = None
+    if purchase_order.delivery_date:
+        del_date_str = (
+            purchase_order.delivery_date.isoformat()
+            if hasattr(purchase_order.delivery_date, "isoformat")
+            else str(purchase_order.delivery_date)[:10]
+        )
+
+    step_data = {
+        "po_number": purchase_order.po_number,
+        "po_no": purchase_order.po_number,
+        "po_title": purchase_order.po_title,
+        "po_date": po_date_str,
+        "po_amount": po_amount_str,
+        "poc_name": purchase_order.poc_name,
+        "email": purchase_order.email,
+        "contact": purchase_order.contact,
+        "delivery_date": del_date_str,
+        "delivery_term": purchase_order.delivery_term,
+        "delivery_terms": purchase_order.delivery_term,
+        "payment_terms": purchase_order.payment_terms,
+        "payment_term": purchase_order.payment_terms,
+        "warranty_period": purchase_order.warranty_period,
+        "gst_rate": str(purchase_order.gst_rate) if purchase_order.gst_rate is not None else None,
+        "gst_amount": str(purchase_order.gst_amount) if purchase_order.gst_amount is not None else None,
+        "total_net_amount": str(purchase_order.total_net_amount) if purchase_order.total_net_amount is not None else None,
+        "total_gross_amount": str(purchase_order.total_gross_amount) if purchase_order.total_gross_amount is not None else None,
+        "remarks": purchase_order.remark,
+        "remark": purchase_order.remark,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=8,
+        data=step_data,
+    )
+
 
 
 

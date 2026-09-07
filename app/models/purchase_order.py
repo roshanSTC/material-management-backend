@@ -62,8 +62,23 @@ class PurchaseOrder(db.Model):
         nullable=False,
     )
 
-    gst = db.Column(
+    gst_rate = db.Column(
         db.Numeric(5, 2),
+        nullable=True,
+    )
+
+    gst_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    total_net_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    total_gross_amount = db.Column(
+        db.Numeric(18, 2),
         nullable=True,
     )
 
@@ -132,6 +147,46 @@ class PurchaseOrder(db.Model):
         back_populates="purchase_order",
         lazy="select",
     )
+
+    @property
+    def po_no(self) -> str:
+        return self.po_number
+
+    @po_no.setter
+    def po_no(self, val: str) -> None:
+        self.po_number = val
+
+    @property
+    def gst(self):
+        return self.gst_rate
+
+    @gst.setter
+    def gst(self, val):
+        self.gst_rate = val
+
+    @property
+    def delivery_terms(self):
+        return self.delivery_term
+
+    @delivery_terms.setter
+    def delivery_terms(self, val):
+        self.delivery_term = val
+
+    @property
+    def payment_term(self):
+        return self.payment_terms
+
+    @payment_term.setter
+    def payment_term(self, val):
+        self.payment_terms = val
+
+    @property
+    def remarks(self):
+        return self.remark
+
+    @remarks.setter
+    def remarks(self, val):
+        self.remark = val
 
     def __repr__(self) -> str:
         return f"<PurchaseOrder {self.id}>"

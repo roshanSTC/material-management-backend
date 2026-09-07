@@ -18,6 +18,11 @@ class PurchaseOrderItem(db.Model):
         index=True,
     )
 
+    material_name = db.Column(
+        db.String(255),
+        nullable=True,
+    )
+
     description = db.Column(
         db.String(500),
         nullable=False,
@@ -38,6 +43,11 @@ class PurchaseOrderItem(db.Model):
         nullable=False,
     )
 
+    net_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
     created_at = db.Column(
         db.DateTime,
         nullable=False,
@@ -48,6 +58,14 @@ class PurchaseOrderItem(db.Model):
         "PurchaseOrder",
         back_populates="items",
     )
+
+    @property
+    def hsn_sac(self):
+        return self.hsn_code
+
+    @hsn_sac.setter
+    def hsn_sac(self, val):
+        self.hsn_code = val
 
     def __repr__(self) -> str:
         return f"<PurchaseOrderItem {self.id}>"

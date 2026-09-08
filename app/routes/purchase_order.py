@@ -7,6 +7,7 @@ from marshmallow import ValidationError
 
 from app.extensions.database import db
 from app.schemas.purchase_order import (
+    LatestPurchaseOrderResponseSchema,
     PurchaseOrderCreateSchema,
     PurchaseOrderQuerySchema,
     PurchaseOrderResponseSchema,
@@ -109,6 +110,67 @@ def _purchase_order_response(purchase_order):
             }
             for attachment in attachments
         ],
+    }
+
+
+def _format_decimal_str(val, places=2):
+    if val is None:
+        return None
+    try:
+        from decimal import Decimal
+        d = Decimal(str(val).strip())
+        return f"{d:.{places}f}"
+    except Exception:
+        return str(val)
+
+
+def _latest_purchase_order_response(purchase_order):
+    items_list = []
+    for item in purchase_order.items:
+        qty = item.quantity
+        price = item.unit_price
+        net_amt = item.net_amount
+        if net_amt is None and qty is not None and price is not None:
+            try:
+                from decimal import Decimal
+                net_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
+            except Exception:
+                pass
+
+        items_list.append({
+            "material_name": item.material_name or item.description,
+            "hsn_code": item.hsn_code,
+            "quantity": _format_decimal_str(qty, places=3) or "0.000",
+            "unit_price": _format_decimal_str(price, places=2),
+            "net_amount": _format_decimal_str(net_amt, places=2),
+        })
+
+    tot_net = purchase_order.total_net_amount
+    if tot_net is None and items_list:
+        try:
+            from decimal import Decimal
+            tot = sum(
+                Decimal(str(it["net_amount"]))
+                for it in items_list
+                if it.get("net_amount") is not None
+            )
+            tot_net = tot
+        except Exception:
+            pass
+
+    gst_amt = purchase_order.gst_amount
+    if gst_amt is None and purchase_order.gst_rate is not None and tot_net is not None:
+        try:
+            from decimal import Decimal
+            gst_amt = (Decimal(str(tot_net)) * Decimal(str(purchase_order.gst_rate)) / Decimal("100")).quantize(Decimal("0.01"))
+        except Exception:
+            pass
+
+    return {
+        "gst_rate": _format_decimal_str(purchase_order.gst_rate, places=2),
+        "gst_amount": _format_decimal_str(gst_amt, places=2),
+        "total_net_amount": _format_decimal_str(tot_net, places=2),
+        "items": items_list,
     }
 
 
@@ -253,12 +315,21 @@ def list_purchase_orders(args=None):
 
 
 @purchase_order_bp.get("/latest")
-@purchase_order_bp.doc(security=[{"BearerAuth": []}])
-@purchase_order_bp.response(200, PurchaseOrderResponseSchema)
+@purchase_order_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Purchase Order for Project",
+    description="Retrieve the latest purchase order for a project containing gst_rate, gst_amount, total_net_amount, and items (material_name, hsn_code, quantity, unit_price, net_amount).",
+)
+@purchase_order_bp.arguments(PurchaseOrderQuerySchema, location="query")
+@purchase_order_bp.response(200, LatestPurchaseOrderResponseSchema)
 @jwt_required()
-def get_latest_purchase_order():
+def get_latest_purchase_order(args=None):
+    if args is None:
+        args = {}
+
     project_id = (
-        request.args.get("project_id")
+        args.get("project_id")
+        or request.args.get("project_id")
         or request.args.get("projectId")
     )
     if not project_id:
@@ -273,7 +344,7 @@ def get_latest_purchase_order():
 
     try:
         po = get_latest_purchase_order_record(project_id)
-        return _purchase_order_response(po), 200
+        return _latest_purchase_order_response(po), 200
     except ProjectNotFoundError as exc:
         return _error("PROJECT_NOT_FOUND", str(exc), 404)
     except PurchaseOrderNotFoundError as exc:
@@ -281,6 +352,9 @@ def get_latest_purchase_order():
     except Exception:
         current_app.logger.exception("Failed to get latest purchase order")
         return _error("PURCHASE_ORDER_GET_FAILED", "Failed to get latest purchase order.", 500)
+
+
+
 
 
 @purchase_order_bp.patch("/<int:purchase_order_id>")

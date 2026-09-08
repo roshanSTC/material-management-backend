@@ -695,3 +695,28 @@ class PurchaseOrderResponseSchema(Schema):
         fields.Nested(AttachmentResponseSchema),
         required=False,
     )
+
+
+class LatestPurchaseOrderItemResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    material_name = fields.String(allow_none=True)
+    hsn_code = fields.String(allow_none=True)
+    quantity = fields.Decimal(as_string=True, places=3, required=True)
+    unit_price = fields.Decimal(as_string=True, places=2, allow_none=True)
+    net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+
+
+class LatestPurchaseOrderResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    gst_rate = fields.Decimal(as_string=True, places=2, allow_none=True)
+    gst_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+    total_net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+    items = fields.List(
+        fields.Nested(LatestPurchaseOrderItemResponseSchema),
+        required=True,
+    )
+

@@ -18,7 +18,7 @@ class CustomerDeliveryInvoice(db.Model):
         index=True,
     )
 
-    invoice_number = db.Column(
+    invoice_no = db.Column(
         db.String(100),
         nullable=False,
     )
@@ -29,11 +29,21 @@ class CustomerDeliveryInvoice(db.Model):
     )
 
     gst_rate = db.Column(
-        db.Numeric(5, 2),
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    gst_amount = db.Column(
+        db.Numeric(18, 2),
         nullable=True,
     )
 
     round_off = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    net_total = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )
@@ -69,8 +79,25 @@ class CustomerDeliveryInvoice(db.Model):
         lazy="select",
     )
 
+    # Property aliases for backward/forward compatibility
+    @property
+    def invoice_number(self):
+        return self.invoice_no
+
+    @invoice_number.setter
+    def invoice_number(self, val):
+        self.invoice_no = val
+
+    @property
+    def remarks(self):
+        return self.remark
+
+    @remarks.setter
+    def remarks(self, val):
+        self.remark = val
+
     def __repr__(self) -> str:
         return (
             f"<CustomerDeliveryInvoice "
-            f"{self.id}: {self.invoice_number}>"
+            f"{self.id}: {self.invoice_no}>"
         )

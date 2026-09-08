@@ -57,17 +57,13 @@ def create_import_logistics_transaction(data: dict) -> ImportLogistics:
         if not supplier:
             raise SupplierNotFoundError(f"Supplier with ID {supplier_id} not found.")
 
+    logistics = repository.create_import_logistics(data)
     try:
-        logistics = repository.create_import_logistics(data)
-        try:
-            sync_import_logistics_step(project_id)
-        except Exception:
-            pass
-        db.session.commit()
-        return logistics
+        sync_import_logistics_step(project_id)
     except Exception:
-        db.session.rollback()
-        raise
+        pass
+    db.session.flush()
+    return logistics
 
 
 def update_import_logistics_transaction(
@@ -94,17 +90,13 @@ def update_import_logistics_transaction(
                 f"Supplier with ID {data['supplier_id']} not found."
             )
 
+    updated = repository.update_import_logistics(logistics, data)
     try:
-        updated = repository.update_import_logistics(logistics, data)
-        try:
-            sync_import_logistics_step(updated.project_id)
-        except Exception:
-            pass
-        db.session.commit()
-        return updated
+        sync_import_logistics_step(updated.project_id)
     except Exception:
-        db.session.rollback()
-        raise
+        pass
+    db.session.flush()
+    return updated
 
 
 def delete_import_logistics_transaction(logistics_id: int) -> list[str]:
@@ -125,17 +117,13 @@ def delete_import_logistics_transaction(logistics_id: int) -> list[str]:
     )
     storage_keys = [att.storage_key for att in attachments if att.storage_key]
 
+    for att in attachments:
+        db.session.delete(att)
+    repository.delete_import_logistics(logistics)
     try:
-        for att in attachments:
-            db.session.delete(att)
-        repository.delete_import_logistics(logistics)
-        try:
-            sync_import_logistics_step(project_id)
-        except Exception:
-            pass
-        db.session.commit()
-        return storage_keys
+        sync_import_logistics_step(project_id)
     except Exception:
-        db.session.rollback()
-        raise
+        pass
+    db.session.flush()
+    return storage_keys
 

@@ -197,6 +197,18 @@ def _extract_payload_and_files():
     return raw_payload, files
 
 
+def _cleanup_uploaded_files(storage_keys: list[str]) -> None:
+    storage = get_storage()
+    for storage_key in storage_keys:
+        try:
+            if storage.exists(storage_key):
+                storage.delete(storage_key)
+        except Exception:
+            current_app.logger.exception(
+                "Failed to cleanup attachment: %s", storage_key
+            )
+
+
 @purchase_order_bp.post("")
 @purchase_order_bp.doc(
     security=[{"BearerAuth": []}],
@@ -243,39 +255,47 @@ def create_purchase_order():
     except ValidationError as err:
         return _error("VALIDATION_ERROR", str(err.messages), 422)
 
+    storage_keys = []
     try:
         purchase_order = create_purchase_order_transaction(data=validated_data)
 
         for file in files:
             if not file or not getattr(file, "filename", None):
                 continue
-            create_attachment(
+            _, storage_key = create_attachment(
                 file=file,
                 entity_type="purchase_order",
                 entity_id=purchase_order.id,
                 uploaded_by=user_id,
             )
+            storage_keys.append(storage_key)
 
         db.session.commit()
         return _purchase_order_response(purchase_order), 201
 
     except ProjectNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("PROJECT_NOT_FOUND", str(exc), 404)
     except CustomerNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("CUSTOMER_NOT_FOUND", str(exc), 404)
     except CustomerProjectMismatchError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("CUSTOMER_PROJECT_MISMATCH", str(exc), 400)
     except TenderNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("TENDER_NOT_FOUND", str(exc), 404)
     except AttachmentValidationError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("ATTACHMENT_VALIDATION_ERROR", str(exc), 400)
     except Exception:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         current_app.logger.exception("Failed to create purchase order")
         return _error("PURCHASE_ORDER_CREATE_FAILED", "Failed to create purchase order.", 500)
 
@@ -356,7 +376,6 @@ def get_latest_purchase_order(args=None):
 
 
 
-
 @purchase_order_bp.patch("/<int:purchase_order_id>")
 @purchase_order_bp.doc(
     security=[{"BearerAuth": []}],
@@ -402,6 +421,7 @@ def update_purchase_order(purchase_order_id):
     except ValidationError as err:
         return _error("VALIDATION_ERROR", str(err.messages), 422)
 
+    storage_keys = []
     try:
         purchase_order = update_purchase_order_transaction(
             purchase_order_id=purchase_order_id,
@@ -411,36 +431,44 @@ def update_purchase_order(purchase_order_id):
         for file in files:
             if not file or not getattr(file, "filename", None):
                 continue
-            create_attachment(
+            _, storage_key = create_attachment(
                 file=file,
                 entity_type="purchase_order",
                 entity_id=purchase_order.id,
                 uploaded_by=user_id,
             )
+            storage_keys.append(storage_key)
 
         db.session.commit()
         return _purchase_order_response(purchase_order), 200
 
     except PurchaseOrderNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("PURCHASE_ORDER_NOT_FOUND", str(exc), 404)
     except ProjectNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("PROJECT_NOT_FOUND", str(exc), 404)
     except CustomerNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("CUSTOMER_NOT_FOUND", str(exc), 404)
     except CustomerProjectMismatchError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("CUSTOMER_PROJECT_MISMATCH", str(exc), 400)
     except TenderNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("TENDER_NOT_FOUND", str(exc), 404)
     except AttachmentValidationError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("ATTACHMENT_VALIDATION_ERROR", str(exc), 400)
     except Exception:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         current_app.logger.exception("Failed to update purchase order")
         return _error("PURCHASE_ORDER_UPDATE_FAILED", "Failed to update purchase order.", 500)
 

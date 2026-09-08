@@ -127,6 +127,18 @@ def _extract_payload_and_files():
     return raw_payload, files
 
 
+def _cleanup_uploaded_files(storage_keys: list[str]) -> None:
+    storage = get_storage()
+    for storage_key in storage_keys:
+        try:
+            if storage.exists(storage_key):
+                storage.delete(storage_key)
+        except Exception:
+            current_app.logger.exception(
+                "Failed to cleanup attachment: %s", storage_key
+            )
+
+
 def _handle_create_supplier_invoice():
     try:
         user_id = int(get_jwt_identity())
@@ -140,36 +152,43 @@ def _handle_create_supplier_invoice():
     except ValidationError as err:
         return _error("VALIDATION_ERROR", str(err.messages), 422)
 
+    storage_keys = []
     try:
         invoice = create_supplier_invoice_transaction(data=validated_data)
 
         for file in files:
             if not file or not getattr(file, "filename", None):
                 continue
-            create_attachment(
+            _, storage_key = create_attachment(
                 file=file,
                 entity_type="supplier_invoice",
                 entity_id=invoice.id,
                 uploaded_by=user_id,
             )
+            storage_keys.append(storage_key)
 
         db.session.commit()
         return _supplier_invoice_response(invoice), 201
 
     except SupplierInvoiceAlreadyExistsError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("SUPPLIER_INVOICE_ALREADY_EXISTS", str(exc), 409)
     except ProjectNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("PROJECT_NOT_FOUND", str(exc), 404)
     except SupplierNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("SUPPLIER_NOT_FOUND", str(exc), 404)
     except AttachmentValidationError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("ATTACHMENT_VALIDATION_ERROR", str(exc), 400)
     except Exception:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         current_app.logger.exception("Failed to create supplier invoice")
         return _error(
             "SUPPLIER_INVOICE_CREATE_FAILED",
@@ -239,6 +258,7 @@ def _handle_update_supplier_invoice(supplier_invoice_id: int):
     except ValidationError as err:
         return _error("VALIDATION_ERROR", str(err.messages), 422)
 
+    storage_keys = []
     try:
         invoice = update_supplier_invoice_transaction(
             invoice_id=supplier_invoice_id,
@@ -248,33 +268,40 @@ def _handle_update_supplier_invoice(supplier_invoice_id: int):
         for file in files:
             if not file or not getattr(file, "filename", None):
                 continue
-            create_attachment(
+            _, storage_key = create_attachment(
                 file=file,
                 entity_type="supplier_invoice",
                 entity_id=invoice.id,
                 uploaded_by=user_id,
             )
+            storage_keys.append(storage_key)
 
         db.session.commit()
         return _supplier_invoice_response(invoice), 200
 
     except SupplierInvoiceNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("SUPPLIER_INVOICE_NOT_FOUND", str(exc), 404)
     except SupplierInvoiceAlreadyExistsError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("SUPPLIER_INVOICE_ALREADY_EXISTS", str(exc), 409)
     except ProjectNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("PROJECT_NOT_FOUND", str(exc), 404)
     except SupplierNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("SUPPLIER_NOT_FOUND", str(exc), 404)
     except AttachmentValidationError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("ATTACHMENT_VALIDATION_ERROR", str(exc), 400)
     except Exception:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         current_app.logger.exception("Failed to update supplier invoice")
         return _error(
             "SUPPLIER_INVOICE_UPDATE_FAILED",
@@ -324,6 +351,7 @@ _REQUEST_BODY_CREATE_DOC = {
                     "data": {
                         "type": "string",
                         "description": "Serialized JSON string matching SupplierInvoiceCreateSchema",
+                        "example":('{"project_id":1,"invoice_no":"GD-234-GGJ","invoice_date":"2026-09-08","delivery_terms":"CPT","payment_terms":"34 % inadvance","warranty_period":"12 days","delivery_period":"2 week","total_amount":23691,"total_net_amount":23691,"remark":" Invoice Documents & Attachments\n","items":[{"material_name":"cold ice tank","description":"cold ice tank","hsn_code":"46","quantity":21,"unit_price":55,"net_amount":1155},{"material_name":"steel heaters","description":"steel heaters","hsn_code":"4563","quantity":50,"unit_price":34,"net_amount":1700},{"material_name":"Textiles","description":"Textiles","hsn_code":"465","quantity":12,"unit_price":34,"net_amount":408},{"material_name":"Rubber","description":"Rubber","hsn_code":"njlk5423","quantity":12,"unit_price":21,"net_amount":252},{"material_name":"Rubber","description":"Rubber","hsn_code":"rytf588","quantity":123,"unit_price":7,"net_amount":861},{"material_name":"Glass","description":"Glass","hsn_code":"","quantity":324,"unit_price":45,"net_amount":14580},{"material_name":"Plastics","description":"Plastics","hsn_code":"","quantity":12,"unit_price":43,"net_amount":516},{"material_name":"Metals plate","description":"Metals plate","hsn_code":"","quantity":121,"unit_price":34,"net_amount":4114},{"material_name":"steeeel wood bord","description":"steeeel wood bord","hsn_code":"","quantity":21,"unit_price":5,"net_amount":105}]}'),
                     },
                     "file": {
                         "type": "array",
@@ -348,6 +376,7 @@ _REQUEST_BODY_UPDATE_DOC = {
                     "data": {
                         "type": "string",
                         "description": "Serialized JSON string matching SupplierInvoiceUpdateSchema",
+                        "example":('{"project_id":1,"invoice_no":"GD-234-GGJ","invoice_date":"2026-09-08","delivery_terms":"CPT","payment_terms":"34 % inadvance","warranty_period":"12 days","delivery_period":"2 week","total_amount":23691,"total_net_amount":23691,"remark":" Invoice Documents & Attachments\n","items":[{"material_name":"cold ice tank","description":"cold ice tank","hsn_code":"46","quantity":21,"unit_price":55,"net_amount":1155},{"material_name":"steel heaters","description":"steel heaters","hsn_code":"4563","quantity":50,"unit_price":34,"net_amount":1700},{"material_name":"Textiles","description":"Textiles","hsn_code":"465","quantity":12,"unit_price":34,"net_amount":408},{"material_name":"Rubber","description":"Rubber","hsn_code":"njlk5423","quantity":12,"unit_price":21,"net_amount":252},{"material_name":"Rubber","description":"Rubber","hsn_code":"rytf588","quantity":123,"unit_price":7,"net_amount":861},{"material_name":"Glass","description":"Glass","hsn_code":"","quantity":324,"unit_price":45,"net_amount":14580},{"material_name":"Plastics","description":"Plastics","hsn_code":"","quantity":12,"unit_price":43,"net_amount":516},{"material_name":"Metals plate","description":"Metals plate","hsn_code":"","quantity":121,"unit_price":34,"net_amount":4114},{"material_name":"steeeel wood bord","description":"steeeel wood bord","hsn_code":"","quantity":21,"unit_price":5,"net_amount":105}]}'),
                     },
                     "file": {
                         "type": "array",

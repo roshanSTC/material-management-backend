@@ -129,6 +129,18 @@ def _extract_payload_and_files():
     return raw_payload, files
 
 
+def _cleanup_uploaded_files(storage_keys: list[str]) -> None:
+    storage = get_storage()
+    for storage_key in storage_keys:
+        try:
+            if storage.exists(storage_key):
+                storage.delete(storage_key)
+        except Exception:
+            current_app.logger.exception(
+                "Failed to cleanup attachment: %s", storage_key
+            )
+
+
 def _handle_create_import_logistics():
     try:
         user_id = int(get_jwt_identity())
@@ -142,33 +154,39 @@ def _handle_create_import_logistics():
     except ValidationError as err:
         return _error("VALIDATION_ERROR", str(err.messages), 422)
 
+    storage_keys = []
     try:
         logistics = create_import_logistics_transaction(data=validated_data)
 
         for file in files:
             if not file or not getattr(file, "filename", None):
                 continue
-            create_attachment(
+            _, storage_key = create_attachment(
                 file=file,
                 entity_type="import_logistics",
                 entity_id=logistics.id,
                 uploaded_by=user_id,
             )
+            storage_keys.append(storage_key)
 
         db.session.commit()
         return _import_logistics_response(logistics), 201
 
     except ProjectNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("PROJECT_NOT_FOUND", str(exc), 404)
     except SupplierNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("SUPPLIER_NOT_FOUND", str(exc), 404)
     except AttachmentValidationError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("ATTACHMENT_VALIDATION_ERROR", str(exc), 400)
     except Exception:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         current_app.logger.exception("Failed to create import logistics")
         return _error(
             "IMPORT_LOGISTICS_CREATE_FAILED",
@@ -255,6 +273,7 @@ def _handle_update_import_logistics(logistics_id: int):
     except ValidationError as err:
         return _error("VALIDATION_ERROR", str(err.messages), 422)
 
+    storage_keys = []
     try:
         record = update_import_logistics_transaction(
             logistics_id=logistics_id,
@@ -264,30 +283,36 @@ def _handle_update_import_logistics(logistics_id: int):
         for file in files:
             if not file or not getattr(file, "filename", None):
                 continue
-            create_attachment(
+            _, storage_key = create_attachment(
                 file=file,
                 entity_type="import_logistics",
                 entity_id=record.id,
                 uploaded_by=user_id,
             )
+            storage_keys.append(storage_key)
 
         db.session.commit()
         return _import_logistics_response(record), 200
 
     except ImportLogisticsNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("IMPORT_LOGISTICS_NOT_FOUND", str(exc), 404)
     except ProjectNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("PROJECT_NOT_FOUND", str(exc), 404)
     except SupplierNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("SUPPLIER_NOT_FOUND", str(exc), 404)
     except AttachmentValidationError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("ATTACHMENT_VALIDATION_ERROR", str(exc), 400)
     except Exception:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         current_app.logger.exception("Failed to update import logistics")
         return _error(
             "IMPORT_LOGISTICS_UPDATE_FAILED",
@@ -299,11 +324,13 @@ def _handle_update_import_logistics(logistics_id: int):
 def _handle_delete_import_logistics(logistics_id: int):
     try:
         storage_keys = delete_import_logistics_transaction(logistics_id)
+        db.session.commit()
 
         storage = get_storage()
         for key in storage_keys:
             try:
-                storage.delete(key)
+                if storage.exists(key):
+                    storage.delete(key)
             except Exception:
                 current_app.logger.warning(
                     f"Failed to delete attachment storage key {key} during import logistics deletion."

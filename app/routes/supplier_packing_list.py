@@ -128,6 +128,18 @@ def _extract_payload_and_files():
     return raw_payload, files
 
 
+def _cleanup_uploaded_files(storage_keys: list[str]) -> None:
+    storage = get_storage()
+    for storage_key in storage_keys:
+        try:
+            if storage.exists(storage_key):
+                storage.delete(storage_key)
+        except Exception:
+            current_app.logger.exception(
+                "Failed to cleanup attachment: %s", storage_key
+            )
+
+
 def _handle_create_supplier_packing_list():
     try:
         user_id = int(get_jwt_identity())
@@ -141,36 +153,43 @@ def _handle_create_supplier_packing_list():
     except ValidationError as err:
         return _error("VALIDATION_ERROR", str(err.messages), 422)
 
+    storage_keys = []
     try:
         packing_list = create_supplier_packing_list_transaction(data=validated_data)
 
         for file in files:
             if not file or not getattr(file, "filename", None):
                 continue
-            create_attachment(
+            _, storage_key = create_attachment(
                 file=file,
                 entity_type="supplier_packing_list",
                 entity_id=packing_list.id,
                 uploaded_by=user_id,
             )
+            storage_keys.append(storage_key)
 
         db.session.commit()
         return _supplier_packing_list_response(packing_list), 201
 
     except SupplierPackingListAlreadyExistsError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("SUPPLIER_PACKING_LIST_ALREADY_EXISTS", str(exc), 409)
     except ProjectNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("PROJECT_NOT_FOUND", str(exc), 404)
     except SupplierNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("SUPPLIER_NOT_FOUND", str(exc), 404)
     except AttachmentValidationError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("ATTACHMENT_VALIDATION_ERROR", str(exc), 400)
     except Exception:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         current_app.logger.exception("Failed to create supplier packing list")
         return _error(
             "SUPPLIER_PACKING_LIST_CREATE_FAILED",
@@ -238,6 +257,7 @@ def _handle_update_supplier_packing_list(supplier_packing_list_id: int):
     except ValidationError as err:
         return _error("VALIDATION_ERROR", str(err.messages), 422)
 
+    storage_keys = []
     try:
         packing_list = update_supplier_packing_list_transaction(
             packing_list_id=supplier_packing_list_id,
@@ -247,33 +267,40 @@ def _handle_update_supplier_packing_list(supplier_packing_list_id: int):
         for file in files:
             if not file or not getattr(file, "filename", None):
                 continue
-            create_attachment(
+            _, storage_key = create_attachment(
                 file=file,
                 entity_type="supplier_packing_list",
                 entity_id=packing_list.id,
                 uploaded_by=user_id,
             )
+            storage_keys.append(storage_key)
 
         db.session.commit()
         return _supplier_packing_list_response(packing_list), 200
 
     except SupplierPackingListNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("SUPPLIER_PACKING_LIST_NOT_FOUND", str(exc), 404)
     except SupplierPackingListAlreadyExistsError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("SUPPLIER_PACKING_LIST_ALREADY_EXISTS", str(exc), 409)
     except ProjectNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("PROJECT_NOT_FOUND", str(exc), 404)
     except SupplierNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("SUPPLIER_NOT_FOUND", str(exc), 404)
     except AttachmentValidationError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("ATTACHMENT_VALIDATION_ERROR", str(exc), 400)
     except Exception:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         current_app.logger.exception("Failed to update supplier packing list")
         return _error(
             "SUPPLIER_PACKING_LIST_UPDATE_FAILED",

@@ -72,17 +72,13 @@ def create_bill_of_entry_transaction(data: dict) -> BillOfEntry:
         if computed_duty is not None:
             data["total_duty"] = computed_duty
 
+    record = repository.create_bill_of_entry(data)
     try:
-        record = repository.create_bill_of_entry(data)
-        try:
-            sync_bill_of_entry_step(project_id)
-        except Exception:
-            pass
-        db.session.commit()
-        return record
+        sync_bill_of_entry_step(project_id)
     except Exception:
-        db.session.rollback()
-        raise
+        pass
+    db.session.flush()
+    return record
 
 
 def update_bill_of_entry_transaction(
@@ -107,17 +103,13 @@ def update_bill_of_entry_transaction(
         if computed_duty is not None:
             data["total_duty"] = computed_duty
 
+    updated = repository.update_bill_of_entry(record, data)
     try:
-        updated = repository.update_bill_of_entry(record, data)
-        try:
-            sync_bill_of_entry_step(updated.project_id)
-        except Exception:
-            pass
-        db.session.commit()
-        return updated
+        sync_bill_of_entry_step(updated.project_id)
     except Exception:
-        db.session.rollback()
-        raise
+        pass
+    db.session.flush()
+    return updated
 
 
 def delete_bill_of_entry_transaction(bill_of_entry_id: int) -> list[str]:
@@ -137,17 +129,13 @@ def delete_bill_of_entry_transaction(bill_of_entry_id: int) -> list[str]:
     )
     storage_keys = [att.storage_key for att in attachments if att.storage_key]
 
+    for att in attachments:
+        db.session.delete(att)
+    repository.delete_bill_of_entry(record)
     try:
-        for att in attachments:
-            db.session.delete(att)
-        repository.delete_bill_of_entry(record)
-        try:
-            sync_bill_of_entry_step(project_id)
-        except Exception:
-            pass
-        db.session.commit()
-        return storage_keys
+        sync_bill_of_entry_step(project_id)
     except Exception:
-        db.session.rollback()
-        raise
+        pass
+    db.session.flush()
+    return storage_keys
 

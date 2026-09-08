@@ -134,6 +134,18 @@ def _extract_payload_and_files():
     return raw_payload, files
 
 
+def _cleanup_uploaded_files(storage_keys: list[str]) -> None:
+    storage = get_storage()
+    for storage_key in storage_keys:
+        try:
+            if storage.exists(storage_key):
+                storage.delete(storage_key)
+        except Exception:
+            current_app.logger.exception(
+                "Failed to cleanup attachment: %s", storage_key
+            )
+
+
 def _handle_create_customs_clearance():
     try:
         user_id = int(get_jwt_identity())
@@ -147,30 +159,35 @@ def _handle_create_customs_clearance():
     except ValidationError as err:
         return _error("VALIDATION_ERROR", str(err.messages), 422)
 
+    storage_keys = []
     try:
         record = create_customs_clearance_transaction(data=validated_data)
 
         for file in files:
             if not file or not getattr(file, "filename", None):
                 continue
-            create_attachment(
+            _, storage_key = create_attachment(
                 file=file,
                 entity_type="customs_clearance",
                 entity_id=record.id,
                 uploaded_by=user_id,
             )
+            storage_keys.append(storage_key)
 
         db.session.commit()
         return _customs_clearance_response(record), 201
 
     except ProjectNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("PROJECT_NOT_FOUND", str(exc), 404)
     except AttachmentValidationError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("ATTACHMENT_VALIDATION_ERROR", str(exc), 400)
     except Exception:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         current_app.logger.exception("Failed to create customs clearance")
         return _error(
             "CUSTOMS_CLEARANCE_CREATE_FAILED",
@@ -250,6 +267,7 @@ def _handle_update_customs_clearance(clearance_id: int):
     except ValidationError as err:
         return _error("VALIDATION_ERROR", str(err.messages), 422)
 
+    storage_keys = []
     try:
         record = update_customs_clearance_transaction(
             clearance_id=clearance_id,
@@ -259,27 +277,32 @@ def _handle_update_customs_clearance(clearance_id: int):
         for file in files:
             if not file or not getattr(file, "filename", None):
                 continue
-            create_attachment(
+            _, storage_key = create_attachment(
                 file=file,
                 entity_type="customs_clearance",
                 entity_id=record.id,
                 uploaded_by=user_id,
             )
+            storage_keys.append(storage_key)
 
         db.session.commit()
         return _customs_clearance_response(record), 200
 
     except CustomsClearanceNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("CUSTOMS_CLEARANCE_NOT_FOUND", str(exc), 404)
     except ProjectNotFoundError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("PROJECT_NOT_FOUND", str(exc), 404)
     except AttachmentValidationError as exc:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         return _error("ATTACHMENT_VALIDATION_ERROR", str(exc), 400)
     except Exception:
         db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
         current_app.logger.exception("Failed to update customs clearance")
         return _error(
             "CUSTOMS_CLEARANCE_UPDATE_FAILED",
@@ -291,11 +314,13 @@ def _handle_update_customs_clearance(clearance_id: int):
 def _handle_delete_customs_clearance(clearance_id: int):
     try:
         storage_keys = delete_customs_clearance_transaction(clearance_id)
+        db.session.commit()
 
         storage = get_storage()
         for key in storage_keys:
             try:
-                storage.delete(key)
+                if storage.exists(key):
+                    storage.delete(key)
             except Exception:
                 current_app.logger.warning(
                     f"Failed to delete attachment storage key {key} during customs clearance deletion."
@@ -438,7 +463,7 @@ def create_customs_clearance_route():
 @customs_clearance_bp.arguments(CustomsClearanceQuerySchema, location="query")
 @customs_clearance_bp.response(200, CustomsClearanceResponseSchema(many=True))
 @jwt_required()
-def list_customs_clearances_route(args):
+def list_customs_clearances_route(args=None):
     return _handle_list_customs_clearances(args)
 
 

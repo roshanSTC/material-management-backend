@@ -101,17 +101,13 @@ def create_customs_clearance_transaction(data: dict) -> CustomsClearance:
         if computed_total is not None:
             data["total_customs_amount"] = computed_total
 
+    record = repository.create_customs_clearance(data)
     try:
-        record = repository.create_customs_clearance(data)
-        try:
-            sync_customs_clearance_step(project_id)
-        except Exception:
-            pass
-        db.session.commit()
-        return record
+        sync_customs_clearance_step(project_id)
     except Exception:
-        db.session.rollback()
-        raise
+        pass
+    db.session.flush()
+    return record
 
 
 def update_customs_clearance_transaction(
@@ -154,17 +150,13 @@ def update_customs_clearance_transaction(
         if computed_total is not None:
             data["total_customs_amount"] = computed_total
 
+    updated = repository.update_customs_clearance(record, data)
     try:
-        updated = repository.update_customs_clearance(record, data)
-        try:
-            sync_customs_clearance_step(updated.project_id)
-        except Exception:
-            pass
-        db.session.commit()
-        return updated
+        sync_customs_clearance_step(updated.project_id)
     except Exception:
-        db.session.rollback()
-        raise
+        pass
+    db.session.flush()
+    return updated
 
 
 def delete_customs_clearance_transaction(clearance_id: int) -> list[str]:
@@ -184,16 +176,12 @@ def delete_customs_clearance_transaction(clearance_id: int) -> list[str]:
     )
     storage_keys = [att.storage_key for att in attachments if att.storage_key]
 
+    for att in attachments:
+        db.session.delete(att)
+    repository.delete_customs_clearance(record)
     try:
-        for att in attachments:
-            db.session.delete(att)
-        repository.delete_customs_clearance(record)
-        try:
-            sync_customs_clearance_step(project_id)
-        except Exception:
-            pass
-        db.session.commit()
-        return storage_keys
+        sync_customs_clearance_step(project_id)
     except Exception:
-        db.session.rollback()
-        raise
+        pass
+    db.session.flush()
+    return storage_keys

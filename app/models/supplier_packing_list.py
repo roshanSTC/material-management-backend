@@ -1,8 +1,4 @@
-from datetime import date, datetime
-from decimal import Decimal
-
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from datetime import datetime
 
 from app.extensions.database import db
 
@@ -10,60 +6,110 @@ from app.extensions.database import db
 class SupplierPackingList(db.Model):
     __tablename__ = "supplier_packing_lists"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+    )
 
-    project_id: Mapped[int] = mapped_column(
-        ForeignKey("projects.id"),
+    project_id = db.Column(
+        db.Integer,
+        db.ForeignKey("projects.id"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    supplier_id = db.Column(
+        db.Integer,
+        db.ForeignKey("suppliers.id"),
         nullable=False,
         index=True,
     )
 
-    supplier_id: Mapped[int] = mapped_column(
-        ForeignKey("suppliers.id"),
-        nullable=False,
-        index=True,
-    )
-
-    packing_list_number: Mapped[str] = mapped_column(
-        String(100),
+    packing_list_no = db.Column(
+        db.String(100),
         nullable=False,
     )
 
-    packing_list_date: Mapped[date] = mapped_column(
-        Date,
+    packing_list_date = db.Column(
+        db.Date,
         nullable=False,
     )
 
-    packing_condition: Mapped[str | None] = mapped_column(
-        String(255),
+    packing_condition = db.Column(
+        db.String(255),
         nullable=True,
     )
 
-    total_gross_weight_kg: Mapped[Decimal | None] = mapped_column(
-        Numeric(18, 3),
+    weight = db.Column(
+        db.Numeric(18, 3),
         nullable=True,
     )
 
-    remark: Mapped[str | None] = mapped_column(
-        Text,
+    total_weight = db.Column(
+        db.Numeric(18, 3),
         nullable=True,
     )
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        nullable=False,
+    remark = db.Column(
+        db.Text,
+        nullable=True,
     )
 
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
+    created_at = db.Column(
+        db.DateTime,
         nullable=False,
+        default=datetime.utcnow,
     )
 
-    project = relationship("Project")
-    supplier = relationship("Supplier")
+    updated_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+    )
 
-    items = relationship(
+    project = db.relationship(
+        "Project",
+        lazy="select",
+    )
+
+    supplier = db.relationship(
+        "Supplier",
+        lazy="select",
+    )
+
+    items = db.relationship(
         "SupplierPackingListItem",
         back_populates="packing_list",
         cascade="all, delete-orphan",
+        lazy="select",
     )
+
+    # Property aliases for backward/forward compatibility
+    @property
+    def packing_list_number(self):
+        return self.packing_list_no
+
+    @packing_list_number.setter
+    def packing_list_number(self, val):
+        self.packing_list_no = val
+
+    @property
+    def total_gross_weight_kg(self):
+        return self.total_weight
+
+    @total_gross_weight_kg.setter
+    def total_gross_weight_kg(self, val):
+        self.total_weight = val
+
+    @property
+    def remarks(self):
+        return self.remark
+
+    @remarks.setter
+    def remarks(self, val):
+        self.remark = val
+
+    def __repr__(self) -> str:
+        return f"<SupplierPackingList {self.id}>"

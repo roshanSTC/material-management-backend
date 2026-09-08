@@ -1280,7 +1280,16 @@ def sync_import_logistics_step(project_id: int):
 
 
 def sync_bill_of_entry_step(project_id: int):
-    from app.models import BillOfEntry
+    from app.models import BillOfEntry, CustomsClearance
+
+    # If a CustomsClearance record exists, it takes precedence for step 12
+    clearance = (
+        CustomsClearance.query.filter_by(project_id=project_id)
+        .order_by(CustomsClearance.id.desc())
+        .first()
+    )
+    if clearance is not None:
+        return sync_customs_clearance_step(project_id)
 
     boe = (
         BillOfEntry.query.filter_by(project_id=project_id)
@@ -1323,6 +1332,86 @@ def sync_bill_of_entry_step(project_id: int):
         "igst": str(boe.igst) if boe.igst is not None else None,
         "remarks": boe.remark,
         "remark": boe.remark,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=12,
+        data=step_data,
+    )
+
+
+def sync_customs_clearance_step(project_id: int):
+    from app.models import BillOfEntry, CustomsClearance
+
+    clearance = (
+        CustomsClearance.query.filter_by(project_id=project_id)
+        .order_by(CustomsClearance.id.desc())
+        .first()
+    )
+
+    if clearance is None:
+        # Fall back to checking BillOfEntry
+        boe = (
+            BillOfEntry.query.filter_by(project_id=project_id)
+            .order_by(BillOfEntry.id.desc())
+            .first()
+        )
+        if boe is not None:
+            return sync_bill_of_entry_step(project_id)
+
+        step = (
+            ProjectStep.query.filter_by(
+                project_id=project_id,
+                step_number=12,
+            ).first()
+        )
+        if step is not None:
+            db.session.delete(step)
+            db.session.flush()
+        return None
+
+    date_str = None
+    if clearance.duty_paid_date:
+        date_str = (
+            clearance.duty_paid_date.isoformat()
+            if hasattr(clearance.duty_paid_date, "isoformat")
+            else str(clearance.duty_paid_date)[:10]
+        )
+    elif clearance.boe_date:
+        date_str = (
+            clearance.boe_date.isoformat()
+            if hasattr(clearance.boe_date, "isoformat")
+            else str(clearance.boe_date)[:10]
+        )
+
+    duty_val = None
+    if clearance.total_customs_amount is not None:
+        duty_val = str(clearance.total_customs_amount)
+    elif clearance.duty_amount is not None:
+        duty_val = str(clearance.duty_amount)
+
+    step_data = {
+        "clearance_date": date_str,
+        "date": date_str,
+        "duty_paid_date": date_str,
+        "duties_paid": duty_val,
+        "total_duty": duty_val,
+        "total_customs_amount": str(clearance.total_customs_amount) if clearance.total_customs_amount is not None else None,
+        "agent_name": clearance.cha_name,
+        "cha_name": clearance.cha_name,
+        "bill_of_entry_no": clearance.bill_of_entry_no,
+        "bill_of_entry_number": clearance.bill_of_entry_no,
+        "boe_date": clearance.boe_date.isoformat() if clearance.boe_date else None,
+        "customs_location": clearance.customs_location,
+        "challan_no": clearance.challan_no,
+        "cfs_name": clearance.cfs_name,
+        "transaction_ref_no": clearance.transaction_ref_no,
+        "duty_amount": str(clearance.duty_amount) if clearance.duty_amount is not None else None,
+        "igst_amount": str(clearance.igst_amount) if clearance.igst_amount is not None else None,
+        "other_customs_charges": str(clearance.other_customs_charges) if clearance.other_customs_charges is not None else None,
+        "remarks": clearance.remark,
+        "remark": clearance.remark,
     }
 
     return upsert_project_step_record(

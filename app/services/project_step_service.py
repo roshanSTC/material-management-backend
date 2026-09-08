@@ -1217,3 +1217,64 @@ def sync_supplier_invoice_step(project_id: int):
         data=step_data,
     )
 
+
+def sync_import_logistics_step(project_id: int):
+    from app.models import ImportLogistics
+
+    logistics = (
+        ImportLogistics.query.filter_by(project_id=project_id)
+        .order_by(ImportLogistics.id.desc())
+        .first()
+    )
+
+    if logistics is None:
+        step = (
+            ProjectStep.query.filter_by(
+                project_id=project_id,
+                step_number=11,
+            ).first()
+        )
+        if step is not None:
+            db.session.delete(step)
+            db.session.flush()
+        return None
+
+    date_str = None
+    if logistics.date:
+        date_str = (
+            logistics.date.isoformat()
+            if hasattr(logistics.date, "isoformat")
+            else str(logistics.date)[:10]
+        )
+
+    tracking_num = (
+        logistics.airway_bill_no
+        if logistics.logistic_type == "air"
+        else logistics.bill_of_lading_no
+    )
+
+    step_data = {
+        "shipping_mode": logistics.logistic_type,
+        "logistic_type": logistics.logistic_type,
+        "tracking_number": tracking_num,
+        "dispatch_date": date_str,
+        "date": date_str,
+        "port_of_discharge": logistics.port_of_discharge,
+        "remarks": logistics.remark,
+        "remark": logistics.remark,
+        "airway_bill_no": logistics.airway_bill_no,
+        "flight_name": logistics.flight_name,
+        "flight_no": logistics.flight_no,
+        "airport_of_loading": logistics.airport_of_loading,
+        "bill_of_lading_no": logistics.bill_of_lading_no,
+        "vessel_name": logistics.vessel_name,
+        "voyage_no": logistics.voyage_no,
+        "port_of_loading": logistics.port_of_loading,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=11,
+        data=step_data,
+    )
+

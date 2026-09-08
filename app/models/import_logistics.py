@@ -17,9 +17,9 @@ class ImportLogistics(db.Model):
         index=True,
     )
 
-    supplier_id: Mapped[int] = mapped_column(
+    supplier_id: Mapped[int | None] = mapped_column(
         ForeignKey("suppliers.id"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 
@@ -28,29 +28,9 @@ class ImportLogistics(db.Model):
         nullable=False,
     )
 
-    airway_bill_number: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-    )
-
-    logistics_date: Mapped[date] = mapped_column(
+    date: Mapped[date] = mapped_column(
         Date,
         nullable=False,
-    )
-
-    flight_name: Mapped[str | None] = mapped_column(
-        String(255),
-        nullable=True,
-    )
-
-    flight_number: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-    )
-
-    airport_of_loading: Mapped[str | None] = mapped_column(
-        String(255),
-        nullable=True,
     )
 
     port_of_discharge: Mapped[str | None] = mapped_column(
@@ -63,15 +43,85 @@ class ImportLogistics(db.Model):
         nullable=True,
     )
 
+    # Air transport fields
+    airway_bill_no: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    flight_name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    flight_no: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    airport_of_loading: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    # Sea transport fields
+    bill_of_lading_no: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    vessel_name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    voyage_no: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    port_of_loading: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
+        default=datetime.utcnow,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
     )
 
     project = relationship("Project")
     supplier = relationship("Supplier")
+
+    # Compatibility properties
+    @property
+    def airway_bill_number(self) -> str | None:
+        return self.airway_bill_no
+
+    @airway_bill_number.setter
+    def airway_bill_number(self, value: str | None) -> None:
+        self.airway_bill_no = value
+
+    @property
+    def flight_number(self) -> str | None:
+        return self.flight_no
+
+    @flight_number.setter
+    def flight_number(self, value: str | None) -> None:
+        self.flight_no = value
+
+    @property
+    def logistics_date(self) -> date:
+        return self.date
+
+    @logistics_date.setter
+    def logistics_date(self, value: date) -> None:
+        self.date = value

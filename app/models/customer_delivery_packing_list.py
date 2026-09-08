@@ -18,7 +18,7 @@ class CustomerDeliveryPackingList(db.Model):
         index=True,
     )
 
-    packing_list_number = db.Column(
+    packing_list_no = db.Column(
         db.String(100),
         nullable=False,
     )
@@ -38,13 +38,13 @@ class CustomerDeliveryPackingList(db.Model):
         nullable=True,
     )
 
-    net_weight_kg = db.Column(
-        db.Numeric(18, 3),
+    net_weight = db.Column(
+        db.String(255),
         nullable=True,
     )
 
-    gross_weight_kg = db.Column(
-        db.Numeric(18, 3),
+    gross_weight = db.Column(
+        db.String(255),
         nullable=True,
     )
 
@@ -79,8 +79,41 @@ class CustomerDeliveryPackingList(db.Model):
         lazy="select",
     )
 
+    # Property aliases for backward/forward compatibility
+    @property
+    def packing_list_number(self):
+        return self.packing_list_no
+
+    @packing_list_number.setter
+    def packing_list_number(self, val):
+        self.packing_list_no = val
+
+    @property
+    def net_weight_kg(self):
+        return self.net_weight
+
+    @net_weight_kg.setter
+    def net_weight_kg(self, val):
+        self.net_weight = val
+
+    @property
+    def gross_weight_kg(self):
+        return self.gross_weight
+
+    @gross_weight_kg.setter
+    def gross_weight_kg(self, val):
+        self.gross_weight = val
+
+    @property
+    def remarks(self):
+        return self.remark
+
+    @remarks.setter
+    def remarks(self, val):
+        self.remark = val
+
     def __repr__(self) -> str:
         return (
             f"<CustomerDeliveryPackingList "
-            f"{self.id}: {self.packing_list_number}>"
+            f"{self.id}: {self.packing_list_no}>"
         )

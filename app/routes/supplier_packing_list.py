@@ -194,29 +194,11 @@ def _handle_list_supplier_packing_lists(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    supplier_id = (
-        args.get("supplier_id")
-        or request.args.get("supplier_id")
-        or request.args.get("supplierId")
-    )
-    if supplier_id is not None:
-        try:
-            supplier_id = int(supplier_id)
-        except (ValueError, TypeError):
-            supplier_id = None
-
-    packing_list_no = (
-        args.get("packing_list_no")
-        or args.get("packing_list_number")
-        or request.args.get("packing_list_no")
-        or request.args.get("packing_list_number")
-    )
+    
 
     try:
         packing_lists = list_supplier_packing_list_records(
             project_id=project_id,
-            supplier_id=supplier_id,
-            packing_list_no=packing_list_no,
         )
         return [_supplier_packing_list_response(pl) for pl in packing_lists], 200
     except Exception:

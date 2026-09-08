@@ -97,13 +97,9 @@ def get_latest_supplier_proforma_invoice_record(project_id: int) -> SupplierProf
 def list_supplier_proforma_invoice_records(
     *,
     project_id: int | None = None,
-    supplier_id: int | None = None,
-    proforma_invoice_no: str | None = None,
 ) -> list[SupplierProformaInvoice]:
     return list_supplier_proforma_invoices(
         project_id=project_id,
-        supplier_id=supplier_id,
-        proforma_invoice_no=proforma_invoice_no,
     )
 
 

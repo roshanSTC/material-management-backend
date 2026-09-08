@@ -547,8 +547,6 @@ class SupplierProformaInvoiceQuerySchema(Schema):
         unknown = EXCLUDE
 
     project_id = fields.Integer(required=False, validate=validate.Range(min=1))
-    supplier_id = fields.Integer(required=False, validate=validate.Range(min=1))
-    proforma_invoice_no = fields.String(required=False)
 
     @pre_load
     def normalize_keys(self, data, **kwargs):

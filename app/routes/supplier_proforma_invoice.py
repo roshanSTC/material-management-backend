@@ -201,29 +201,13 @@ def _handle_list_supplier_proforma_invoices(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    supplier_id = (
-        args.get("supplier_id")
-        or request.args.get("supplier_id")
-        or request.args.get("supplierId")
-    )
-    if supplier_id is not None:
-        try:
-            supplier_id = int(supplier_id)
-        except (ValueError, TypeError):
-            supplier_id = None
+    
 
-    proforma_invoice_no = (
-        args.get("proforma_invoice_no")
-        or args.get("proforma_invoice_number")
-        or request.args.get("proforma_invoice_no")
-        or request.args.get("proforma_invoice_number")
-    )
+    
 
     try:
         invoices = list_supplier_proforma_invoice_records(
             project_id=project_id,
-            supplier_id=supplier_id,
-            proforma_invoice_no=proforma_invoice_no,
         )
         return [_proforma_invoice_response(inv) for inv in invoices], 200
     except Exception:

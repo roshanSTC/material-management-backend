@@ -18,14 +18,19 @@ class BillOfEntry(db.Model):
         index=True,
     )
 
-    bill_of_entry_number: Mapped[str] = mapped_column(
+    bill_of_entry_no: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
     )
 
-    entry_date: Mapped[date] = mapped_column(
+    date: Mapped[date] = mapped_column(
         Date,
         nullable=False,
+    )
+
+    total_assessable_value: Mapped[Decimal | None] = mapped_column(
+        Numeric(18, 2),
+        nullable=True,
     )
 
     bcd: Mapped[Decimal | None] = mapped_column(
@@ -43,7 +48,7 @@ class BillOfEntry(db.Model):
         nullable=True,
     )
 
-    total_assessable_value: Mapped[Decimal | None] = mapped_column(
+    total_duty: Mapped[Decimal | None] = mapped_column(
         Numeric(18, 2),
         nullable=True,
     )
@@ -56,11 +61,31 @@ class BillOfEntry(db.Model):
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
+        default=datetime.utcnow,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
     )
 
     project = relationship("Project")
+
+    # Compatibility properties
+    @property
+    def bill_of_entry_number(self) -> str:
+        return self.bill_of_entry_no
+
+    @bill_of_entry_number.setter
+    def bill_of_entry_number(self, value: str) -> None:
+        self.bill_of_entry_no = value
+
+    @property
+    def entry_date(self) -> date:
+        return self.date
+
+    @entry_date.setter
+    def entry_date(self, value: date) -> None:
+        self.date = value

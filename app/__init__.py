@@ -76,6 +76,9 @@ def create_app(config_class=Config):
     from app.routes.import_logistics import (
         import_logistics_bp,
     )
+    from app.routes.bill_of_entry import (
+        bill_of_entry_bp,
+    )
     
     api.register_blueprint(auth_bp)
     api.register_blueprint(customer_bp)
@@ -97,6 +100,7 @@ def create_app(config_class=Config):
     api.register_blueprint(supplier_invoice_bp)
     api.register_blueprint(supplier_packing_list_bp)
     api.register_blueprint(import_logistics_bp)
+    api.register_blueprint(bill_of_entry_bp)
     return app
 
 

@@ -1278,3 +1278,56 @@ def sync_import_logistics_step(project_id: int):
         data=step_data,
     )
 
+
+def sync_bill_of_entry_step(project_id: int):
+    from app.models import BillOfEntry
+
+    boe = (
+        BillOfEntry.query.filter_by(project_id=project_id)
+        .order_by(BillOfEntry.id.desc())
+        .first()
+    )
+
+    if boe is None:
+        step = (
+            ProjectStep.query.filter_by(
+                project_id=project_id,
+                step_number=12,
+            ).first()
+        )
+        if step is not None:
+            db.session.delete(step)
+            db.session.flush()
+        return None
+
+    date_str = None
+    if boe.date:
+        date_str = (
+            boe.date.isoformat()
+            if hasattr(boe.date, "isoformat")
+            else str(boe.date)[:10]
+        )
+
+    duty_val = str(boe.total_duty) if boe.total_duty is not None else None
+
+    step_data = {
+        "clearance_date": date_str,
+        "date": date_str,
+        "duties_paid": duty_val,
+        "total_duty": duty_val,
+        "bill_of_entry_no": boe.bill_of_entry_no,
+        "bill_of_entry_number": boe.bill_of_entry_no,
+        "total_assessable_value": str(boe.total_assessable_value) if boe.total_assessable_value is not None else None,
+        "bcd": str(boe.bcd) if boe.bcd is not None else None,
+        "sws": str(boe.sws) if boe.sws is not None else None,
+        "igst": str(boe.igst) if boe.igst is not None else None,
+        "remarks": boe.remark,
+        "remark": boe.remark,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=12,
+        data=step_data,
+    )
+

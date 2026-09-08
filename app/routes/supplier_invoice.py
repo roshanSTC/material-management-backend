@@ -193,29 +193,13 @@ def _handle_list_supplier_invoices(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    supplier_id = (
-        args.get("supplier_id")
-        or request.args.get("supplier_id")
-        or request.args.get("supplierId")
-    )
-    if supplier_id is not None:
-        try:
-            supplier_id = int(supplier_id)
-        except (ValueError, TypeError):
-            supplier_id = None
+    
 
-    invoice_no = (
-        args.get("invoice_no")
-        or args.get("invoice_number")
-        or request.args.get("invoice_no")
-        or request.args.get("invoice_number")
-    )
+    
 
     try:
         invoices = list_supplier_invoice_records(
             project_id=project_id,
-            supplier_id=supplier_id,
-            invoice_no=invoice_no,
         )
         return [_supplier_invoice_response(inv) for inv in invoices], 200
     except Exception:

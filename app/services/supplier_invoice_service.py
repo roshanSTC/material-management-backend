@@ -90,13 +90,9 @@ def get_latest_supplier_invoice_record(project_id: int) -> SupplierInvoice:
 def list_supplier_invoice_records(
     *,
     project_id: int | None = None,
-    supplier_id: int | None = None,
-    invoice_no: str | None = None,
 ) -> list[SupplierInvoice]:
     return list_supplier_invoices(
         project_id=project_id,
-        supplier_id=supplier_id,
-        invoice_no=invoice_no,
     )
 
 

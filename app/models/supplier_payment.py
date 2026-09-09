@@ -21,27 +21,33 @@ class SupplierPayment(db.Model):
     supplier_id = db.Column(
         db.Integer,
         db.ForeignKey("suppliers.id"),
-        nullable=False,
+        nullable=True,
         index=True,
-    )
-
-    payment_date = db.Column(
-        db.Date,
-        nullable=False,
     )
 
     currency = db.Column(
         db.String(10),
         nullable=False,
+        default="INR",
     )
 
-    amount_paid_currency = db.Column(
+    payment_percentage = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    total_supplier_value = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    amount_paid = db.Column(
         db.Numeric(18, 2),
         nullable=False,
     )
 
-    amount_paid_inr = db.Column(
-        db.Numeric(18, 2),
+    payment_date = db.Column(
+        db.Date,
         nullable=False,
     )
 
@@ -82,6 +88,30 @@ class SupplierPayment(db.Model):
         "Supplier",
         back_populates="supplier_payments",
     )
+
+    @property
+    def amount_paid_inr(self):
+        return self.amount_paid
+
+    @amount_paid_inr.setter
+    def amount_paid_inr(self, value):
+        self.amount_paid = value
+
+    @property
+    def amount_paid_currency(self):
+        return self.amount_paid
+
+    @amount_paid_currency.setter
+    def amount_paid_currency(self, value):
+        self.amount_paid = value
+
+    @property
+    def remarks(self):
+        return self.remark
+
+    @remarks.setter
+    def remarks(self, value):
+        self.remark = value
 
     def __repr__(self) -> str:
         return f"<SupplierPayment {self.id}>"

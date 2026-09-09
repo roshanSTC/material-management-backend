@@ -145,12 +145,6 @@ class ImportLogisticsQuerySchema(Schema):
         unknown = EXCLUDE
 
     project_id = fields.Integer(required=False, allow_none=True)
-    supplier_id = fields.Integer(required=False, allow_none=True)
-    logistic_type = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.OneOf(["air", "sea"]),
-    )
 
 
 class ImportLogisticsResponseSchema(Schema):

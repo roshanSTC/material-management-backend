@@ -210,30 +210,11 @@ def _handle_list_import_logistics(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    supplier_id = (
-        args.get("supplier_id")
-        or request.args.get("supplier_id")
-        or request.args.get("supplierId")
-    )
-    if supplier_id is not None:
-        try:
-            supplier_id = int(supplier_id)
-        except (ValueError, TypeError):
-            supplier_id = None
-
-    logistic_type = (
-        args.get("logistic_type")
-        or request.args.get("logistic_type")
-        or request.args.get("logisticType")
-    )
-    if logistic_type and isinstance(logistic_type, str):
-        logistic_type = logistic_type.strip().lower()
+    
 
     try:
         records = list_import_logistics_records(
             project_id=project_id,
-            supplier_id=supplier_id,
-            logistic_type=logistic_type,
         )
         return [_import_logistics_response(rec) for rec in records], 200
     except Exception:

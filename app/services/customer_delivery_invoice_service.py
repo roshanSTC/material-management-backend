@@ -6,6 +6,7 @@ from app.repositories.customer_delivery_invoice_repository import (
     create_customer_delivery_invoice,
     delete_customer_delivery_invoice,
     get_customer_delivery_invoice,
+    get_latest_customer_delivery_invoice_for_project,
     get_project,
     list_customer_delivery_invoices,
     update_customer_delivery_invoice,
@@ -147,4 +148,20 @@ def delete_customer_delivery_invoice_transaction(invoice_id: int) -> list[str]:
     storage_keys = delete_customer_delivery_invoice(invoice_id)
     db.session.flush()
     return storage_keys
+
+
+def get_latest_customer_delivery_invoice_record(
+    project_id: int,
+) -> CustomerDeliveryInvoice:
+    project = get_project(project_id)
+    if project is None:
+        raise ProjectNotFoundError(f"Project with ID {project_id} not found.")
+
+    invoice = get_latest_customer_delivery_invoice_for_project(project_id)
+    if invoice is None:
+        raise CustomerDeliveryInvoiceNotFoundError(
+            f"No customer delivery invoice found for project {project_id}."
+        )
+
+    return invoice
 

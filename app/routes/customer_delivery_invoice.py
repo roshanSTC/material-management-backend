@@ -11,6 +11,8 @@ from app.schemas.customer_delivery_invoice import (
     CustomerDeliveryInvoiceQuerySchema,
     CustomerDeliveryInvoiceResponseSchema,
     CustomerDeliveryInvoiceUpdateSchema,
+    LatestCustomerDeliveryInvoiceQuerySchema,
+    LatestCustomerDeliveryInvoiceResponseSchema,
 )
 from app.services.attachment_service import (
     AttachmentValidationError,
@@ -23,6 +25,7 @@ from app.services.customer_delivery_invoice_service import (
     create_customer_delivery_invoice_transaction,
     delete_customer_delivery_invoice_transaction,
     get_customer_delivery_invoice_record,
+    get_latest_customer_delivery_invoice_record,
     list_customer_delivery_invoice_records,
     update_customer_delivery_invoice_transaction,
 )
@@ -94,6 +97,40 @@ def _customer_delivery_invoice_response(invoice):
             }
             for attachment in attachments
         ],
+    }
+
+
+def _format_decimal_str(val, places=2):
+    if val is None:
+        return None
+    try:
+        from decimal import Decimal
+
+        d = Decimal(str(val).strip())
+        return f"{d:.{places}f}"
+    except Exception:
+        return str(val)
+
+
+def _latest_customer_delivery_invoice_response(invoice):
+    tot = invoice.net_total
+    if tot is None and invoice.items:
+        try:
+            from decimal import Decimal
+
+            item_sum = sum(
+                Decimal(str(item.net_amount or 0)) for item in invoice.items
+            )
+            gst = Decimal(str(invoice.gst_amount or 0))
+            ro = Decimal(str(invoice.round_off or 0))
+            tot = item_sum + gst + ro
+        except Exception:
+            pass
+
+    return {
+        "invoice_no": invoice.invoice_no,
+        "invoice_date": invoice.invoice_date,
+        "net_total": _format_decimal_str(tot, places=2),
     }
 
 
@@ -422,6 +459,54 @@ def create_customer_delivery_invoice():
 @jwt_required()
 def list_customer_delivery_invoices(args=None):
     return _handle_list_customer_delivery_invoices(args)
+
+
+@customer_delivery_invoice_bp.get("/latest")
+@customer_delivery_invoice_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Customer Tax Invoice for Project",
+    description="Retrieve the latest customer tax invoice for a project containing invoice_no, invoice_date, and net_total.",
+)
+@customer_delivery_invoice_bp.arguments(
+    LatestCustomerDeliveryInvoiceQuerySchema, location="query"
+)
+@customer_delivery_invoice_bp.response(
+    200, LatestCustomerDeliveryInvoiceResponseSchema
+)
+@jwt_required()
+def get_latest_customer_delivery_invoice(args=None):
+    if args is None:
+        args = {}
+
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    if not project_id:
+        return _error("PROJECT_ID_REQUIRED", "project_id query parameter is required.", 400)
+
+    try:
+        project_id = int(project_id)
+        if project_id <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+
+    try:
+        invoice = get_latest_customer_delivery_invoice_record(project_id)
+        return _latest_customer_delivery_invoice_response(invoice), 200
+    except ProjectNotFoundError as exc:
+        return _error("PROJECT_NOT_FOUND", str(exc), 404)
+    except CustomerDeliveryInvoiceNotFoundError as exc:
+        return _error("CUSTOMER_DELIVERY_INVOICE_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get latest customer delivery invoice")
+        return _error(
+            "CUSTOMER_DELIVERY_INVOICE_GET_FAILED",
+            "Failed to get latest customer delivery invoice.",
+            500,
+        )
 
 
 

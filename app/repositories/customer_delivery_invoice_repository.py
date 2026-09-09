@@ -208,3 +208,16 @@ def delete_customer_delivery_invoice(invoice_id: int) -> list[str]:
     db.session.delete(invoice)
     return storage_keys
 
+
+def get_latest_customer_delivery_invoice_for_project(
+    project_id: int,
+) -> CustomerDeliveryInvoice | None:
+    return (
+        CustomerDeliveryInvoice.query.options(
+            selectinload(CustomerDeliveryInvoice.items)
+        )
+        .filter(CustomerDeliveryInvoice.project_id == project_id)
+        .order_by(CustomerDeliveryInvoice.id.desc())
+        .first()
+    )
+

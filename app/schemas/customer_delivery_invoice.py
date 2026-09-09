@@ -468,3 +468,19 @@ class CustomerDeliveryInvoiceQuerySchema(Schema):
     project_id = fields.Integer(required=False)
     invoice_no = fields.String(required=False)
 
+
+class LatestCustomerDeliveryInvoiceQuerySchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    project_id = fields.Integer(required=True)
+
+
+class LatestCustomerDeliveryInvoiceResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    invoice_no = fields.String(dump_only=True)
+    invoice_date = fields.Date(dump_only=True)
+    net_total = fields.Decimal(as_string=True, places=2, dump_only=True)
+

@@ -211,23 +211,11 @@ def _handle_list_customs_clearances(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    bill_of_entry_no = (
-        args.get("bill_of_entry_no")
-        or request.args.get("bill_of_entry_no")
-        or request.args.get("billOfEntryNo")
-    )
-
-    challan_no = (
-        args.get("challan_no")
-        or request.args.get("challan_no")
-        or request.args.get("challanNo")
-    )
+    
 
     try:
         records = list_customs_clearances_records(
             project_id=project_id,
-            bill_of_entry_no=bill_of_entry_no,
-            challan_no=challan_no,
         )
         return [_customs_clearance_response(rec) for rec in records], 200
     except Exception:

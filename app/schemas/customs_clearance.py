@@ -198,8 +198,6 @@ class CustomsClearanceQuerySchema(Schema):
         unknown = EXCLUDE
 
     project_id = fields.Integer(allow_none=True)
-    bill_of_entry_no = fields.String(allow_none=True)
-    challan_no = fields.String(allow_none=True)
 
 
 class CustomsClearanceResponseSchema(Schema):

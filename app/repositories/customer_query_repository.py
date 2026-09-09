@@ -38,10 +38,19 @@ def create_customer_query(
     return customer_query
 
 
-def list_customer_queries() -> list[CustomerQuery]:
+def list_customer_queries(
+    *,
+    project_id: int | None = None,
+    customer_id: int | None = None,
+) -> list[CustomerQuery]:
+    statement = db.select(CustomerQuery)
+    if project_id is not None:
+        statement = statement.where(CustomerQuery.project_id == project_id)
+    if customer_id is not None:
+        statement = statement.where(CustomerQuery.customer_id == customer_id)
+
     return db.session.execute(
-        db.select(CustomerQuery)
-        .order_by(CustomerQuery.id.desc())
+        statement.order_by(CustomerQuery.id.desc())
     ).scalars().all()
 
 

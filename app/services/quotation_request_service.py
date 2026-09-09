@@ -44,9 +44,15 @@ class QuotationRequestNotFoundError(
     """Raised when quotation request does not exist."""
 
 
-def list_quotation_request_records() -> list[QuotationRequest]:
-
-    return list_quotation_requests()
+def list_quotation_request_records(
+    *,
+    project_id: int | None = None,
+    supplier_id: int | None = None,
+) -> list[QuotationRequest]:
+    return list_quotation_requests(
+        project_id=project_id,
+        supplier_id=supplier_id,
+    )
 
 
 def get_quotation_request_record(

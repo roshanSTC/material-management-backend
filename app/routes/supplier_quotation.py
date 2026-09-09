@@ -9,6 +9,7 @@ from app.schemas.supplier_quotation import (
     LatestSupplierQuotationQuerySchema,
     LatestSupplierQuotationResponseSchema,
     SupplierQuotationCreateSchema,
+    SupplierQuotationQuerySchema,
     SupplierQuotationResponseSchema,
     SupplierQuotationUpdateSchema,
 )
@@ -292,15 +293,35 @@ def create():
 
 @supplier_quotation_bp.get("")
 @supplier_quotation_bp.doc(security=[{"BearerAuth": []}])
-# @supplier_quotation_bp.response(200, SupplierQuotationResponseSchema(many=True))
+@supplier_quotation_bp.arguments(SupplierQuotationQuerySchema, location="query")
+@supplier_quotation_bp.response(200, SupplierQuotationResponseSchema(many=True))
 @jwt_required()
-def list_all():
-    project_id, error = _positive_query_int("project_id")
-    if error:
-        return error
-    supplier_id, error = _positive_query_int("supplier_id")
-    if error:
-        return error
+def list_all(args=None):
+    if args is None:
+        args = {}
+
+    project_id = args.get("project_id")
+    if project_id is None:
+        raw_pid = (
+            request.args.get("project_id")
+            or request.args.get("projectId")
+            or request.args.get("product_id")
+            or request.args.get("productId")
+        )
+        if raw_pid is not None:
+            try:
+                project_id = int(raw_pid)
+            except (ValueError, TypeError):
+                project_id = None
+
+    supplier_id = args.get("supplier_id")
+    if supplier_id is None:
+        raw_sid = request.args.get("supplier_id") or request.args.get("supplierId")
+        if raw_sid is not None:
+            try:
+                supplier_id = int(raw_sid)
+            except (ValueError, TypeError):
+                supplier_id = None
 
     supplier_quotations = list_supplier_quotation_records(
         project_id=project_id,

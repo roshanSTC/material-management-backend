@@ -18,6 +18,7 @@ from app.services.storage.factory import get_storage
 
 from app.schemas.customer_query import (
     CustomerQueryCreateSchema,
+    CustomerQueryQuerySchema,
     CustomerQueryResponseSchema,
 )
 from app.services.customer_query_service import (
@@ -270,10 +271,40 @@ def create():
 
 @customer_query_bp.get("")
 @customer_query_bp.doc(security=[{"BearerAuth": []}])
-# @customer_query_bp.response(200, CustomerQueryResponseSchema(many=True))
+@customer_query_bp.arguments(CustomerQueryQuerySchema, location="query")
+@customer_query_bp.response(200, CustomerQueryResponseSchema(many=True))
 @jwt_required()
-def list_all():
-    customer_queries = list_customer_query_records()
+def list_all(args=None):
+    if args is None:
+        args = {}
+
+    project_id = args.get("project_id")
+    if project_id is None:
+        raw_pid = (
+            request.args.get("project_id")
+            or request.args.get("projectId")
+            or request.args.get("product_id")
+            or request.args.get("productId")
+        )
+        if raw_pid is not None:
+            try:
+                project_id = int(raw_pid)
+            except (ValueError, TypeError):
+                project_id = None
+
+    customer_id = args.get("customer_id")
+    if customer_id is None:
+        raw_cid = request.args.get("customer_id") or request.args.get("customerId")
+        if raw_cid is not None:
+            try:
+                customer_id = int(raw_cid)
+            except (ValueError, TypeError):
+                customer_id = None
+
+    customer_queries = list_customer_query_records(
+        project_id=project_id,
+        customer_id=customer_id,
+    )
 
     return [
         _customer_query_response(customer_query)

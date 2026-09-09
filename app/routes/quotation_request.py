@@ -10,6 +10,7 @@ from flask_smorest import Blueprint
 
 from app.schemas.quotation_request import (
     QuotationRequestCreateSchema,
+    QuotationRequestQuerySchema,
     QuotationRequestResponseSchema,
 )
 
@@ -295,11 +296,39 @@ def create():
 @quotation_request_bp.doc(
     security=[{"BearerAuth": []}]
 )
+@quotation_request_bp.arguments(QuotationRequestQuerySchema, location="query")
+@quotation_request_bp.response(200, QuotationRequestResponseSchema(many=True))
 @jwt_required()
-def list_all():
+def list_all(args=None):
+    if args is None:
+        args = {}
 
-    quotation_requests = (
-        list_quotation_request_records()
+    project_id = args.get("project_id")
+    if project_id is None:
+        raw_pid = (
+            request.args.get("project_id")
+            or request.args.get("projectId")
+            or request.args.get("product_id")
+            or request.args.get("productId")
+        )
+        if raw_pid is not None:
+            try:
+                project_id = int(raw_pid)
+            except (ValueError, TypeError):
+                project_id = None
+
+    supplier_id = args.get("supplier_id")
+    if supplier_id is None:
+        raw_sid = request.args.get("supplier_id") or request.args.get("supplierId")
+        if raw_sid is not None:
+            try:
+                supplier_id = int(raw_sid)
+            except (ValueError, TypeError):
+                supplier_id = None
+
+    quotation_requests = list_quotation_request_records(
+        project_id=project_id,
+        supplier_id=supplier_id,
     )
 
     return [

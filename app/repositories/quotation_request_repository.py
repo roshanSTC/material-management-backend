@@ -56,9 +56,17 @@ def get_quotation_request(
     )
 
 
-def list_quotation_requests() -> list[QuotationRequest]:
+def list_quotation_requests(
+    *,
+    project_id: int | None = None,
+    supplier_id: int | None = None,
+) -> list[QuotationRequest]:
+    statement = db.select(QuotationRequest)
+    if project_id is not None:
+        statement = statement.where(QuotationRequest.project_id == project_id)
+    if supplier_id is not None:
+        statement = statement.where(QuotationRequest.supplier_id == supplier_id)
 
     return db.session.execute(
-        db.select(QuotationRequest)
-        .order_by(QuotationRequest.id.desc())
+        statement.order_by(QuotationRequest.id.desc())
     ).scalars().all()

@@ -33,8 +33,15 @@ class CustomerQueryNotFoundError(CustomerQueryError):
     """Raised when a customer query does not exist."""
     
     
-def list_customer_query_records() -> list[CustomerQuery]:
-    return list_customer_queries()
+def list_customer_query_records(
+    *,
+    project_id: int | None = None,
+    customer_id: int | None = None,
+) -> list[CustomerQuery]:
+    return list_customer_queries(
+        project_id=project_id,
+        customer_id=customer_id,
+    )
 
 
 def get_customer_query_record(

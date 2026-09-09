@@ -1,3 +1,5 @@
+from sqlalchemy.orm import selectinload
+
 from app.extensions.database import db
 from app.models import Customer, CustomerQuery, CustomerQueryItem, Project
 
@@ -58,3 +60,14 @@ def get_customer_query(
     customer_query_id: int,
 ) -> CustomerQuery | None:
     return db.session.get(CustomerQuery, customer_query_id)
+
+
+def get_latest_customer_query_for_project(
+    project_id: int,
+) -> CustomerQuery | None:
+    return db.session.execute(
+        db.select(CustomerQuery)
+        .options(selectinload(CustomerQuery.items))
+        .where(CustomerQuery.project_id == project_id)
+        .order_by(CustomerQuery.id.desc())
+    ).scalars().first()

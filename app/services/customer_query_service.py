@@ -9,6 +9,7 @@ from app.repositories.customer_query_repository import (
     get_customer,
     get_project,
     get_customer_query,
+    get_latest_customer_query_for_project,
     list_customer_queries,
 )
 from app.services.project_step_service import sync_customer_query_step
@@ -54,6 +55,19 @@ def get_customer_query_record(
             f"Customer Query with id {customer_query_id} was not found."
         )
 
+    return customer_query
+
+
+def get_latest_customer_query_record(project_id: int) -> CustomerQuery:
+    project = get_project(project_id)
+    if project is None:
+        raise ProjectNotFoundError(f"Project with id {project_id} was not found.")
+
+    customer_query = get_latest_customer_query_for_project(project_id)
+    if customer_query is None:
+        raise CustomerQueryNotFoundError(
+            f"No customer query found for project id {project_id}."
+        )
     return customer_query
 
 

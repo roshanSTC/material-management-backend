@@ -96,10 +96,6 @@ class CustomerQueryQuerySchema(Schema):
         required=False,
         validate=validate.Range(min=1),
     )
-    customer_id = fields.Integer(
-        required=False,
-        validate=validate.Range(min=1),
-    )
 
     @pre_load
     def normalize_keys(self, data, **kwargs):
@@ -135,3 +131,49 @@ class CustomerQueryQuerySchema(Schema):
             normalized.pop("customerId", None)
 
         return normalized
+
+
+class LatestCustomerQueryQuerySchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    project_id = fields.Integer(
+        required=True,
+        validate=validate.Range(min=1),
+    )
+
+    @pre_load
+    def normalize_keys(self, data, **kwargs):
+        if not isinstance(data, (dict, Mapping)):
+            return data
+        normalized = dict(data)
+        resolved_id = (
+            normalized.get("project_id")
+            if normalized.get("project_id") is not None
+            else normalized.get("product_id")
+            if normalized.get("product_id") is not None
+            else normalized.get("projectId")
+            if normalized.get("projectId") is not None
+            else normalized.get("productId")
+        )
+        if resolved_id is not None and str(resolved_id).strip() != "":
+            normalized["project_id"] = str(resolved_id).strip()
+        return normalized
+
+
+class LatestCustomerQueryItemResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    material_name = fields.String(required=True)
+    quantity = fields.Decimal(as_string=True, places=3, required=True)
+
+
+class LatestCustomerQueryResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    items = fields.List(
+        fields.Nested(LatestCustomerQueryItemResponseSchema),
+        required=True,
+    )

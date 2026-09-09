@@ -1,6 +1,6 @@
 import json
 
-from flask import current_app, request
+from flask import current_app, jsonify, make_response, request
 from flask_jwt_extended import (
     get_jwt_identity,
     jwt_required,
@@ -20,6 +20,8 @@ from app.schemas.customer_query import (
     CustomerQueryCreateSchema,
     CustomerQueryQuerySchema,
     CustomerQueryResponseSchema,
+    LatestCustomerQueryQuerySchema,
+    LatestCustomerQueryResponseSchema,
 )
 from app.services.customer_query_service import (
     CustomerNotFoundError,
@@ -29,6 +31,7 @@ from app.services.customer_query_service import (
     create_customer_query_transaction,
     delete_customer_query_transaction,
     get_customer_query_record,
+    get_latest_customer_query_record,
     list_customer_query_records,
     update_customer_query_transaction,
 )
@@ -40,6 +43,13 @@ customer_query_bp = Blueprint(
     url_prefix="/api/v1/customer-queries",
     description="Customer Query / Requirement APIs",
 )
+
+
+def _error(code: str, message: str, status: int):
+    return make_response(
+        jsonify({"success": False, "error": {"code": code, "message": message}}),
+        status,
+    )
 
 
 def _customer_query_response(customer_query):
@@ -292,46 +302,66 @@ def list_all(args=None):
             except (ValueError, TypeError):
                 project_id = None
 
-    customer_id = args.get("customer_id")
-    if customer_id is None:
-        raw_cid = request.args.get("customer_id") or request.args.get("customerId")
-        if raw_cid is not None:
-            try:
-                customer_id = int(raw_cid)
-            except (ValueError, TypeError):
-                customer_id = None
+   
 
     customer_queries = list_customer_query_records(
         project_id=project_id,
-        customer_id=customer_id,
     )
 
     return [
         _customer_query_response(customer_query)
         for customer_query in customer_queries
     ], 200
-    
-    
-    
-# @customer_query_bp.get("/<int:customer_query_id>")
-# @customer_query_bp.doc(security=[{"BearerAuth": []}])
-# # @customer_query_bp.response(200, CustomerQueryResponseSchema)
-# @jwt_required()
-# def get(customer_query_id):
-#     try:
-#         customer_query = get_customer_query_record(
-#             customer_query_id
-#         )
-#     except CustomerQueryNotFoundError as exc:
-#         return {
-#             "success": False,
-#             "error": {
-#                 "code": "CUSTOMER_QUERY_NOT_FOUND",
-#                 "message": str(exc),
-#             },
-#         }, 404
 
-#     return _customer_query_response(customer_query), 200
+
+@customer_query_bp.get("/latest")
+@customer_query_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Customer Query for Project",
+    description="Retrieve items for the latest customer query of a project.",
+)
+@customer_query_bp.arguments(LatestCustomerQueryQuerySchema, location="query")
+@customer_query_bp.response(200, LatestCustomerQueryResponseSchema)
+@jwt_required()
+def get_latest_customer_query(args=None):
+    if args is None:
+        args = {}
+
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    if not project_id:
+        return _error("PROJECT_ID_REQUIRED", "project_id query parameter is required.", 422)
+
+    try:
+        project_id = int(project_id)
+        if project_id <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return _error("VALIDATION_ERROR", "project_id must be a positive integer.", 422)
+
+    try:
+        customer_query = get_latest_customer_query_record(project_id)
+        return {
+            "items": [
+                {
+                    "material_name": item.material_name,
+                    "quantity": item.quantity,
+                }
+                for item in customer_query.items
+            ]
+        }, 200
+    except ProjectNotFoundError as exc:
+        return _error("PROJECT_NOT_FOUND", str(exc), 404)
+    except CustomerQueryNotFoundError as exc:
+        return _error("CUSTOMER_QUERY_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get latest customer query")
+        return _error("CUSTOMER_QUERY_GET_FAILED", "Failed to get latest customer query.", 500)
+
+
 
 
 @customer_query_bp.patch("/<int:customer_query_id>")

@@ -466,7 +466,6 @@ class CustomerDeliveryInvoiceQuerySchema(Schema):
         unknown = EXCLUDE
 
     project_id = fields.Integer(required=False)
-    invoice_no = fields.String(required=False)
 
 
 class LatestCustomerDeliveryInvoiceQuerySchema(Schema):

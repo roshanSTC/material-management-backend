@@ -252,17 +252,10 @@ def _handle_list_customer_delivery_invoices(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    invoice_no = (
-        args.get("invoice_no")
-        or request.args.get("invoice_no")
-        or request.args.get("invoiceNo")
-        or request.args.get("invoice_number")
-    )
 
     try:
         invoices = list_customer_delivery_invoice_records(
             project_id=project_id,
-            invoice_no=invoice_no,
         )
         return [_customer_delivery_invoice_response(inv) for inv in invoices], 200
     except Exception:

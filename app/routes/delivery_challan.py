@@ -213,17 +213,11 @@ def _handle_list_delivery_challans(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    delivery_challan_no = (
-        args.get("delivery_challan_no")
-        or request.args.get("delivery_challan_no")
-        or request.args.get("deliveryChallanNo")
-        or request.args.get("delivery_challan_number")
-    )
+
 
     try:
         delivery_challans = list_delivery_challan_records(
             project_id=project_id,
-            delivery_challan_no=delivery_challan_no,
         )
         return (
             [

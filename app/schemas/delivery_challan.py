@@ -354,5 +354,4 @@ class DeliveryChallanQuerySchema(Schema):
         unknown = EXCLUDE
 
     project_id = fields.Integer(required=False)
-    delivery_challan_no = fields.String(required=False)
 

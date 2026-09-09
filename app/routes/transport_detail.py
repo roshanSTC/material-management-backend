@@ -215,25 +215,11 @@ def _handle_list_transport_details(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    transport_mode = (
-        args.get("transport_mode")
-        or request.args.get("transport_mode")
-        or request.args.get("transportMode")
-        or request.args.get("transportation_mode")
-    )
-
-    lr_no = (
-        args.get("lr_no")
-        or request.args.get("lr_no")
-        or request.args.get("lrNo")
-        or request.args.get("lr_number")
-    )
+    
 
     try:
         details = list_transport_detail_records(
             project_id=project_id,
-            transport_mode=transport_mode,
-            lr_no=lr_no,
         )
         return [_transport_detail_response(d) for d in details], 200
     except Exception:

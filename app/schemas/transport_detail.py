@@ -171,5 +171,3 @@ class TransportDetailResponseSchema(Schema):
 
 class TransportDetailQuerySchema(Schema):
     project_id = fields.Integer(required=False)
-    transport_mode = fields.String(required=False)
-    lr_no = fields.String(required=False)

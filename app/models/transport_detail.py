@@ -18,17 +18,27 @@ class TransportDetail(db.Model):
         index=True,
     )
 
-    transportation_mode = db.Column(
-        db.String(100),
+    transport_mode = db.Column(
+        db.String(50),
         nullable=False,
     )
 
-    lr_number = db.Column(
+    lr_no = db.Column(
         db.String(100),
         nullable=True,
     )
 
-    transport_date = db.Column(
+    rr_no = db.Column(
+        db.String(100),
+        nullable=True,
+    )
+
+    awb_no = db.Column(
+        db.String(100),
+        nullable=True,
+    )
+
+    date = db.Column(
         db.Date,
         nullable=False,
     )
@@ -53,6 +63,38 @@ class TransportDetail(db.Model):
         nullable=True,
     )
 
+    @property
+    def transportation_mode(self):
+        return self.transport_mode
+
+    @transportation_mode.setter
+    def transportation_mode(self, value):
+        self.transport_mode = value
+
+    @property
+    def lr_number(self):
+        return self.lr_no
+
+    @lr_number.setter
+    def lr_number(self, value):
+        self.lr_no = value
+
+    @property
+    def transport_date(self):
+        return self.date
+
+    @transport_date.setter
+    def transport_date(self, value):
+        self.date = value
+
+    @property
+    def remarks(self):
+        return self.remark
+
+    @remarks.setter
+    def remarks(self, value):
+        self.remark = value
+
     created_at = db.Column(
         db.DateTime,
         nullable=False,
@@ -75,5 +117,5 @@ class TransportDetail(db.Model):
     def __repr__(self) -> str:
         return (
             f"<TransportDetail "
-            f"{self.id}: {self.transportation_mode}>"
+            f"{self.id}: {self.transport_mode}>"
         )

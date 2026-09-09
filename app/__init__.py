@@ -94,6 +94,9 @@ def create_app(config_class=Config):
     from app.routes.warranty_certificate import (
         warranty_certificate_bp,
     )
+    from app.routes.transport_detail import (
+        transport_detail_bp,
+    )
     
     api.register_blueprint(auth_bp)
     api.register_blueprint(customer_bp)
@@ -121,6 +124,7 @@ def create_app(config_class=Config):
     api.register_blueprint(customer_delivery_packing_list_bp)
     api.register_blueprint(delivery_challan_bp)
     api.register_blueprint(warranty_certificate_bp)
+    api.register_blueprint(transport_detail_bp)
     return app
 
 

@@ -28,7 +28,7 @@ class WarrantyCertificate(db.Model):
         nullable=False,
     )
 
-    po_number = db.Column(
+    po_no = db.Column(
         db.String(100),
         nullable=True,
     )
@@ -38,7 +38,7 @@ class WarrantyCertificate(db.Model):
         nullable=True,
     )
 
-    invoice_number = db.Column(
+    invoice_no = db.Column(
         db.String(100),
         nullable=True,
     )
@@ -47,6 +47,22 @@ class WarrantyCertificate(db.Model):
         db.Date,
         nullable=True,
     )
+
+    @property
+    def po_number(self):
+        return self.po_no
+
+    @po_number.setter
+    def po_number(self, value):
+        self.po_no = value
+
+    @property
+    def invoice_number(self):
+        return self.invoice_no
+
+    @invoice_number.setter
+    def invoice_number(self, value):
+        self.invoice_no = value
 
     remark = db.Column(
         db.Text,

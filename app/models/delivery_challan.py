@@ -18,7 +18,7 @@ class DeliveryChallan(db.Model):
         index=True,
     )
 
-    delivery_challan_number = db.Column(
+    delivery_challan_no = db.Column(
         db.String(100),
         nullable=False,
     )
@@ -59,8 +59,25 @@ class DeliveryChallan(db.Model):
         lazy="select",
     )
 
+    # Property aliases for backward/forward compatibility
+    @property
+    def delivery_challan_number(self):
+        return self.delivery_challan_no
+
+    @delivery_challan_number.setter
+    def delivery_challan_number(self, val):
+        self.delivery_challan_no = val
+
+    @property
+    def remarks(self):
+        return self.remark
+
+    @remarks.setter
+    def remarks(self, val):
+        self.remark = val
+
     def __repr__(self) -> str:
         return (
             f"<DeliveryChallan "
-            f"{self.id}: {self.delivery_challan_number}>"
+            f"{self.id}: {self.delivery_challan_no}>"
         )

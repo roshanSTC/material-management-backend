@@ -88,6 +88,9 @@ def create_app(config_class=Config):
     from app.routes.customer_delivery_packing_list import (
         customer_delivery_packing_list_bp,
     )
+    from app.routes.delivery_challan import (
+        delivery_challan_bp,
+    )
     
     api.register_blueprint(auth_bp)
     api.register_blueprint(customer_bp)
@@ -113,6 +116,7 @@ def create_app(config_class=Config):
     api.register_blueprint(customs_clearance_bp)
     api.register_blueprint(customer_delivery_invoice_bp)
     api.register_blueprint(customer_delivery_packing_list_bp)
+    api.register_blueprint(delivery_challan_bp)
     return app
 
 

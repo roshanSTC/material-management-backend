@@ -219,17 +219,11 @@ def _handle_list_customer_delivery_packing_lists(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    packing_list_no = (
-        args.get("packing_list_no")
-        or request.args.get("packing_list_no")
-        or request.args.get("packingListNo")
-        or request.args.get("packing_list_number")
-    )
+    
 
     try:
         packing_lists = list_customer_delivery_packing_list_records(
             project_id=project_id,
-            packing_list_no=packing_list_no,
         )
         return (
             [

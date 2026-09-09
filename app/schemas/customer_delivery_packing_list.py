@@ -446,5 +446,4 @@ class CustomerDeliveryPackingListQuerySchema(Schema):
         unknown = EXCLUDE
 
     project_id = fields.Integer(required=False)
-    packing_list_no = fields.String(required=False)
 

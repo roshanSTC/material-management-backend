@@ -159,7 +159,6 @@ class BillOfEntryQuerySchema(Schema):
         unknown = EXCLUDE
 
     project_id = fields.Integer(required=False, allow_none=True)
-    bill_of_entry_no = fields.String(required=False, allow_none=True)
 
 
 class BillOfEntryResponseSchema(Schema):

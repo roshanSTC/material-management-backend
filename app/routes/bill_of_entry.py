@@ -199,16 +199,10 @@ def _handle_list_bills_of_entry(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    bill_of_entry_no = (
-        args.get("bill_of_entry_no")
-        or request.args.get("bill_of_entry_no")
-        or request.args.get("billOfEntryNo")
-    )
 
     try:
         records = list_bills_of_entry_records(
             project_id=project_id,
-            bill_of_entry_no=bill_of_entry_no,
         )
         return [_bill_of_entry_response(rec) for rec in records], 200
     except Exception:

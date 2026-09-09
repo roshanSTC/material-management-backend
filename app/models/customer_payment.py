@@ -18,7 +18,7 @@ class CustomerPayment(db.Model):
         index=True,
     )
 
-    invoice_number = db.Column(
+    invoice_no = db.Column(
         db.String(100),
         nullable=False,
     )
@@ -43,7 +43,7 @@ class CustomerPayment(db.Model):
         nullable=False,
     )
 
-    liquidated_damages = db.Column(
+    ld = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )
@@ -75,6 +75,30 @@ class CustomerPayment(db.Model):
         "Project",
         back_populates="customer_payments",
     )
+
+    @property
+    def invoice_number(self) -> str:
+        return self.invoice_no
+
+    @invoice_number.setter
+    def invoice_number(self, value: str):
+        self.invoice_no = value
+
+    @property
+    def liquidated_damages(self):
+        return self.ld
+
+    @liquidated_damages.setter
+    def liquidated_damages(self, value):
+        self.ld = value
+
+    @property
+    def remarks(self):
+        return self.remark
+
+    @remarks.setter
+    def remarks(self, value):
+        self.remark = value
 
     def __repr__(self) -> str:
         return f"<CustomerPayment {self.id}>"

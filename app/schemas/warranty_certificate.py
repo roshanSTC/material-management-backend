@@ -141,5 +141,3 @@ class WarrantyCertificateResponseSchema(Schema):
 
 class WarrantyCertificateQuerySchema(Schema):
     project_id = fields.Integer(required=False)
-    po_no = fields.String(required=False)
-    invoice_no = fields.String(required=False)

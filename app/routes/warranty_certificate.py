@@ -202,25 +202,11 @@ def _handle_list_warranty_certificates(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    po_no = (
-        args.get("po_no")
-        or request.args.get("po_no")
-        or request.args.get("poNo")
-        or request.args.get("po_number")
-    )
-
-    invoice_no = (
-        args.get("invoice_no")
-        or request.args.get("invoice_no")
-        or request.args.get("invoiceNo")
-        or request.args.get("invoice_number")
-    )
+    
 
     try:
         certs = list_warranty_certificate_records(
             project_id=project_id,
-            po_no=po_no,
-            invoice_no=invoice_no,
         )
         return [_warranty_certificate_response(c) for c in certs], 200
     except Exception:

@@ -613,3 +613,50 @@ class SupplierProformaInvoiceResponseSchema(Schema):
         fields.Nested(AttachmentResponseSchema),
         required=False,
     )
+
+
+class LatestSupplierProformaInvoiceQuerySchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    project_id = fields.Integer(
+        required=True,
+        validate=validate.Range(min=1),
+    )
+
+    @pre_load
+    def normalize_keys(self, data, **kwargs):
+        if not isinstance(data, (dict, Mapping)):
+            return data
+        normalized = dict(data)
+        resolved_id = (
+            normalized.get("project_id")
+            if normalized.get("project_id") is not None
+            else normalized.get("projectId")
+        )
+        if resolved_id is not None and str(resolved_id).strip() != "":
+            normalized["project_id"] = str(resolved_id).strip()
+        return normalized
+
+
+class LatestSupplierProformaInvoiceItemResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    material_name = fields.String(allow_none=True)
+    description = fields.String(allow_none=True)
+    hsn_code = fields.String(allow_none=True)
+    quantity = fields.Decimal(as_string=True, places=3, required=True)
+    unit_price = fields.Decimal(as_string=True, places=2, allow_none=True)
+    net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+
+
+class LatestSupplierProformaInvoiceResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    items = fields.List(
+        fields.Nested(LatestSupplierProformaInvoiceItemResponseSchema),
+        required=True,
+    )
+

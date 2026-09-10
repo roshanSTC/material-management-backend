@@ -7,6 +7,8 @@ from marshmallow import ValidationError
 
 from app.extensions.database import db
 from app.schemas.supplier_proforma_invoice import (
+    LatestSupplierProformaInvoiceQuerySchema,
+    LatestSupplierProformaInvoiceResponseSchema,
     SupplierProformaInvoiceCreateSchema,
     SupplierProformaInvoiceQuerySchema,
     SupplierProformaInvoiceResponseSchema,
@@ -25,6 +27,7 @@ from app.services.supplier_proforma_invoice_service import (
     SupplierNotFoundError,
     create_supplier_proforma_invoice_transaction,
     delete_supplier_proforma_invoice_transaction,
+    get_latest_supplier_proforma_invoice_record,
     get_supplier_proforma_invoice_record,
     list_supplier_proforma_invoice_records,
     update_supplier_proforma_invoice_transaction,
@@ -110,6 +113,45 @@ def _proforma_invoice_response(invoice):
             for attachment in attachments
         ],
     }
+
+
+def _format_decimal_str(val, places=2):
+    if val is None:
+        return None
+    try:
+        from decimal import Decimal
+        d = Decimal(str(val).strip())
+        return f"{d:.{places}f}"
+    except Exception:
+        return str(val)
+
+
+def _latest_supplier_proforma_invoice_response(invoice):
+    items_list = []
+    for item in invoice.items:
+        qty = item.quantity
+        price = item.unit_price
+        net_amt = item.net_amount
+        if net_amt is None and qty is not None and price is not None:
+            try:
+                from decimal import Decimal
+                net_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
+            except Exception:
+                pass
+
+        items_list.append({
+            "material_name": item.material_name or item.description,
+            "description": item.description or item.material_name,
+            "hsn_code": item.hsn_code,
+            "quantity": _format_decimal_str(qty, places=3) or "0.000",
+            "unit_price": _format_decimal_str(price, places=2),
+            "net_amount": _format_decimal_str(net_amt, places=2),
+        })
+
+    return {
+        "items": items_list,
+    }
+
 
 
 def _extract_payload_and_files():
@@ -306,6 +348,41 @@ def _handle_delete_supplier_proforma_invoice(proforma_invoice_id: int):
         )
 
 
+def _handle_get_latest_supplier_proforma_invoice(args=None):
+    if args is None:
+        args = {}
+
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    if not project_id:
+        return _error("PROJECT_ID_REQUIRED", "project_id query parameter is required.", 400)
+
+    try:
+        project_id = int(project_id)
+        if project_id <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+
+    try:
+        invoice = get_latest_supplier_proforma_invoice_record(project_id)
+        return _latest_supplier_proforma_invoice_response(invoice), 200
+    except ProjectNotFoundError as exc:
+        return _error("PROJECT_NOT_FOUND", str(exc), 404)
+    except ProformaInvoiceNotFoundError as exc:
+        return _error("PROFORMA_INVOICE_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get latest supplier proforma invoice")
+        return _error(
+            "PROFORMA_INVOICE_GET_FAILED",
+            "Failed to get latest supplier proforma invoice.",
+            500,
+        )
+
+
 _REQUEST_BODY_CREATE_DOC = {
     "required": True,
     "content": {
@@ -374,6 +451,20 @@ def create_supplier_proforma_invoice():
 @jwt_required()
 def list_supplier_proforma_invoices(args=None):
     return _handle_list_supplier_proforma_invoices(args)
+
+
+@supplier_proforma_invoice_bp.get("/latest")
+@supplier_proforma_invoice_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Supplier Proforma Invoice for Project",
+    description="Retrieve items for the latest supplier proforma invoice of a project.",
+)
+@supplier_proforma_invoice_bp.arguments(LatestSupplierProformaInvoiceQuerySchema, location="query")
+@supplier_proforma_invoice_bp.response(200, LatestSupplierProformaInvoiceResponseSchema)
+@jwt_required()
+def get_latest_supplier_proforma_invoice(args=None):
+    return _handle_get_latest_supplier_proforma_invoice(args)
+
 
 
 @supplier_proforma_invoice_bp.patch("/<int:proforma_invoice_id>")

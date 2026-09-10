@@ -139,3 +139,16 @@ def delete_bill_of_entry_transaction(bill_of_entry_id: int) -> list[str]:
     db.session.flush()
     return storage_keys
 
+
+def get_latest_bill_of_entry_record(project_id: int) -> BillOfEntry:
+    project = repository.get_project(project_id)
+    if not project:
+        raise ProjectNotFoundError(f"Project with ID {project_id} not found.")
+    record = repository.get_bill_of_entry_by_project_id(project_id)
+    if not record:
+        raise BillOfEntryNotFoundError(
+            f"No Bill of Entry found for project ID {project_id}."
+        )
+    return record
+
+

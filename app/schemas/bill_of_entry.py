@@ -184,3 +184,38 @@ class BillOfEntryResponseSchema(Schema):
         fields.Nested(AttachmentResponseSchema),
         dump_default=[],
     )
+
+
+class LatestBillOfEntryQuerySchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    project_id = fields.Integer(
+        required=True,
+        validate=validate.Range(min=1),
+    )
+
+    @pre_load
+    def normalize_keys(self, data, **kwargs):
+        if not isinstance(data, (dict, Mapping)):
+            return data
+        normalized = dict(data)
+        resolved_id = (
+            normalized.get("project_id")
+            if normalized.get("project_id") is not None
+            else normalized.get("projectId")
+        )
+        if resolved_id is not None and str(resolved_id).strip() != "":
+            normalized["project_id"] = str(resolved_id).strip()
+        return normalized
+
+
+class LatestBillOfEntryResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    bcd = fields.Float(allow_none=True)
+    sws = fields.Float(allow_none=True)
+    igst = fields.Float(allow_none=True)
+    duty = fields.Float(allow_none=True)
+

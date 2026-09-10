@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 
 from flask import current_app, jsonify, make_response, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
@@ -11,6 +12,8 @@ from app.schemas.bill_of_entry import (
     BillOfEntryQuerySchema,
     BillOfEntryResponseSchema,
     BillOfEntryUpdateSchema,
+    LatestBillOfEntryQuerySchema,
+    LatestBillOfEntryResponseSchema,
 )
 from app.services.attachment_service import (
     AttachmentValidationError,
@@ -23,6 +26,7 @@ from app.services.bill_of_entry_service import (
     create_bill_of_entry_transaction,
     delete_bill_of_entry_transaction,
     get_bill_of_entry_record,
+    get_latest_bill_of_entry_record,
     list_bills_of_entry_records,
     update_bill_of_entry_transaction,
 )
@@ -78,6 +82,23 @@ def _bill_of_entry_response(record):
             }
             for attachment in attachments
         ],
+    }
+
+
+def _latest_bill_of_entry_response(record):
+    bcd_dec = Decimal(str(record.bcd)) if record.bcd is not None else None
+    sws_dec = Decimal(str(record.sws)) if record.sws is not None else None
+    igst_dec = Decimal(str(record.igst)) if record.igst is not None else None
+
+    duty_dec = None
+    if bcd_dec is not None or sws_dec is not None:
+        duty_dec = (bcd_dec or Decimal(0)) + (sws_dec or Decimal(0))
+
+    return {
+        "bcd": float(bcd_dec) if bcd_dec is not None else None,
+        "sws": float(sws_dec) if sws_dec is not None else None,
+        "igst": float(igst_dec) if igst_dec is not None else None,
+        "duty": float(duty_dec) if duty_dec is not None else None,
     }
 
 
@@ -225,6 +246,39 @@ def _handle_get_bill_of_entry(bill_of_entry_id: int):
         return _error(
             "BILL_OF_ENTRY_GET_FAILED",
             "Failed to get bill of entry.",
+            500,
+        )
+
+
+def _handle_get_latest_bill_of_entry(args=None):
+    if args is None:
+        args = {}
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    if not project_id:
+        return _error("PROJECT_ID_REQUIRED", "project_id query parameter is required.", 400)
+    try:
+        project_id = int(project_id)
+        if project_id <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+
+    try:
+        record = get_latest_bill_of_entry_record(project_id)
+        return _latest_bill_of_entry_response(record), 200
+    except ProjectNotFoundError as exc:
+        return _error("PROJECT_NOT_FOUND", str(exc), 404)
+    except BillOfEntryNotFoundError as exc:
+        return _error("BILL_OF_ENTRY_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get latest bill of entry")
+        return _error(
+            "BILL_OF_ENTRY_GET_FAILED",
+            "Failed to get latest bill of entry.",
             500,
         )
 
@@ -416,6 +470,18 @@ def create_bill_of_entry():
 def list_bills_of_entry(args=None):
     return _handle_list_bills_of_entry(args)
 
+
+@bill_of_entry_bp.get("/latest")
+@bill_of_entry_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Bill of Entry for Project",
+    description="Retrieve bcd, sws, igst, and duty for the latest bill of entry of a project.",
+)
+@bill_of_entry_bp.arguments(LatestBillOfEntryQuerySchema, location="query")
+@bill_of_entry_bp.response(200, LatestBillOfEntryResponseSchema)
+@jwt_required()
+def get_latest_bill_of_entry(args=None):
+    return _handle_get_latest_bill_of_entry(args)
 
 
 

@@ -38,6 +38,11 @@ class SupplierQuotationItem(db.Model):
         nullable=True,
     )
 
+    hsn_code = db.Column(
+        db.String(50),
+        nullable=True,
+    )
+
     created_at = db.Column(
         db.DateTime,
         nullable=False,
@@ -48,6 +53,14 @@ class SupplierQuotationItem(db.Model):
         "SupplierQuotation",
         back_populates="items",
     )
+
+    @property
+    def hsn_sac(self):
+        return self.hsn_code
+
+    @hsn_sac.setter
+    def hsn_sac(self, val):
+        self.hsn_code = val
 
     def __repr__(self) -> str:
         return f"<SupplierQuotationItem {self.id}>"

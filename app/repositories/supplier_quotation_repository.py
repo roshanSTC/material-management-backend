@@ -120,6 +120,9 @@ def _replace_items(
         quantity = item_data["quantity"]
         unit_price = item_data.get("unit_price")
         net_amount = item_data.get("net_amount")
+        hsn_code = _normalize_optional_string(
+            item_data.get("hsn_code") or item_data.get("hsn_sac")
+        )
         if net_amount is None and unit_price is not None and quantity is not None:
             try:
                 net_amount = quantity * unit_price
@@ -132,6 +135,7 @@ def _replace_items(
                 quantity=quantity,
                 unit_price=unit_price,
                 net_amount=net_amount,
+                hsn_code=hsn_code,
             )
         )
 

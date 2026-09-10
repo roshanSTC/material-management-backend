@@ -48,6 +48,11 @@ class SupplierQuotationItemSchema(Schema):
             _not_blank,
         ),
     )
+    hsn_code = fields.String(
+        required=False,
+        allow_none=True,
+        validate=validate.Length(max=50),
+    )
     quantity = fields.Decimal(
         required=True,
         as_string=True,
@@ -74,6 +79,13 @@ class SupplierQuotationItemSchema(Schema):
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
+        hsn = (
+            normalized.get("hsn_code")
+            if normalized.get("hsn_code") is not None
+            else normalized.get("hsn_sac")
+        )
+        if hsn is not None:
+            normalized["hsn_code"] = str(hsn).strip() or None
         if "unit_price" in normalized and normalized["unit_price"] is not None:
             normalized["unit_price"] = str(normalized["unit_price"]).strip()
         if "net_amount" in normalized and normalized["net_amount"] is not None:
@@ -261,6 +273,7 @@ class SupplierQuotationItemResponseSchema(Schema):
 
     id = fields.Integer(required=True)
     material_name = fields.String(required=True)
+    hsn_code = fields.String(required=False, allow_none=True)
     quantity = fields.Decimal(required=True, as_string=True, places=3)
     unit_price = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
     net_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
@@ -368,6 +381,7 @@ class LatestSupplierQuotationItemResponseSchema(Schema):
         unknown = EXCLUDE
 
     material_name = fields.String(required=True)
+    hsn_code = fields.String(required=False, allow_none=True)
     unit_price = fields.Decimal(as_string=True, places=2, allow_none=True)
     quantity = fields.Decimal(as_string=True, places=3, required=True)
     net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)

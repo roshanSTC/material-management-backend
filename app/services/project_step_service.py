@@ -73,10 +73,10 @@ STEP_DEFINITIONS = {
             "on the cost sheet."
         ),
         "required_fields": {
-            "quotation_amount",
-            "sent_date",
-            "validity_days",
-            "remarks",
+            "quotation_number",
+            "quotation_date",
+            "quotation_value",
+            "validity",
         },
     },
     6: {
@@ -86,8 +86,8 @@ STEP_DEFINITIONS = {
         ),
         "required_fields": {
             "tender_number",
-            "submission_date",
-            "remarks",
+            "tender_date",
+            "tender_title",
         },
     },
     7: {

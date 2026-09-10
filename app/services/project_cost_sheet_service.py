@@ -92,6 +92,11 @@ def create_project_cost_sheet(*, project_id: int, data: dict, created_by: int) -
         output=output,
     )
     db.session.flush()
+
+    from app.services.project_step_service import sync_cost_sheet_step
+
+    sync_cost_sheet_step(project.id)
+
     return cost_sheet
 
 
@@ -155,6 +160,11 @@ def update_cost_sheet_item_rate(
     cost_sheet.output = output
 
     db.session.flush()
+
+    from app.services.project_step_service import sync_cost_sheet_step
+
+    sync_cost_sheet_step(cost_sheet.project_id)
+
     return cost_sheet, item, True
 
 

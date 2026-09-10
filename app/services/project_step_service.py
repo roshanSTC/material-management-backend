@@ -18,8 +18,7 @@ STEP_DEFINITIONS = {
             "with S.T."
         ),
         "required_fields": {
-            "qo_date",
-            "remark",  
+            "qo_date",  
         },
     },
     2: {
@@ -30,8 +29,6 @@ STEP_DEFINITIONS = {
         ),
         "required_fields": {
             "quotation_requested_date",
-            "supplier_contacted",
-            "remarks",
         },
     },
     3: {
@@ -49,7 +46,6 @@ STEP_DEFINITIONS = {
             "incoterms",
             "payment_terms",
             "delivery_period",
-            "remark",
         },
     },
     4: {
@@ -63,6 +59,11 @@ STEP_DEFINITIONS = {
             "margin_percent",
             "prepared_date",
             "remarks",
+            "remark",
+            "version_number",
+            "title",
+            "total_cost_sheets",
+            "status",
         },
     },
     5: {
@@ -277,6 +278,14 @@ def calculate_step_progress(
     """
     Calculate the completion percentage for a project step.
     """
+    if step_number == 4:
+        # Step 4 (Cost Sheet Preparation): If any cost sheet is prepared,
+        # it is 100% complete no matter how many cost sheets exist (1, 2, 3, etc.).
+        data = data or {}
+        if any(_is_field_filled(val) for val in data.values()):
+            return 100.0
+        return 0.0
+
     definition = _get_step_definition(step_number)
 
     required_fields = definition["required_fields"]
@@ -368,6 +377,8 @@ def list_project_steps(
             f"Project with id {project_id} was not found."
         )
 
+    sync_cost_sheet_step(project_id)
+
     saved_steps = {
         step.step_number: step
         for step in ProjectStep.query
@@ -408,6 +419,9 @@ def get_project_step(
         )
 
     _get_step_definition(step_number)
+
+    if step_number == 4:
+        sync_cost_sheet_step(project_id)
 
     step = ProjectStep.query.filter_by(
         project_id=project_id,
@@ -765,6 +779,74 @@ def sync_supplier_quotation_step(project_id: int) -> ProjectStep | None:
     return upsert_project_step_record(
         project_id=project_id,
         step_number=3,
+        data=step_data,
+    )
+
+
+def sync_cost_sheet_step(project_id: int) -> ProjectStep | None:
+    from app.models.cost_sheet import CostSheet
+
+    project = db.session.get(Project, project_id)
+    if project is None:
+        return None
+
+    try:
+        cost_sheets = (
+            CostSheet.query
+            .filter_by(project_id=project_id)
+            .order_by(CostSheet.version_number.desc(), CostSheet.id.desc())
+            .all()
+        )
+    except Exception:
+        cost_sheets = []
+
+    if not cost_sheets:
+        existing_step = ProjectStep.query.filter_by(
+            project_id=project_id,
+            step_number=4,
+        ).first()
+
+        if existing_step is not None:
+            db.session.delete(existing_step)
+            db.session.flush()
+        return None
+
+    latest_cost_sheet = cost_sheets[0]
+
+    output = latest_cost_sheet.output or {}
+    column_totals = output.get("columnTotals", {}) if isinstance(output, dict) else {}
+    cost_val = (
+        column_totals.get("totalCostInr")
+        or column_totals.get("totalPriceInr")
+        or (output.get("totalSellingPriceExclGst") if isinstance(output, dict) else None)
+    )
+    cost_amount_str = str(cost_val) if cost_val is not None else None
+
+    gp = latest_cost_sheet.global_params or {}
+    margin_val = gp.get("marginPercent") if isinstance(gp, dict) else None
+    margin_percent_str = str(margin_val) if margin_val is not None else None
+
+    prep_date = (
+        latest_cost_sheet.created_at.date().isoformat()
+        if hasattr(latest_cost_sheet.created_at, "date")
+        else str(latest_cost_sheet.created_at)[:10]
+    ) if latest_cost_sheet.created_at else None
+
+    step_data = {
+        "cost_amount": cost_amount_str,
+        "margin_percent": margin_percent_str,
+        "prepared_date": prep_date,
+        "remarks": latest_cost_sheet.title,
+        "remark": latest_cost_sheet.title,
+        "version_number": latest_cost_sheet.version_number,
+        "title": latest_cost_sheet.title,
+        "total_cost_sheets": len(cost_sheets),
+        "status": latest_cost_sheet.status,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=4,
         data=step_data,
     )
 

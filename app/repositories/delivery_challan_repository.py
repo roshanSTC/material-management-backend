@@ -101,6 +101,10 @@ def create_delivery_challan(*, data: dict) -> DeliveryChallan:
             data.get("delivery_challan_no") or data.get("delivery_challan_number")
         ).strip(),
         delivery_challan_date=delivery_challan_date_val,
+        gst_rate=_parse_decimal_val(data.get("gst_rate")),
+        gst_amount=_parse_decimal_val(data.get("gst_amount")),
+        round_off=_parse_decimal_val(data.get("round_off")),
+        net_total=_parse_decimal_val(data.get("net_total")),
         remark=_normalize_optional_string(data.get("remark") or data.get("remarks")),
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
@@ -158,6 +162,18 @@ def update_delivery_challan(
         dt = _parse_date_val(data.get("delivery_challan_date"))
         if dt is not None:
             delivery_challan.delivery_challan_date = dt
+
+    if "gst_rate" in data:
+        delivery_challan.gst_rate = _parse_decimal_val(data.get("gst_rate"))
+
+    if "gst_amount" in data:
+        delivery_challan.gst_amount = _parse_decimal_val(data.get("gst_amount"))
+
+    if "round_off" in data:
+        delivery_challan.round_off = _parse_decimal_val(data.get("round_off"))
+
+    if "net_total" in data:
+        delivery_challan.net_total = _parse_decimal_val(data.get("net_total"))
 
     if "remark" in data or "remarks" in data:
         delivery_challan.remark = _normalize_optional_string(

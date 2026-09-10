@@ -28,6 +28,26 @@ class DeliveryChallan(db.Model):
         nullable=False,
     )
 
+    gst_rate = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    gst_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    round_off = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    net_total = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
     remark = db.Column(
         db.Text,
         nullable=True,

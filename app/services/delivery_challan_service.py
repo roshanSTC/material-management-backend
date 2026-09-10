@@ -24,8 +24,10 @@ class DeliveryChallanNotFoundError(DeliveryChallanError):
     pass
 
 
-def _calculate_item_amounts(data: dict) -> None:
+def _calculate_amounts(data: dict) -> None:
     items = data.get("items") or []
+    item_net_sum = Decimal("0.00")
+
     for item in items:
         qty = item.get("quantity")
         unit_price = item.get("unit_price")
@@ -37,8 +39,36 @@ def _calculate_item_amounts(data: dict) -> None:
                     Decimal("0.01")
                 )
                 item["net_amount"] = str(computed_net)
+                item_net_sum += computed_net
             except Exception:
                 pass
+        elif net_amt is not None:
+            try:
+                item_net_sum += Decimal(str(net_amt))
+            except Exception:
+                pass
+
+    gst_rate = data.get("gst_rate")
+    gst_amount = data.get("gst_amount")
+    if gst_amount is None and gst_rate is not None and item_net_sum > 0:
+        try:
+            computed_gst = (
+                item_net_sum * Decimal(str(gst_rate)) / Decimal("100")
+            ).quantize(Decimal("0.01"))
+            data["gst_amount"] = str(computed_gst)
+        except Exception:
+            pass
+
+    net_total = data.get("net_total")
+    if net_total is None and item_net_sum > 0:
+        try:
+            gst_val = Decimal(str(data.get("gst_amount") or 0))
+            round_val = Decimal(str(data.get("round_off") or 0))
+            data["net_total"] = str(
+                (item_net_sum + gst_val + round_val).quantize(Decimal("0.01"))
+            )
+        except Exception:
+            pass
 
 
 def create_delivery_challan_transaction(*, data: dict) -> DeliveryChallan:
@@ -50,7 +80,7 @@ def create_delivery_challan_transaction(*, data: dict) -> DeliveryChallan:
     if project is None:
         raise ProjectNotFoundError(f"Project with ID {project_id} not found.")
 
-    _calculate_item_amounts(data)
+    _calculate_amounts(data)
 
     delivery_challan = create_delivery_challan(data=data)
     db.session.flush()
@@ -96,7 +126,7 @@ def update_delivery_challan_transaction(
             raise ProjectNotFoundError(f"Project with ID {project_id} not found.")
 
     if "items" in data:
-        _calculate_item_amounts(data)
+        _calculate_amounts(data)
 
     updated_delivery_challan = update_delivery_challan(
         delivery_challan=delivery_challan,

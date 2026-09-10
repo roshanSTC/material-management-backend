@@ -203,6 +203,30 @@ class DeliveryChallanCreateSchema(Schema):
         ),
     )
     delivery_challan_date = fields.Date(required=True)
+    gst_rate = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    gst_amount = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    round_off = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    net_total = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
     remark = fields.String(
         required=False,
         allow_none=True,
@@ -257,6 +281,30 @@ class DeliveryChallanCreateSchema(Schema):
             except (ValueError, TypeError):
                 pass
 
+        # Handle gst_rate
+        if "gst_rate" in normalized or "gstRate" in normalized or "gst" in normalized:
+            gst_r = normalized.get("gst_rate") or normalized.get("gstRate") or normalized.get("gst")
+            if gst_r is not None:
+                normalized["gst_rate"] = gst_r
+
+        # Handle gst_amount
+        if "gst_amount" in normalized or "gstAmount" in normalized:
+            gst_a = normalized.get("gst_amount") or normalized.get("gstAmount")
+            if gst_a is not None:
+                normalized["gst_amount"] = gst_a
+
+        # Handle round_off
+        if "round_off" in normalized or "roundOff" in normalized:
+            ro = normalized.get("round_off") or normalized.get("roundOff")
+            if ro is not None:
+                normalized["round_off"] = ro
+
+        # Handle net_total
+        if "net_total" in normalized or "netTotal" in normalized:
+            nt = normalized.get("net_total") or normalized.get("netTotal")
+            if nt is not None:
+                normalized["net_total"] = nt
+
         # Handle remark / remarks
         rem = (
             normalized.get("remark")
@@ -282,6 +330,30 @@ class DeliveryChallanUpdateSchema(Schema):
         ),
     )
     delivery_challan_date = fields.Date(required=False)
+    gst_rate = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    gst_amount = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    round_off = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    net_total = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
     remark = fields.String(
         required=False,
         allow_none=True,
@@ -321,6 +393,26 @@ class DeliveryChallanUpdateSchema(Schema):
                 except (ValueError, TypeError):
                     pass
 
+        if "gst_rate" in normalized or "gstRate" in normalized or "gst" in normalized:
+            gst_r = normalized.get("gst_rate") or normalized.get("gstRate") or normalized.get("gst")
+            if gst_r is not None:
+                normalized["gst_rate"] = gst_r
+
+        if "gst_amount" in normalized or "gstAmount" in normalized:
+            gst_a = normalized.get("gst_amount") or normalized.get("gstAmount")
+            if gst_a is not None:
+                normalized["gst_amount"] = gst_a
+
+        if "round_off" in normalized or "roundOff" in normalized:
+            ro = normalized.get("round_off") or normalized.get("roundOff")
+            if ro is not None:
+                normalized["round_off"] = ro
+
+        if "net_total" in normalized or "netTotal" in normalized:
+            nt = normalized.get("net_total") or normalized.get("netTotal")
+            if nt is not None:
+                normalized["net_total"] = nt
+
         if "remark" in normalized or "remarks" in normalized:
             rem = normalized.get("remark") or normalized.get("remarks")
             if rem is not None:
@@ -335,6 +427,10 @@ class DeliveryChallanResponseSchema(Schema):
     delivery_challan_no = fields.String(dump_only=True)
     delivery_challan_number = fields.String(dump_only=True)
     delivery_challan_date = fields.Date(dump_only=True)
+    gst_rate = fields.Decimal(dump_only=True, as_string=True, places=2)
+    gst_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
+    round_off = fields.Decimal(dump_only=True, as_string=True, places=2)
+    net_total = fields.Decimal(dump_only=True, as_string=True, places=2)
     remark = fields.String(dump_only=True)
     remarks = fields.String(dump_only=True)
     created_at = fields.DateTime(dump_only=True)

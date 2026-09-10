@@ -712,6 +712,8 @@ class LatestPurchaseOrderResponseSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
+    po_number = fields.String(allow_none=True)
+    po_date = fields.Date(allow_none=True)
     gst_rate = fields.Decimal(as_string=True, places=2, allow_none=True)
     gst_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
@@ -719,4 +721,5 @@ class LatestPurchaseOrderResponseSchema(Schema):
         fields.Nested(LatestPurchaseOrderItemResponseSchema),
         required=True,
     )
+
 

@@ -167,11 +167,14 @@ def _latest_purchase_order_response(purchase_order):
             pass
 
     return {
+        "po_number": purchase_order.po_number,
+        "po_date": purchase_order.po_date,
         "gst_rate": _format_decimal_str(purchase_order.gst_rate, places=2),
         "gst_amount": _format_decimal_str(gst_amt, places=2),
         "total_net_amount": _format_decimal_str(tot_net, places=2),
         "items": items_list,
     }
+
 
 
 def _extract_payload_and_files():

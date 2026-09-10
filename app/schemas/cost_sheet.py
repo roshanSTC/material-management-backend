@@ -470,9 +470,9 @@ class LatestCostSheetItemResponseSchema(Schema):
 
     itemCode = fields.String(required=True)
     itemDescription = fields.String(required=True)
-    pricePerUnitInr = fields.Float(required=True)
     quantity = fields.Float(required=True)
-    totalPriceInr = fields.Float(required=True)
+    pricePeeUnitInrExclGst = fields.Float(required=True)
+    sellingPriceExclGst = fields.Float(required=True)
 
 
 class LatestCostSheetResponseSchema(Schema):
@@ -482,6 +482,8 @@ class LatestCostSheetResponseSchema(Schema):
     id = fields.Integer(required=True)
     project_id = fields.Integer(required=True)
     title = fields.String(required=True)
-    totalPriceInr = fields.Float(required=True)
+    sellingPriceExclGst = fields.Float(required=True)
+    sellingPriceInclGst = fields.Float(required=True)
+    gstRate = fields.Float(required=True)
     items = fields.List(fields.Nested(LatestCostSheetItemResponseSchema), required=True)
 

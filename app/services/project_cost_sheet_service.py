@@ -13,7 +13,7 @@ from app.repositories.project_cost_sheet_repository import (
     get_user,
     list_cost_sheets_by_project,
 )
-from app.services.cost_sheet_service import calculate_cost_sheet
+from app.services.cost_sheet_service import _calculate_item, calculate_cost_sheet
 
 
 class ProjectCostSheetError(Exception):
@@ -286,30 +286,77 @@ def serialize_cost_sheet_metadata(cost_sheet: CostSheet) -> dict:
 
 def serialize_latest_cost_sheet(cost_sheet: CostSheet) -> dict:
     global_params = cost_sheet.global_params or {}
-    eur_to_inr = Decimal(str(global_params.get("eurToInr", 1.0)))
+    output = cost_sheet.output
+    if not output:
+        output = calculate_cost_sheet(
+            global_params=global_params,
+            items=[_calculation_item(item) for item in cost_sheet.items],
+        )
+
+    output_items = output.get("items", []) if isinstance(output, dict) else []
+    output_items_by_code = {
+        it.get("itemCode"): it
+        for it in output_items
+        if isinstance(it, dict) and it.get("itemCode")
+    }
+
+    gst_rate = float(global_params.get("gstRate", 0.18))
+    total_selling_price_excl_gst = Decimal("0")
 
     items_list = []
-    total_price_inr = Decimal("0")
-    for item in cost_sheet.items:
-        price_eur = Decimal(str(item.price_per_unit_eur))
+    for idx, item in enumerate(cost_sheet.items):
+        calc_item = output_items_by_code.get(item.item_code)
+        if not calc_item and idx < len(output_items) and isinstance(output_items[idx], dict):
+            calc_item = output_items[idx]
+        if not calc_item:
+            calc_item = _calculate_item(
+                global_params=global_params,
+                item=_calculation_item(item),
+            )
+
+        selling_price_excl = Decimal(str(calc_item.get("sellingPriceExclGst", 0)))
+        selling_price_incl = Decimal(str(calc_item.get("sellingPriceInclGst", 0)))
         qty = Decimal(str(item.quantity))
-        price_inr = price_eur * eur_to_inr
-        item_total_inr = price_inr * qty
-        total_price_inr += item_total_inr
+
+        if qty > 0:
+            price_per_unit_excl = float(selling_price_excl / qty)
+        else:
+            price_per_unit_excl = 0.0
+
+        total_selling_price_excl_gst += selling_price_excl
 
         items_list.append({
             "itemCode": item.item_code,
             "itemDescription": item.item_description,
-            "pricePerUnitInr": float(price_inr),
             "quantity": float(qty),
-            "totalPriceInr": float(item_total_inr),
+            "sellingPriceExclGst": float(selling_price_excl),
+            "pricePeeUnitInrExclGst": price_per_unit_excl,
+            "pricePerUnitInrExclGst": price_per_unit_excl,
+            "sellingPriceInclGst": float(selling_price_incl),
         })
+
+    # Total selling price excl GST (sum of sellingPriceExclGst)
+    if isinstance(output, dict) and output.get("totalSellingPriceExclGst") is not None:
+        total_selling_excl = float(output["totalSellingPriceExclGst"])
+    else:
+        total_selling_excl = float(total_selling_price_excl_gst)
+
+    # Grand total incl GST
+    if isinstance(output, dict) and output.get("grandTotalInclGst") is not None:
+        grand_total_incl = float(output["grandTotalInclGst"])
+    else:
+        grand_total_incl = float(
+            Decimal(str(total_selling_excl)) * (Decimal("1") + Decimal(str(gst_rate)))
+        )
 
     return {
         "id": cost_sheet.id,
         "project_id": cost_sheet.project_id,
         "title": cost_sheet.title,
-        "totalPriceInr": float(total_price_inr),
+        "sellingPriceExclGst": total_selling_excl,
+        "sellingPriceInclGst": grand_total_incl,
+        "gstRate": gst_rate,
+        "gst_rate": gst_rate,
         "items": items_list,
     }
 

@@ -76,7 +76,6 @@ STEP_DEFINITIONS = {
             "quotation_number",
             "quotation_date",
             "quotation_value",
-            "validity",
         },
     },
     6: {
@@ -96,9 +95,9 @@ STEP_DEFINITIONS = {
             "S.T. prepares and submits the technical and commercial bid."
         ),
         "required_fields": {
-            "document_reference",
-            "submitted_date",
-            "remarks",
+            "tender_title",
+            "submission_date",
+            "tender_number",
         },
     },
     8: {
@@ -952,13 +951,8 @@ def sync_customer_tender_step(project_id: int):
 
     step_data = {
         "tender_number": customer_tender.tender_number,
-        "submission_date": sub_date,
         "tender_title": customer_tender.tender_title,
-        "officer_name": customer_tender.officer_name,
-        "delivery_terms": customer_tender.delivery_terms,
-        "validity": customer_tender.validity,
-        "remarks": customer_tender.remark,
-        "remark": customer_tender.remark,
+        "tender_date": customer_tender.tender_date.isoformat(),
     }
 
     return upsert_project_step_record(
@@ -998,23 +992,9 @@ def sync_bid_submission_step(project_id: int):
     doc_ref = bid_submission.tender_number or bid_submission.submission_number or ""
 
     step_data = {
-        "document_reference": doc_ref,
         "tender_number": doc_ref,
-        "submitted_date": sub_date,
         "submission_date": sub_date,
-        "tender_title": bid_submission.tender_title,
-        "tender_name": bid_submission.tender_title,
-        "delivery_term": bid_submission.delivery_term,
-        "delivery_terms": bid_submission.delivery_term,
-        "delivery_period": bid_submission.delivery_period,
-        "period": bid_submission.delivery_period,
-        "payment_term": bid_submission.payment_term,
-        "payment_terms": bid_submission.payment_term,
-        "validity": bid_submission.validity,
-        "warranty_period": bid_submission.warranty_period,
-        "gst_rate": str(bid_submission.gst_rate) if bid_submission.gst_rate is not None else None,
-        "remarks": bid_submission.remark,
-        "remark": bid_submission.remark,
+        "tender_title": bid_submission.tender_title,  
     }
 
     return upsert_project_step_record(

@@ -18,9 +18,11 @@ from app.services.attachment_service import (
     list_attachments,
 )
 from app.services.supplier_payment_service import (
+    PaymentExceedsBalanceError,
     ProjectNotFoundError,
     SupplierNotFoundError,
     SupplierPaymentNotFoundError,
+    TotalSupplierValueRequiredError,
     create_supplier_payment_transaction,
     delete_supplier_payment_transaction,
     get_supplier_payment_record,
@@ -44,6 +46,16 @@ def _error(code: str, message: str, status: int):
     )
 
 
+def _format_decimal(val):
+    if val is None:
+        return None
+    try:
+        from decimal import Decimal
+        return f"{Decimal(str(val)):.2f}"
+    except Exception:
+        return str(val)
+
+
 def _supplier_payment_response(payment):
     attachments = list_attachments(
         entity_type="supplier_payment",
@@ -54,14 +66,14 @@ def _supplier_payment_response(payment):
         "project_id": payment.project_id,
         "supplier_id": payment.supplier_id,
         "currency": payment.currency,
-        "payment_percentage": payment.payment_percentage,
-        "total_supplier_value": payment.total_supplier_value,
-        "amount_paid": payment.amount_paid,
-        "amount_paid_inr": payment.amount_paid,
-        "amount_paid_currency": payment.amount_paid,
+        "payment_percentage": _format_decimal(payment.payment_percentage),
+        "total_supplier_value": _format_decimal(payment.total_supplier_value),
+        "amount_paid": _format_decimal(payment.amount_paid),
+        "amount_paid_inr": _format_decimal(payment.amount_paid),
+        "amount_paid_currency": _format_decimal(payment.amount_paid),
         "payment_date": payment.payment_date,
         "transaction_details": payment.transaction_details,
-        "pending_amount": payment.pending_amount,
+        "pending_amount": _format_decimal(payment.pending_amount),
         "remark": payment.remark,
         "remarks": payment.remark,
         "created_at": payment.created_at,
@@ -167,6 +179,14 @@ def _handle_create_supplier_payment():
 
         db.session.commit()
         return _supplier_payment_response(payment), 201
+    except PaymentExceedsBalanceError as exc:
+        db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
+        return _error("PAYMENT_EXCEEDS_OUTSTANDING_BALANCE", str(exc), 400)
+    except TotalSupplierValueRequiredError as exc:
+        db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
+        return _error("TOTAL_SUPPLIER_VALUE_REQUIRED", str(exc), 400)
     except ProjectNotFoundError as exc:
         db.session.rollback()
         _cleanup_uploaded_files(storage_keys)
@@ -205,11 +225,27 @@ def _handle_list_supplier_payments(args=None):
         except (ValueError, TypeError):
             project_id = None
 
+    supplier_id = (
+        args.get("supplier_id")
+        or request.args.get("supplier_id")
+        or request.args.get("supplierId")
+    )
+    if supplier_id is not None:
+        try:
+            supplier_id = int(supplier_id)
+        except (ValueError, TypeError):
+            supplier_id = None
 
+    currency = (
+        args.get("currency")
+        or request.args.get("currency")
+    )
 
     try:
         payments = list_supplier_payment_records(
             project_id=project_id,
+            supplier_id=supplier_id,
+            currency=currency,
         )
         return [_supplier_payment_response(p) for p in payments], 200
     except Exception:
@@ -270,6 +306,14 @@ def _handle_update_supplier_payment(payment_id: int):
 
         db.session.commit()
         return _supplier_payment_response(payment), 200
+    except PaymentExceedsBalanceError as exc:
+        db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
+        return _error("PAYMENT_EXCEEDS_OUTSTANDING_BALANCE", str(exc), 400)
+    except TotalSupplierValueRequiredError as exc:
+        db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
+        return _error("TOTAL_SUPPLIER_VALUE_REQUIRED", str(exc), 400)
     except SupplierPaymentNotFoundError as exc:
         db.session.rollback()
         _cleanup_uploaded_files(storage_keys)
@@ -406,6 +450,14 @@ def create_supplier_payment():
 @jwt_required()
 def list_supplier_payments(args=None):
     return _handle_list_supplier_payments(args)
+
+
+@supplier_payment_bp.get("/<int:supplier_payment_id>")
+@supplier_payment_bp.doc(security=[{"BearerAuth": []}])
+@supplier_payment_bp.response(200, SupplierPaymentResponseSchema)
+@jwt_required()
+def get_supplier_payment(supplier_payment_id):
+    return _handle_get_supplier_payment(supplier_payment_id)
 
 
 @supplier_payment_bp.patch("/<int:supplier_payment_id>")

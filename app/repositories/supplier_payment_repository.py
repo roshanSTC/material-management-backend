@@ -75,6 +75,24 @@ def get_supplier_payment(payment_id: int) -> SupplierPayment | None:
     return db.session.get(SupplierPayment, payment_id)
 
 
+def get_total_previously_paid(project_id: int, exclude_id: int | None = None) -> Decimal:
+    query = db.session.query(
+        db.func.coalesce(db.func.sum(SupplierPayment.amount_paid), 0)
+    ).filter(SupplierPayment.project_id == project_id)
+    if exclude_id is not None:
+        query = query.filter(SupplierPayment.id != exclude_id)
+    val = query.scalar()
+    return Decimal(str(val or 0))
+
+
+def get_latest_supplier_payment_for_project(project_id: int) -> SupplierPayment | None:
+    return (
+        SupplierPayment.query.filter_by(project_id=project_id)
+        .order_by(SupplierPayment.payment_date.desc(), SupplierPayment.id.desc())
+        .first()
+    )
+
+
 def list_supplier_payments(
     *,
     project_id: int | None = None,
@@ -88,7 +106,7 @@ def list_supplier_payments(
         query = query.filter(SupplierPayment.supplier_id == supplier_id)
     if currency:
         query = query.filter(SupplierPayment.currency == currency.strip().upper())
-    return query.order_by(SupplierPayment.id.desc()).all()
+    return query.order_by(SupplierPayment.payment_date.asc(), SupplierPayment.id.asc()).all()
 
 
 def update_supplier_payment(

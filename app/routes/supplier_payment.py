@@ -225,27 +225,11 @@ def _handle_list_supplier_payments(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    supplier_id = (
-        args.get("supplier_id")
-        or request.args.get("supplier_id")
-        or request.args.get("supplierId")
-    )
-    if supplier_id is not None:
-        try:
-            supplier_id = int(supplier_id)
-        except (ValueError, TypeError):
-            supplier_id = None
-
-    currency = (
-        args.get("currency")
-        or request.args.get("currency")
-    )
+    
 
     try:
         payments = list_supplier_payment_records(
             project_id=project_id,
-            supplier_id=supplier_id,
-            currency=currency,
         )
         return [_supplier_payment_response(p) for p in payments], 200
     except Exception:
@@ -391,7 +375,7 @@ _REQUEST_BODY_CREATE_DOC = {
                         "type": "string",
                         "description": "Serialized JSON string matching SupplierPaymentCreateSchema",
                         "example": (
-                            '{"project_id":2,"currency":"INR","payment_percentage":100,"total_supplier_value":3000,"amount_paid":3000,"payment_date":"2026-09-08","transaction_details":"sdggsggffdg","pending_amount":44,"remark":"Bank UTR & Settlement Remarks"}'
+                            '{"project_id":1,"currency":"INR","payment_percentage":100,"total_supplier_value":3000,"amount_paid":3000,"payment_date":"2026-09-08","transaction_details":"sdggsggffdg","pending_amount":44,"remark":"Bank UTR & Settlement Remarks"}'
                         ),
                     },
                     "file": {
@@ -450,14 +434,6 @@ def create_supplier_payment():
 @jwt_required()
 def list_supplier_payments(args=None):
     return _handle_list_supplier_payments(args)
-
-
-@supplier_payment_bp.get("/<int:supplier_payment_id>")
-@supplier_payment_bp.doc(security=[{"BearerAuth": []}])
-@supplier_payment_bp.response(200, SupplierPaymentResponseSchema)
-@jwt_required()
-def get_supplier_payment(supplier_payment_id):
-    return _handle_get_supplier_payment(supplier_payment_id)
 
 
 @supplier_payment_bp.patch("/<int:supplier_payment_id>")

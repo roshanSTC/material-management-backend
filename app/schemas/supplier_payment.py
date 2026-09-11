@@ -317,5 +317,3 @@ class SupplierPaymentQuerySchema(Schema):
         unknown = EXCLUDE
 
     project_id = fields.Integer(required=False)
-    supplier_id = fields.Integer(required=False)
-    currency = fields.String(required=False)

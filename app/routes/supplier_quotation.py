@@ -32,6 +32,7 @@ from app.services.supplier_quotation_service import (
     list_supplier_quotation_records,
     update_supplier_quotation_transaction,
 )
+from app.services.excel_parser_service import parse_supplier_quotation_excel
 
 
 supplier_quotation_bp = Blueprint(
@@ -505,6 +506,99 @@ def delete(supplier_quotation_id):
 @jwt_required()
 def get_latest_supplier_quotation_v1(args=None):
     return _handle_get_latest_supplier_quotation(args)
+
+
+@supplier_quotation_bp.post("/upload-excel")
+@supplier_quotation_bp.post("/parse-excel")
+@supplier_quotation_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Upload and parse Supplier Quotation Excel file",
+    description="Uploads and parses a supplier quotation spreadsheet (.xlsx, .xls) and returns mapped quotation form data.",
+    requestBody={
+        "required": True,
+        "content": {
+            "multipart/form-data": {
+                "schema": {
+                    "type": "object",
+                    "required": ["file"],
+                    "properties": {
+                        "file": {
+                            "type": "string",
+                            "format": "binary",
+                            "description": "Supplier quotation Excel file (.xlsx, .xls)",
+                        },
+                        "project_id": {
+                            "type": "integer",
+                            "description": "Optional Project ID",
+                        },
+                        "supplier_id": {
+                            "type": "integer",
+                            "description": "Optional Supplier ID",
+                        },
+                    },
+                },
+            },
+        },
+    },
+)
+@jwt_required()
+def upload_excel():
+    file = (
+        request.files.get("file")
+        or request.files.get("excel")
+        or request.files.get("excel_file")
+    )
+    if not file or not file.filename:
+        return _error("FILE_REQUIRED", "Excel file ('file') is required.", 400)
+
+    filename = file.filename.lower()
+    if not (filename.endswith(".xlsx") or filename.endswith(".xls")):
+        return _error(
+            "INVALID_FILE_TYPE",
+            "Only Excel files (.xlsx, .xls) are supported.",
+            400,
+        )
+
+    project_id = None
+    raw_pid = (
+        request.form.get("project_id")
+        or request.form.get("projectId")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    if raw_pid is not None:
+        try:
+            project_id = int(raw_pid)
+        except (ValueError, TypeError):
+            pass
+
+    supplier_id = None
+    raw_sid = (
+        request.form.get("supplier_id")
+        or request.form.get("supplierId")
+        or request.args.get("supplier_id")
+        or request.args.get("supplierId")
+    )
+    if raw_sid is not None:
+        try:
+            supplier_id = int(raw_sid)
+        except (ValueError, TypeError):
+            pass
+
+    try:
+        parsed_data = parse_supplier_quotation_excel(
+            file,
+            project_id=project_id,
+            supplier_id=supplier_id,
+        )
+        return jsonify(parsed_data), 200
+    except Exception as exc:
+        current_app.logger.exception("Failed to parse supplier quotation Excel: %s", exc)
+        return _error(
+            "EXCEL_PARSE_FAILED",
+            f"Failed to parse Excel file: {str(exc)}",
+            422,
+        )
 
 
 

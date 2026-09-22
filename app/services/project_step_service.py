@@ -108,9 +108,14 @@ STEP_DEFINITIONS = {
         ),
         "required_fields": {
             "po_number",
+            "po_title",
             "po_date",
-            "po_amount",
-            "remarks",
+            "delivery_date",
+            "delivery_term",
+            "delivery_terms",
+            "payment_terms",
+            "warranty_period",
+            "gst_rate",
         },
     },
     9: {
@@ -122,22 +127,48 @@ STEP_DEFINITIONS = {
             "or supplier."
         ),
         "required_fields": {
-            "confirmation_date",
-            "expected_delivery_date",
-            "remarks",
+            "order_confirmation_date",
+            "delivery_period",
+            "shipping_terms",
+            "reference_number",
+            "email",
+            "payment_terms",
+            "warranty_period",
         },
     },
     10: {
         "name": "Supplier raises Bill / Invoice",
         "description": (
-            "The supplier issues billing, triggering the advance "
-            "payment terms."
+            "The supplier issues billing, proforma invoice, commercial "
+            "invoice, and packing list."
         ),
         "required_fields": {
             "invoice_number",
+            "invoice_no",
             "invoice_date",
             "invoice_amount",
+            "total_amount",
+            "total_net_amount",
+            "packing_list_no",
+            "packing_list_number",
+            "packing_list_date",
+            "packing_condition",
+            "weight",
+            "total_weight",
+            "total_gross_weight_kg",
+            "packing_list_remarks",
+            "proforma_invoice_number",
+            "proforma_invoice_no",
+            "proforma_invoice_date",
+            "proforma_invoice_amount",
+            "delivery_terms",
+            "delivery_term",
+            "delivery_period",
+            "payment_terms",
+            "payment_term",
+            "warranty_period",
             "remarks",
+            "remark",
         },
     },
     11: {
@@ -284,6 +315,32 @@ def calculate_step_progress(
         if any(_is_field_filled(val) for val in data.values()):
             return 100.0
         return 0.0
+
+    if step_number == 10:
+        # Step 10 (Supplier raises Bill / Invoice):
+        # Invoice (50%) and Packing List (50%) combined should be 100%.
+        data = data or {}
+        has_invoice = data.get("has_supplier_invoice") is True or (
+            (_is_field_filled(data.get("invoice_number")) or _is_field_filled(data.get("invoice_no")))
+            and not data.get("has_proforma_invoice")
+            and not _is_field_filled(data.get("proforma_invoice_number"))
+        )
+        has_packing_list = data.get("has_packing_list") is True or (
+            _is_field_filled(data.get("packing_list_no")) or _is_field_filled(data.get("packing_list_number"))
+        )
+        has_proforma = data.get("has_proforma_invoice") is True or (
+            _is_field_filled(data.get("proforma_invoice_number")) or _is_field_filled(data.get("proforma_invoice_no"))
+        )
+
+        progress = 0.0
+        if has_invoice:
+            progress += 50.0
+        if has_packing_list:
+            progress += 50.0
+        if progress == 0.0 and has_proforma:
+            progress = 25.0
+
+        return round(min(progress, 100.0), 2)
 
     definition = _get_step_definition(step_number)
 
@@ -1047,25 +1104,15 @@ def sync_purchase_order_step(project_id: int):
 
     step_data = {
         "po_number": purchase_order.po_number,
-        "po_no": purchase_order.po_number,
         "po_title": purchase_order.po_title,
         "po_date": po_date_str,
-        "po_amount": po_amount_str,
-        "poc_name": purchase_order.poc_name,
-        "email": purchase_order.email,
-        "contact": purchase_order.contact,
         "delivery_date": del_date_str,
         "delivery_term": purchase_order.delivery_term,
         "delivery_terms": purchase_order.delivery_term,
         "payment_terms": purchase_order.payment_terms,
-        "payment_term": purchase_order.payment_terms,
         "warranty_period": purchase_order.warranty_period,
         "gst_rate": str(purchase_order.gst_rate) if purchase_order.gst_rate is not None else None,
-        "gst_amount": str(purchase_order.gst_amount) if purchase_order.gst_amount is not None else None,
-        "total_net_amount": str(purchase_order.total_net_amount) if purchase_order.total_net_amount is not None else None,
-        "total_gross_amount": str(purchase_order.total_gross_amount) if purchase_order.total_gross_amount is not None else None,
-        "remarks": purchase_order.remark,
-        "remark": purchase_order.remark,
+        
     }
 
     return upsert_project_step_record(
@@ -1102,26 +1149,15 @@ def sync_supplier_order_confirmation_step(project_id: int):
             else str(order_confirmation.order_confirmation_date)[:10]
         )
 
-    expected_delivery = order_confirmation.delivery_period or ""
 
     step_data = {
-        "confirmation_date": conf_date_str,
         "order_confirmation_date": conf_date_str,
-        "expected_delivery_date": expected_delivery,
         "delivery_period": order_confirmation.delivery_period,
-        "delivery_term": order_confirmation.delivery_period,
         "shipping_terms": order_confirmation.shipping_terms,
-        "shipping_term": order_confirmation.shipping_terms,
-        "ref_no": order_confirmation.ref_no,
         "reference_number": order_confirmation.ref_no,
         "email": order_confirmation.email,
         "payment_terms": order_confirmation.payment_terms,
-        "payment_term": order_confirmation.payment_terms,
         "warranty_period": order_confirmation.warranty_period,
-        "total_amount": str(order_confirmation.total_amount) if order_confirmation.total_amount is not None else None,
-        "total_net_amount": str(order_confirmation.total_net_amount) if order_confirmation.total_net_amount is not None else None,
-        "remarks": order_confirmation.remark,
-        "remark": order_confirmation.remark,
     }
 
     return upsert_project_step_record(
@@ -1131,104 +1167,30 @@ def sync_supplier_order_confirmation_step(project_id: int):
     )
 
 
-def sync_supplier_proforma_invoice_step(project_id: int):
-    from app.models import SupplierInvoice, SupplierProformaInvoice
-
-    supplier_inv = (
-        SupplierInvoice.query.filter_by(project_id=project_id)
-        .order_by(SupplierInvoice.id.desc())
-        .first()
+def sync_supplier_billing_step(project_id: int):
+    from app.models import (
+        SupplierInvoice,
+        SupplierPackingList,
+        SupplierProformaInvoice,
     )
-    if supplier_inv is not None:
-        return sync_supplier_invoice_step(project_id)
 
-    invoice = (
+    proforma = (
         SupplierProformaInvoice.query.filter_by(project_id=project_id)
         .order_by(SupplierProformaInvoice.id.desc())
         .first()
     )
-
-    if invoice is None:
-        step = (
-            ProjectStep.query.filter_by(
-                project_id=project_id,
-                step_number=10,
-            ).first()
-        )
-        if step is not None:
-            db.session.delete(step)
-            db.session.flush()
-        return None
-
-    inv_date_str = None
-    if invoice.proforma_invoice_date:
-        inv_date_str = (
-            invoice.proforma_invoice_date.isoformat()
-            if hasattr(invoice.proforma_invoice_date, "isoformat")
-            else str(invoice.proforma_invoice_date)[:10]
-        )
-
-    del_date_str = None
-    if invoice.delivery_date:
-        del_date_str = (
-            invoice.delivery_date.isoformat()
-            if hasattr(invoice.delivery_date, "isoformat")
-            else str(invoice.delivery_date)[:10]
-        )
-
-    invoice_amt = (
-        str(invoice.total_amount)
-        if invoice.total_amount is not None
-        else str(invoice.total_net_amount)
-        if invoice.total_net_amount is not None
-        else None
-    )
-
-    step_data = {
-        "invoice_number": invoice.proforma_invoice_no,
-        "proforma_invoice_no": invoice.proforma_invoice_no,
-        "proforma_invoice_number": invoice.proforma_invoice_no,
-        "invoice_date": inv_date_str,
-        "proforma_invoice_date": inv_date_str,
-        "invoice_amount": invoice_amt,
-        "total_amount": str(invoice.total_amount) if invoice.total_amount is not None else None,
-        "total_net_amount": str(invoice.total_net_amount) if invoice.total_net_amount is not None else None,
-        "delivery_terms": invoice.delivery_terms,
-        "delivery_term": invoice.delivery_terms,
-        "delivery_period": invoice.delivery_period,
-        "delivery_date": del_date_str,
-        "payment_terms": invoice.payment_terms,
-        "payment_term": invoice.payment_terms,
-        "warranty_period": invoice.warranty_period,
-        "remarks": invoice.remark,
-        "remark": invoice.remark,
-    }
-
-    return upsert_project_step_record(
-        project_id=project_id,
-        step_number=10,
-        data=step_data,
-    )
-
-
-def sync_supplier_invoice_step(project_id: int):
-    from app.models import SupplierInvoice, SupplierProformaInvoice
-
     invoice = (
         SupplierInvoice.query.filter_by(project_id=project_id)
         .order_by(SupplierInvoice.id.desc())
         .first()
     )
+    packing_list = (
+        SupplierPackingList.query.filter_by(project_id=project_id)
+        .order_by(SupplierPackingList.id.desc())
+        .first()
+    )
 
-    if invoice is None:
-        proforma = (
-            SupplierProformaInvoice.query.filter_by(project_id=project_id)
-            .order_by(SupplierProformaInvoice.id.desc())
-            .first()
-        )
-        if proforma is not None:
-            return sync_supplier_proforma_invoice_step(project_id)
-
+    if proforma is None and invoice is None and packing_list is None:
         step = (
             ProjectStep.query.filter_by(
                 project_id=project_id,
@@ -1240,44 +1202,126 @@ def sync_supplier_invoice_step(project_id: int):
             db.session.flush()
         return None
 
-    inv_date_str = None
-    if invoice.invoice_date:
-        inv_date_str = (
-            invoice.invoice_date.isoformat()
-            if hasattr(invoice.invoice_date, "isoformat")
-            else str(invoice.invoice_date)[:10]
+    step_data = {}
+
+    if proforma is not None:
+        pi_date_str = None
+        if proforma.proforma_invoice_date:
+            pi_date_str = (
+                proforma.proforma_invoice_date.isoformat()
+                if hasattr(proforma.proforma_invoice_date, "isoformat")
+                else str(proforma.proforma_invoice_date)[:10]
+            )
+
+        pi_amt = (
+            str(proforma.total_amount)
+            if proforma.total_amount is not None
+            else str(proforma.total_net_amount)
+            if proforma.total_net_amount is not None
+            else None
         )
 
-    invoice_amt = (
-        str(invoice.total_amount)
-        if invoice.total_amount is not None
-        else str(invoice.total_net_amount)
-        if invoice.total_net_amount is not None
-        else None
-    )
+        step_data.update({
+            "has_proforma_invoice": True,
+            "proforma_invoice_number": proforma.proforma_invoice_no,
+            "proforma_invoice_no": proforma.proforma_invoice_no,
+            "proforma_invoice_date": pi_date_str,
+            "proforma_invoice_amount": pi_amt,
+            "invoice_number": proforma.proforma_invoice_no,
+            "invoice_no": proforma.proforma_invoice_no,
+            "invoice_date": pi_date_str,
+            "invoice_amount": pi_amt,
+            "delivery_terms": proforma.delivery_terms,
+            "delivery_term": proforma.delivery_terms,
+            "delivery_period": proforma.delivery_period,
+            "payment_terms": proforma.payment_terms,
+            "payment_term": proforma.payment_terms,
+            "warranty_period": proforma.warranty_period,
+            "remarks": proforma.remark,
+            "remark": proforma.remark,
+        })
 
-    step_data = {
-        "invoice_number": invoice.invoice_no,
-        "invoice_no": invoice.invoice_no,
-        "invoice_date": inv_date_str,
-        "invoice_amount": invoice_amt,
-        "total_amount": str(invoice.total_amount) if invoice.total_amount is not None else None,
-        "total_net_amount": str(invoice.total_net_amount) if invoice.total_net_amount is not None else None,
-        "delivery_terms": invoice.delivery_terms,
-        "delivery_term": invoice.delivery_terms,
-        "delivery_period": invoice.delivery_period,
-        "payment_terms": invoice.payment_terms,
-        "payment_term": invoice.payment_terms,
-        "warranty_period": invoice.warranty_period,
-        "remarks": invoice.remark,
-        "remark": invoice.remark,
-    }
+    if invoice is not None:
+        inv_date_str = None
+        if invoice.invoice_date:
+            inv_date_str = (
+                invoice.invoice_date.isoformat()
+                if hasattr(invoice.invoice_date, "isoformat")
+                else str(invoice.invoice_date)[:10]
+            )
+
+        inv_amt = (
+            str(invoice.total_amount)
+            if invoice.total_amount is not None
+            else str(invoice.total_net_amount)
+            if invoice.total_net_amount is not None
+            else None
+        )
+
+        step_data.update({
+            "has_supplier_invoice": True,
+            "invoice_number": invoice.invoice_no,
+            "invoice_no": invoice.invoice_no,
+            "invoice_date": inv_date_str,
+            "invoice_amount": inv_amt,
+            "total_amount": str(invoice.total_amount) if invoice.total_amount is not None else None,
+            "total_net_amount": str(invoice.total_net_amount) if invoice.total_net_amount is not None else None,
+            "delivery_terms": invoice.delivery_terms or step_data.get("delivery_terms"),
+            "delivery_term": invoice.delivery_term or step_data.get("delivery_term"),
+            "delivery_period": invoice.delivery_period or step_data.get("delivery_period"),
+            "payment_terms": invoice.payment_terms or step_data.get("payment_terms"),
+            "payment_term": invoice.payment_terms or step_data.get("payment_term"),
+            "warranty_period": invoice.warranty_period or step_data.get("warranty_period"),
+            "remarks": invoice.remark or step_data.get("remarks"),
+            "remark": invoice.remark or step_data.get("remark"),
+        })
+
+    if packing_list is not None:
+        pl_date_str = None
+        if packing_list.packing_list_date:
+            pl_date_str = (
+                packing_list.packing_list_date.isoformat()
+                if hasattr(packing_list.packing_list_date, "isoformat")
+                else str(packing_list.packing_list_date)[:10]
+            )
+
+        weight_val = (
+            str(packing_list.total_weight)
+            if packing_list.total_weight is not None
+            else str(packing_list.weight)
+            if packing_list.weight is not None
+            else None
+        )
+
+        step_data.update({
+            "has_packing_list": True,
+            "packing_list_no": packing_list.packing_list_no,
+            "packing_list_number": packing_list.packing_list_no,
+            "packing_list_date": pl_date_str,
+            "packing_condition": packing_list.packing_condition,
+            "weight": weight_val,
+            "total_weight": weight_val,
+            "total_gross_weight_kg": weight_val,
+            "packing_list_remarks": packing_list.remark,
+        })
 
     return upsert_project_step_record(
         project_id=project_id,
         step_number=10,
         data=step_data,
     )
+
+
+def sync_supplier_proforma_invoice_step(project_id: int):
+    return sync_supplier_billing_step(project_id)
+
+
+def sync_supplier_invoice_step(project_id: int):
+    return sync_supplier_billing_step(project_id)
+
+
+def sync_supplier_packing_list_step(project_id: int):
+    return sync_supplier_billing_step(project_id)
 
 
 def sync_import_logistics_step(project_id: int):
@@ -1316,14 +1360,9 @@ def sync_import_logistics_step(project_id: int):
     )
 
     step_data = {
-        "shipping_mode": logistics.logistic_type,
         "logistic_type": logistics.logistic_type,
-        "tracking_number": tracking_num,
         "dispatch_date": date_str,
-        "date": date_str,
         "port_of_discharge": logistics.port_of_discharge,
-        "remarks": logistics.remark,
-        "remark": logistics.remark,
         "airway_bill_no": logistics.airway_bill_no,
         "flight_name": logistics.flight_name,
         "flight_no": logistics.flight_no,
@@ -1382,18 +1421,7 @@ def sync_bill_of_entry_step(project_id: int):
     duty_val = str(boe.total_duty) if boe.total_duty is not None else None
 
     step_data = {
-        "clearance_date": date_str,
-        "date": date_str,
-        "duties_paid": duty_val,
-        "total_duty": duty_val,
-        "bill_of_entry_no": boe.bill_of_entry_no,
-        "bill_of_entry_number": boe.bill_of_entry_no,
-        "total_assessable_value": str(boe.total_assessable_value) if boe.total_assessable_value is not None else None,
-        "bcd": str(boe.bcd) if boe.bcd is not None else None,
-        "sws": str(boe.sws) if boe.sws is not None else None,
-        "igst": str(boe.igst) if boe.igst is not None else None,
-        "remarks": boe.remark,
-        "remark": boe.remark,
+         
     }
 
     return upsert_project_step_record(

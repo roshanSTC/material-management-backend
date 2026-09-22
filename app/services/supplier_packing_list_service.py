@@ -10,6 +10,7 @@ from app.repositories.supplier_packing_list_repository import (
     list_supplier_packing_lists,
     update_supplier_packing_list,
 )
+from app.services.project_step_service import sync_supplier_packing_list_step
 
 
 class SupplierPackingListError(Exception):
@@ -60,6 +61,7 @@ def create_supplier_packing_list_transaction(*, data: dict) -> SupplierPackingLi
     packing_list = create_supplier_packing_list(data=data)
     db.session.flush()
 
+    sync_supplier_packing_list_step(project_id)
     return packing_list
 
 
@@ -127,12 +129,20 @@ def update_supplier_packing_list_transaction(
     updated = update_supplier_packing_list(packing_list=packing_list, data=data)
     db.session.flush()
 
+    sync_supplier_packing_list_step(updated.project_id)
+    if new_project_id is not None and new_project_id != previous_project_id:
+        sync_supplier_packing_list_step(previous_project_id)
+
     return updated
 
 
 def delete_supplier_packing_list_transaction(packing_list_id: int) -> list[str]:
-    get_supplier_packing_list_record(packing_list_id)
+    packing_list = get_supplier_packing_list_record(packing_list_id)
+    project_id = packing_list.project_id
+
     storage_keys = delete_supplier_packing_list(packing_list_id)
     db.session.flush()
+
+    sync_supplier_packing_list_step(project_id)
     return storage_keys
 

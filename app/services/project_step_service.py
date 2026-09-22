@@ -169,18 +169,49 @@ STEP_DEFINITIONS = {
             "warranty_period",
             "remarks",
             "remark",
+            "has_supplier_invoice",
+            "has_packing_list",
+            "has_proforma_invoice",
         },
     },
     11: {
         "name": "Material delivered to India",
         "description": (
-            "Goods arrive at the Indian port or airport for clearance."
+            "Goods arrive at the Indian port or airport with import logistics "
+            "and bill of entry documentation."
         ),
         "required_fields": {
+            "logistic_type",
             "shipping_mode",
-            "tracking_number",
             "dispatch_date",
+            "date",
+            "port_of_discharge",
+            "tracking_number",
+            "airway_bill_no",
+            "airway_bill_number",
+            "flight_name",
+            "flight_no",
+            "flight_number",
+            "airport_of_loading",
+            "bill_of_lading_no",
+            "bill_of_lading_number",
+            "vessel_name",
+            "voyage_no",
+            "port_of_loading",
+            "bill_of_entry_no",
+            "bill_of_entry_number",
+            "bill_of_entry_date",
+            "entry_date",
+            "total_assessable_value",
+            "bcd",
+            "sws",
+            "igst",
+            "total_duty",
             "remarks",
+            "remark",
+            "bill_of_entry_remark",
+            "has_import_logistics",
+            "has_bill_of_entry",
         },
     },
     12: {
@@ -339,6 +370,57 @@ def calculate_step_progress(
             progress += 50.0
         if progress == 0.0 and has_proforma:
             progress = 25.0
+
+        return round(min(progress, 100.0), 2)
+
+    if step_number == 11:
+        # Step 11 (Material delivered to India):
+        # Import Logistics (50%) and Bill of Entry (50%) combined should be 100%.
+        data = data or {}
+
+        # 1. Import Logistics completeness (50%)
+        logistic_type = (data.get("logistic_type") or data.get("shipping_mode") or "").strip().lower()
+        has_logistics = False
+        has_logistics_date = _is_field_filled(data.get("dispatch_date")) or _is_field_filled(data.get("date"))
+
+        if logistic_type == "air":
+            has_air_id = (
+                _is_field_filled(data.get("airway_bill_no"))
+                or _is_field_filled(data.get("airway_bill_number"))
+                or _is_field_filled(data.get("tracking_number"))
+            )
+            if has_air_id and has_logistics_date:
+                has_logistics = True
+        elif logistic_type == "sea":
+            has_sea_id = (
+                _is_field_filled(data.get("bill_of_lading_no"))
+                or _is_field_filled(data.get("bill_of_lading_number"))
+                or _is_field_filled(data.get("tracking_number"))
+            )
+            if has_sea_id and has_logistics_date:
+                has_logistics = True
+        else:
+            if data.get("has_import_logistics") is True or (
+                _is_field_filled(data.get("tracking_number")) and has_logistics_date
+            ):
+                has_logistics = True
+
+        # 2. Bill of Entry completeness (50%)
+        has_boe = False
+        has_boe_no = _is_field_filled(data.get("bill_of_entry_no")) or _is_field_filled(data.get("bill_of_entry_number"))
+        has_boe_date = (
+            _is_field_filled(data.get("bill_of_entry_date"))
+            or _is_field_filled(data.get("entry_date"))
+            or _is_field_filled(data.get("date"))
+        )
+        if data.get("has_bill_of_entry") is True or (has_boe_no and has_boe_date):
+            has_boe = True
+
+        progress = 0.0
+        if has_logistics:
+            progress += 50.0
+        if has_boe:
+            progress += 50.0
 
         return round(min(progress, 100.0), 2)
 
@@ -1324,16 +1406,21 @@ def sync_supplier_packing_list_step(project_id: int):
     return sync_supplier_billing_step(project_id)
 
 
-def sync_import_logistics_step(project_id: int):
-    from app.models import ImportLogistics
+def sync_material_delivery_step(project_id: int):
+    from app.models import BillOfEntry, ImportLogistics
 
     logistics = (
         ImportLogistics.query.filter_by(project_id=project_id)
         .order_by(ImportLogistics.id.desc())
         .first()
     )
+    boe = (
+        BillOfEntry.query.filter_by(project_id=project_id)
+        .order_by(BillOfEntry.id.desc())
+        .first()
+    )
 
-    if logistics is None:
+    if logistics is None and boe is None:
         step = (
             ProjectStep.query.filter_by(
                 project_id=project_id,
@@ -1345,33 +1432,87 @@ def sync_import_logistics_step(project_id: int):
             db.session.flush()
         return None
 
-    date_str = None
-    if logistics.date:
-        date_str = (
-            logistics.date.isoformat()
-            if hasattr(logistics.date, "isoformat")
-            else str(logistics.date)[:10]
-        )
+    step_data = {}
 
-    tracking_num = (
-        logistics.airway_bill_no
-        if logistics.logistic_type == "air"
-        else logistics.bill_of_lading_no
-    )
+    if logistics is not None:
+        date_str = None
+        if logistics.date:
+            date_str = (
+                logistics.date.isoformat()
+                if hasattr(logistics.date, "isoformat")
+                else str(logistics.date)[:10]
+            )
 
-    step_data = {
-        "logistic_type": logistics.logistic_type,
-        "dispatch_date": date_str,
-        "port_of_discharge": logistics.port_of_discharge,
-        "airway_bill_no": logistics.airway_bill_no,
-        "flight_name": logistics.flight_name,
-        "flight_no": logistics.flight_no,
-        "airport_of_loading": logistics.airport_of_loading,
-        "bill_of_lading_no": logistics.bill_of_lading_no,
-        "vessel_name": logistics.vessel_name,
-        "voyage_no": logistics.voyage_no,
-        "port_of_loading": logistics.port_of_loading,
-    }
+        logistics_type = (logistics.logistic_type or "").strip().lower()
+
+        step_data.update({
+            "has_import_logistics": True,
+            "logistic_type": logistics.logistic_type,
+            "shipping_mode": logistics.logistic_type,
+            "dispatch_date": date_str,
+            "date": date_str,
+            "port_of_discharge": logistics.port_of_discharge,
+            "remarks": logistics.remark,
+            "remark": logistics.remark,
+        })
+
+        if logistics_type == "air":
+            step_data.update({
+                "tracking_number": logistics.airway_bill_no,
+                "airway_bill_no": logistics.airway_bill_no,
+                "airway_bill_number": logistics.airway_bill_no,
+                "flight_name": logistics.flight_name,
+                "flight_no": logistics.flight_no,
+                "flight_number": logistics.flight_no,
+                "airport_of_loading": logistics.airport_of_loading,
+            })
+        elif logistics_type == "sea":
+            step_data.update({
+                "tracking_number": logistics.bill_of_lading_no,
+                "bill_of_lading_no": logistics.bill_of_lading_no,
+                "bill_of_lading_number": logistics.bill_of_lading_no,
+                "vessel_name": logistics.vessel_name,
+                "voyage_no": logistics.voyage_no,
+                "port_of_loading": logistics.port_of_loading,
+            })
+        else:
+            if logistics.airway_bill_no:
+                step_data["airway_bill_no"] = logistics.airway_bill_no
+                step_data["airway_bill_number"] = logistics.airway_bill_no
+                step_data["tracking_number"] = logistics.airway_bill_no
+            if logistics.bill_of_lading_no:
+                step_data["bill_of_lading_no"] = logistics.bill_of_lading_no
+                step_data["bill_of_lading_number"] = logistics.bill_of_lading_no
+                if "tracking_number" not in step_data:
+                    step_data["tracking_number"] = logistics.bill_of_lading_no
+
+    if boe is not None:
+        boe_date_str = None
+        if boe.date:
+            boe_date_str = (
+                boe.date.isoformat()
+                if hasattr(boe.date, "isoformat")
+                else str(boe.date)[:10]
+            )
+
+        step_data.update({
+            "has_bill_of_entry": True,
+            "bill_of_entry_no": boe.bill_of_entry_no,
+            "bill_of_entry_number": boe.bill_of_entry_no,
+            "bill_of_entry_date": boe_date_str,
+            "entry_date": boe_date_str,
+            "total_assessable_value": str(boe.total_assessable_value) if boe.total_assessable_value is not None else None,
+            "bcd": str(boe.bcd) if boe.bcd is not None else None,
+            "sws": str(boe.sws) if boe.sws is not None else None,
+            "igst": str(boe.igst) if boe.igst is not None else None,
+            "total_duty": str(boe.total_duty) if boe.total_duty is not None else None,
+            "bill_of_entry_remark": boe.remark,
+        })
+        if "date" not in step_data or not step_data["date"]:
+            step_data["date"] = boe_date_str
+        if "remarks" not in step_data or not step_data["remarks"]:
+            step_data["remarks"] = boe.remark
+            step_data["remark"] = boe.remark
 
     return upsert_project_step_record(
         project_id=project_id,
@@ -1380,59 +1521,18 @@ def sync_import_logistics_step(project_id: int):
     )
 
 
+def sync_import_logistics_step(project_id: int):
+    return sync_material_delivery_step(project_id)
+
+
 def sync_bill_of_entry_step(project_id: int):
-    from app.models import BillOfEntry, CustomsClearance
-
-    # If a CustomsClearance record exists, it takes precedence for step 12
-    clearance = (
-        CustomsClearance.query.filter_by(project_id=project_id)
-        .order_by(CustomsClearance.id.desc())
-        .first()
-    )
-    if clearance is not None:
-        return sync_customs_clearance_step(project_id)
-
-    boe = (
-        BillOfEntry.query.filter_by(project_id=project_id)
-        .order_by(BillOfEntry.id.desc())
-        .first()
-    )
-
-    if boe is None:
-        step = (
-            ProjectStep.query.filter_by(
-                project_id=project_id,
-                step_number=12,
-            ).first()
-        )
-        if step is not None:
-            db.session.delete(step)
-            db.session.flush()
-        return None
-
-    date_str = None
-    if boe.date:
-        date_str = (
-            boe.date.isoformat()
-            if hasattr(boe.date, "isoformat")
-            else str(boe.date)[:10]
-        )
-
-    duty_val = str(boe.total_duty) if boe.total_duty is not None else None
-
-    step_data = {
-         
-    }
-
-    return upsert_project_step_record(
-        project_id=project_id,
-        step_number=12,
-        data=step_data,
-    )
+    res = sync_material_delivery_step(project_id)
+    sync_customs_clearance_step(project_id)
+    return res
 
 
 def sync_customs_clearance_step(project_id: int):
-    from app.models import BillOfEntry, CustomsClearance
+    from app.models import CustomsClearance
 
     clearance = (
         CustomsClearance.query.filter_by(project_id=project_id)
@@ -1441,15 +1541,6 @@ def sync_customs_clearance_step(project_id: int):
     )
 
     if clearance is None:
-        # Fall back to checking BillOfEntry
-        boe = (
-            BillOfEntry.query.filter_by(project_id=project_id)
-            .order_by(BillOfEntry.id.desc())
-            .first()
-        )
-        if boe is not None:
-            return sync_bill_of_entry_step(project_id)
-
         step = (
             ProjectStep.query.filter_by(
                 project_id=project_id,

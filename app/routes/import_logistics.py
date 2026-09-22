@@ -212,9 +212,28 @@ def _handle_list_import_logistics(args=None):
 
     
 
+    supplier_id = (
+        args.get("supplier_id")
+        or request.args.get("supplier_id")
+        or request.args.get("supplierId")
+    )
+    if supplier_id is not None:
+        try:
+            supplier_id = int(supplier_id)
+        except (ValueError, TypeError):
+            supplier_id = None
+
+    logistic_type = (
+        args.get("logistic_type")
+        or request.args.get("logistic_type")
+        or request.args.get("logisticType")
+    )
+
     try:
         records = list_import_logistics_records(
             project_id=project_id,
+            supplier_id=supplier_id,
+            logistic_type=logistic_type,
         )
         return [_import_logistics_response(rec) for rec in records], 200
     except Exception:
@@ -446,6 +465,16 @@ def create_import_logistics():
 def list_import_logistics(args=None):
     return _handle_list_import_logistics(args)
 
+
+@import_logistics_bp.get("/<int:logistics_id>")
+@import_logistics_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get import logistics record by ID",
+)
+@import_logistics_bp.response(200, ImportLogisticsResponseSchema)
+@jwt_required()
+def get_import_logistics(logistics_id: int):
+    return _handle_get_import_logistics(logistics_id)
 
 
 @import_logistics_bp.patch("/<int:logistics_id>")

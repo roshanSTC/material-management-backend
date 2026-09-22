@@ -73,7 +73,7 @@ class CostSheetGlobalParamsSchema(Schema):
                 if camel_key not in normalized:
                     normalized[camel_key] = val
 
-        for rate_key in (
+        rate_keys = (
             "insuranceFreightRate",
             "defaultCustomsDutyRate",
             "igstRate",
@@ -81,9 +81,33 @@ class CostSheetGlobalParamsSchema(Schema):
             "financeChargesRate",
             "marginRate",
             "gstRate",
-        ):
-            if rate_key in normalized:
-                normalized[rate_key] = _normalize_rate(normalized[rate_key])
+        )
+
+        # Detect if rates were provided in percentage scale (e.g. 5 for 5%, 18 for 18%)
+        is_percentage_scale = False
+        for k in rate_keys:
+            if k in normalized and normalized[k] is not None:
+                try:
+                    if float(normalized[k]) >= 1.0:
+                        is_percentage_scale = True
+                        break
+                except (ValueError, TypeError):
+                    pass
+
+        for rate_key in rate_keys:
+            if rate_key in normalized and normalized[rate_key] is not None:
+                try:
+                    val = float(normalized[rate_key])
+                    if is_percentage_scale:
+                        # In percentage mode, divide by 100 so 0.5% -> 0.005, 5% -> 0.05
+                        normalized[rate_key] = val / 100.0
+                    elif rate_key == "transportationRate" and val >= 0.1:
+                        # 0.5 passed specifically as transportation percentage
+                        normalized[rate_key] = val / 100.0
+                    else:
+                        normalized[rate_key] = _normalize_rate(val)
+                except (ValueError, TypeError):
+                    pass
 
         return normalized
 
@@ -472,6 +496,7 @@ class LatestCostSheetItemResponseSchema(Schema):
     itemDescription = fields.String(required=True)
     quantity = fields.Float(required=True)
     pricePeeUnitInrExclGst = fields.Float(required=True)
+    pricePerUnitInrExclGst = fields.Float(required=False, allow_none=True)
     sellingPriceExclGst = fields.Float(required=True)
 
 

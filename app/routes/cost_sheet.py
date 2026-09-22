@@ -39,13 +39,7 @@ def _error(code: str, message: str, status: int):
     )
 
 
-# 1. POST /api/cost-sheet - Create cost sheet, calculate and store in DB
-@cost_sheet_bp.post("")
-@cost_sheet_bp.doc(security=[{"BearerAuth": []}])
-@cost_sheet_bp.arguments(ProjectCostSheetCreateSchema)
-@cost_sheet_bp.response(201, ProjectCostSheetMetadataResponseSchema)
-@jwt_required()
-def create_cost_sheet(data=None):
+def _handle_create_cost_sheet(data=None):
     if data is None:
         data = request.get_json() or {}
     project_id = data.get("project_id") or data.get("product_id")
@@ -73,13 +67,7 @@ def create_cost_sheet(data=None):
         )
 
 
-# GET /api/cost-sheet/latest?project_id=1 - Get latest cost sheet for a project
-@cost_sheet_bp.get("/latest")
-@cost_sheet_bp.doc(security=[{"BearerAuth": []}])
-@cost_sheet_bp.arguments(LatestCostSheetQuerySchema, location="query")
-@cost_sheet_bp.response(200, LatestCostSheetResponseSchema)
-@jwt_required()
-def get_latest_cost_sheet(args=None):
+def _handle_get_latest_cost_sheet(args=None):
     if args is None:
         args = {}
     project_id = (
@@ -105,14 +93,7 @@ def get_latest_cost_sheet(args=None):
         return _error("COST_SHEET_NOT_FOUND", str(exc), 404)
 
 
-
-
-# 2. GET /api/cost-sheet/<int:cost_sheet_id> - Get particular cost sheet data
-@cost_sheet_bp.get("/<int:cost_sheet_id>")
-@cost_sheet_bp.doc(security=[{"BearerAuth": []}])
-@cost_sheet_bp.response(200, ProjectCostSheetMetadataResponseSchema)
-@jwt_required()
-def get_cost_sheet(cost_sheet_id):
+def _handle_get_cost_sheet(cost_sheet_id):
     try:
         cost_sheet = get_project_cost_sheet(cost_sheet_id)
     except CostSheetNotFoundError as exc:
@@ -120,14 +101,8 @@ def get_cost_sheet(cost_sheet_id):
     return serialize_cost_sheet_metadata(cost_sheet), 200
 
 
-# GET /api/cost-sheet - List cost sheets (filtered by project_id if provided)
-@cost_sheet_bp.get("")
-@cost_sheet_bp.doc(security=[{"BearerAuth": []}])
-@cost_sheet_bp.arguments(ProjectCostSheetQuerySchema, location="query")
-@cost_sheet_bp.response(200, ProjectCostSheetMetadataResponseSchema(many=True))
-@jwt_required()
-def list_cost_sheets(args):
-    project_id = args.get("project_id")
+def _handle_list_cost_sheets(args):
+    project_id = args.get("project_id") if args else None
     try:
         cost_sheets = list_project_cost_sheets(project_id)
     except ProjectNotFoundError as exc:
@@ -135,21 +110,7 @@ def list_cost_sheets(args):
     return [serialize_cost_sheet_metadata(cs) for cs in cost_sheets], 200
 
 
-# 3. GET /api/cost-sheet/<int:cost_sheet_id>/export - Download cost sheet Excel
-@cost_sheet_bp.get("/<int:cost_sheet_id>/export")
-@cost_sheet_bp.doc(
-    security=[{"BearerAuth": []}],
-    responses={
-        200: {
-            "description": "Cost sheet Excel workbook download.",
-            "content": {
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
-            },
-        }
-    },
-)
-@jwt_required()
-def export_cost_sheet(cost_sheet_id):
+def _handle_export_cost_sheet(cost_sheet_id):
     try:
         cost_sheet = get_project_cost_sheet(cost_sheet_id)
     except CostSheetNotFoundError as exc:
@@ -169,3 +130,66 @@ def export_cost_sheet(cost_sheet_id):
             "spreadsheetml.sheet"
         ),
     )
+
+
+# 1. POST /api/cost-sheet - Create cost sheet, calculate and store in DB
+@cost_sheet_bp.post("")
+@cost_sheet_bp.doc(security=[{"BearerAuth": []}])
+@cost_sheet_bp.arguments(ProjectCostSheetCreateSchema)
+@cost_sheet_bp.response(201, ProjectCostSheetMetadataResponseSchema)
+@jwt_required()
+def create_cost_sheet(data=None):
+    return _handle_create_cost_sheet(data)
+
+
+# GET /api/cost-sheet/latest?project_id=1 - Get latest cost sheet for a project
+@cost_sheet_bp.get("/latest")
+@cost_sheet_bp.doc(security=[{"BearerAuth": []}])
+@cost_sheet_bp.arguments(LatestCostSheetQuerySchema, location="query")
+@cost_sheet_bp.response(200, LatestCostSheetResponseSchema)
+@jwt_required()
+def get_latest_cost_sheet(args=None):
+    return _handle_get_latest_cost_sheet(args)
+
+
+# 2. GET /api/cost-sheet/<int:cost_sheet_id> - Get particular cost sheet data
+@cost_sheet_bp.get("/<int:cost_sheet_id>")
+@cost_sheet_bp.doc(security=[{"BearerAuth": []}])
+@cost_sheet_bp.response(200, ProjectCostSheetMetadataResponseSchema)
+@jwt_required()
+def get_cost_sheet(cost_sheet_id):
+    return _handle_get_cost_sheet(cost_sheet_id)
+
+
+# GET /api/cost-sheet - List cost sheets (filtered by project_id if provided)
+@cost_sheet_bp.get("")
+@cost_sheet_bp.doc(security=[{"BearerAuth": []}])
+@cost_sheet_bp.arguments(ProjectCostSheetQuerySchema, location="query")
+@cost_sheet_bp.response(200, ProjectCostSheetMetadataResponseSchema(many=True))
+@jwt_required()
+def list_cost_sheets(args):
+    return _handle_list_cost_sheets(args)
+
+
+# 3. GET /api/cost-sheet/<int:cost_sheet_id>/export - Download cost sheet Excel
+@cost_sheet_bp.get("/<int:cost_sheet_id>/export")
+@cost_sheet_bp.doc(
+    security=[{"BearerAuth": []}],
+    responses={
+        200: {
+            "description": "Cost sheet Excel workbook download.",
+            "content": {
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            },
+        }
+    },
+)
+@jwt_required()
+def export_cost_sheet(cost_sheet_id):
+    return _handle_export_cost_sheet(cost_sheet_id)
+
+
+
+
+
+

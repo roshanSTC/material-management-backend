@@ -4,9 +4,11 @@ from flask_jwt_extended import jwt_required
 from flask_smorest import Blueprint
 
 from app.models import (
+    BidSubmission,
     CostSheet,
     CustomerPayment,
     CustomerQuotation,
+    CustomerTender,
     PurchaseOrder,
     SupplierInvoice,
     SupplierOrderConfirmation,
@@ -179,12 +181,40 @@ def _project_summary_response(project):
     total_value = None
     currency = "INR"
 
+    # Priority 1: Customer's Purchase Order
     if po:
         if po.total_gross_amount is not None:
             total_value = float(po.total_gross_amount)
         elif po.total_net_amount is not None:
             total_value = float(po.total_net_amount)
 
+    # Priority 2: Tender Document (Bid Submission)
+    if total_value is None:
+        try:
+            bid = (
+                BidSubmission.query.filter_by(project_id=project.id)
+                .order_by(BidSubmission.id.desc())
+                .first()
+            )
+            if bid and bid.items:
+                net_sum = 0.0
+                for item in bid.items:
+                    if item.net_total is not None:
+                        net_sum += float(item.net_total)
+                    elif item.unit_price is not None and item.quantity is not None:
+                        net_sum += float(item.unit_price) * float(item.quantity)
+                if net_sum > 0:
+                    if bid.gst_rate is not None:
+                        try:
+                            total_value = round(net_sum * (1.0 + float(bid.gst_rate) / 100.0), 2)
+                        except Exception:
+                            total_value = net_sum
+                    else:
+                        total_value = net_sum
+        except Exception:
+            pass
+
+    # Priority 3: Quotation submitted to the customer
     if total_value is None:
         try:
             cq = (
@@ -202,54 +232,7 @@ def _project_summary_response(project):
         except Exception:
             pass
 
-    if total_value is None:
-        try:
-            cs = (
-                CostSheet.query.filter_by(project_id=project.id)
-                .order_by(CostSheet.version_number.desc())
-                .first()
-            )
-            if cs and cs.output and isinstance(cs.output, dict):
-                fp = cs.output.get("final_price") or cs.output.get("total_amount")
-                if fp is not None:
-                    try:
-                        total_value = float(fp)
-                    except (ValueError, TypeError):
-                        pass
-        except Exception:
-            pass
-
-    if total_value is None:
-        try:
-            inv = (
-                SupplierInvoice.query.filter_by(project_id=project.id)
-                .order_by(SupplierInvoice.id.desc())
-                .first()
-            )
-            if inv:
-                if inv.total_amount is not None:
-                    total_value = float(inv.total_amount)
-                elif inv.total_net_amount is not None:
-                    total_value = float(inv.total_net_amount)
-        except Exception:
-            pass
-
-    if total_value is None:
-        for s in reversed(steps):
-            if s.data and isinstance(s.data, dict):
-                val = (
-                    s.data.get("po_amount")
-                    or s.data.get("quotation_amount")
-                    or s.data.get("total_gross_amount")
-                    or s.data.get("invoice_amount")
-                )
-                if val is not None:
-                    try:
-                        total_value = float(val)
-                        break
-                    except (ValueError, TypeError):
-                        pass
-
+    # Priority 4: Default value - 0
     if total_value is not None:
         if total_value == int(total_value):
             total_value = int(total_value)

@@ -508,7 +508,6 @@ def get_latest_supplier_quotation_v1(args=None):
     return _handle_get_latest_supplier_quotation(args)
 
 
-@supplier_quotation_bp.post("/upload-excel")
 @supplier_quotation_bp.post("/parse-excel")
 @supplier_quotation_bp.doc(
     security=[{"BearerAuth": []}],
@@ -526,14 +525,6 @@ def get_latest_supplier_quotation_v1(args=None):
                             "type": "string",
                             "format": "binary",
                             "description": "Supplier quotation Excel file (.xlsx, .xls)",
-                        },
-                        "project_id": {
-                            "type": "integer",
-                            "description": "Optional Project ID",
-                        },
-                        "supplier_id": {
-                            "type": "integer",
-                            "description": "Optional Supplier ID",
                         },
                     },
                 },
@@ -559,37 +550,11 @@ def upload_excel():
             400,
         )
 
-    project_id = None
-    raw_pid = (
-        request.form.get("project_id")
-        or request.form.get("projectId")
-        or request.args.get("project_id")
-        or request.args.get("projectId")
-    )
-    if raw_pid is not None:
-        try:
-            project_id = int(raw_pid)
-        except (ValueError, TypeError):
-            pass
-
-    supplier_id = None
-    raw_sid = (
-        request.form.get("supplier_id")
-        or request.form.get("supplierId")
-        or request.args.get("supplier_id")
-        or request.args.get("supplierId")
-    )
-    if raw_sid is not None:
-        try:
-            supplier_id = int(raw_sid)
-        except (ValueError, TypeError):
-            pass
+    
 
     try:
         parsed_data = parse_supplier_quotation_excel(
             file,
-            project_id=project_id,
-            supplier_id=supplier_id,
         )
         return jsonify(parsed_data), 200
     except Exception as exc:

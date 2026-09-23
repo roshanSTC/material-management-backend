@@ -5,6 +5,7 @@ from marshmallow import (
     Schema,
     ValidationError,
     fields,
+    post_dump,
     post_load,
     pre_load,
     validate,
@@ -37,6 +38,55 @@ def _normalize_rate(val):
 RATE_VALIDATOR = validate.And(validate.Range(min=0), _finite)
 POSITIVE_VALUE_VALIDATOR = validate.And(validate.Range(min=0.000001), _finite)
 NON_BLANK_SHORT_TEXT = validate.And(validate.Length(min=1, max=100), _not_blank)
+
+
+def format_global_params_for_display(data: dict | None) -> dict:
+    if not isinstance(data, dict):
+        return data or {}
+    formatted = dict(data)
+
+    # If any non-fractional rate is >= 1.0, the payload is already in percentage scale (e.g. 18 for 18%)
+    is_already_percentage = False
+    for k in (
+        "gstRate",
+        "igstRate",
+        "marginRate",
+        "financeChargesRate",
+        "insuranceFreightRate",
+        "defaultCustomsDutyRate",
+    ):
+        if k in formatted and formatted[k] is not None:
+            try:
+                if float(formatted[k]) >= 1.0:
+                    is_already_percentage = True
+                    break
+            except (ValueError, TypeError):
+                pass
+
+    if is_already_percentage:
+        return formatted
+
+    rate_keys = (
+        "insuranceFreightRate",
+        "defaultCustomsDutyRate",
+        "igstRate",
+        "transportationRate",
+        "financeChargesRate",
+        "marginRate",
+        "gstRate",
+    )
+    for key in rate_keys:
+        if key in formatted and formatted[key] is not None:
+            try:
+                val = float(formatted[key])
+                if val == 0:
+                    formatted[key] = 0
+                elif 0 < val < 1.0:
+                    pct = round(val * 100.0, 4)
+                    formatted[key] = int(pct) if pct == int(pct) else pct
+            except (ValueError, TypeError):
+                pass
+    return formatted
 
 
 class CostSheetGlobalParamsSchema(Schema):
@@ -110,6 +160,10 @@ class CostSheetGlobalParamsSchema(Schema):
                     pass
 
         return normalized
+
+    @post_dump
+    def format_rates_for_display(self, data, **kwargs):
+        return format_global_params_for_display(data)
 
 
 class CostSheetItemSchema(Schema):

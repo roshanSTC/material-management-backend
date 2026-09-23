@@ -120,8 +120,6 @@ def _find_target_sheet(wb: openpyxl.Workbook) -> openpyxl.worksheet.worksheet.Wo
 
 def parse_supplier_quotation_excel(
     file_or_stream: Any,
-    project_id: Optional[int] = None,
-    supplier_id: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Parse a supplier quotation Excel workbook into frontend form data."""
     if hasattr(file_or_stream, "read"):
@@ -414,36 +412,9 @@ def parse_supplier_quotation_excel(
     else:
         quotation_value_str = str(final_total_net)
 
-    # Resolve project_id and supplier_id
-    resolved_project_id = project_id
-    if resolved_project_id is None:
-        raw_pid = meta.get("project_id") or meta.get("project id")
-        if raw_pid is not None:
-            try:
-                resolved_project_id = int(raw_pid)
-            except (ValueError, TypeError):
-                resolved_project_id = None
-
-    resolved_supplier_id = supplier_id
-    if resolved_supplier_id is None and resolved_project_id:
-        try:
-            proj = db.session.get(Project, resolved_project_id)
-            if proj and proj.supplier_id:
-                resolved_supplier_id = proj.supplier_id
-        except Exception:
-            pass
-
-    if resolved_supplier_id is None:
-        raw_sid = meta.get("supplier_id") or meta.get("supplier id")
-        if raw_sid is not None:
-            try:
-                resolved_supplier_id = int(raw_sid)
-            except (ValueError, TypeError):
-                resolved_supplier_id = None
+    
 
     return {
-        "project_id": resolved_project_id,
-        "supplier_id": resolved_supplier_id,
         "quotation_number": str(q_num).strip(),
         "quotation_date": q_date,
         "currency_unit": currency_unit,

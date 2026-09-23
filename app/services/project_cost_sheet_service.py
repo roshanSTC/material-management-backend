@@ -13,6 +13,7 @@ from app.repositories.project_cost_sheet_repository import (
     get_user,
     list_cost_sheets_by_project,
 )
+from app.schemas.cost_sheet import format_global_params_for_display
 from app.services.cost_sheet_service import _calculate_item, calculate_cost_sheet
 
 
@@ -217,6 +218,11 @@ def serialize_cost_sheet_metadata(cost_sheet: CostSheet) -> dict:
 
     global_params = cost_sheet.global_params or {}
     output = _enrich_output_with_inr(output, global_params)
+    display_global_params = format_global_params_for_display(global_params)
+    if isinstance(output, dict):
+        output = dict(output)
+        if "globalParams" in output:
+            output["globalParams"] = format_global_params_for_display(output["globalParams"])
     eur_to_inr = Decimal(str(global_params.get("eurToInr", 1.0)))
 
     price_histories = [
@@ -265,7 +271,7 @@ def serialize_cost_sheet_metadata(cost_sheet: CostSheet) -> dict:
             if isinstance(output, dict) and output.get("totalGst") is not None
             else None
         ),
-        "globalParams": cost_sheet.global_params,
+        "globalParams": display_global_params,
         "output": output,
         "status": cost_sheet.status,
         "createdBy": cost_sheet.created_by,

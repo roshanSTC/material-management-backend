@@ -21,7 +21,7 @@ class SupplierQuotation(db.Model):
     supplier_id = db.Column(
         db.Integer,
         db.ForeignKey("suppliers.id"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 

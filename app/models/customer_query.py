@@ -21,7 +21,7 @@ class CustomerQuery(db.Model):
     customer_id = db.Column(
         db.Integer,
         db.ForeignKey("customers.id"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 

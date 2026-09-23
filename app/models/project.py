@@ -19,14 +19,14 @@ class Project(db.Model):
     customer_id = db.Column(
         db.Integer,
         db.ForeignKey("customers.id"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 
     supplier_id = db.Column(
         db.Integer,
         db.ForeignKey("suppliers.id"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 
@@ -52,22 +52,25 @@ class Project(db.Model):
         "Supplier",
         back_populates="projects",
     )
-    
+
     customer_queries = db.relationship(
         "CustomerQuery",
         back_populates="project",
+        cascade="all, delete-orphan",
         lazy="select",
     )
-    
+
     quotation_requests = db.relationship(
         "QuotationRequest",
         back_populates="project",
+        cascade="all, delete-orphan",
         lazy="select",
     )
 
     supplier_quotations = db.relationship(
         "SupplierQuotation",
         back_populates="project",
+        cascade="all, delete-orphan",
         lazy="select",
     )
 
@@ -82,76 +85,129 @@ class Project(db.Model):
     customer_quotations = db.relationship(
         "CustomerQuotation",
         back_populates="project",
+        cascade="all, delete-orphan",
         lazy="select",
     )
-    
+
     customer_tenders = db.relationship(
         "CustomerTender",
         back_populates="project",
+        cascade="all, delete-orphan",
         lazy="select",
     )
 
     bid_submissions = db.relationship(
         "BidSubmission",
         back_populates="project",
+        cascade="all, delete-orphan",
         lazy="select",
     )
 
     purchase_orders = db.relationship(
         "PurchaseOrder",
         back_populates="project",
+        cascade="all, delete-orphan",
         lazy="select",
     )
 
     supplier_order_confirmations = db.relationship(
         "SupplierOrderConfirmation",
         back_populates="project",
+        cascade="all, delete-orphan",
         lazy="select",
     )
-    
+
+    supplier_proforma_invoices = db.relationship(
+        "SupplierProformaInvoice",
+        overlaps="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    supplier_invoices = db.relationship(
+        "SupplierInvoice",
+        overlaps="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    supplier_packing_lists = db.relationship(
+        "SupplierPackingList",
+        overlaps="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    import_logistics = db.relationship(
+        "ImportLogistics",
+        overlaps="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    bills_of_entry = db.relationship(
+        "BillOfEntry",
+        overlaps="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    customs_clearances = db.relationship(
+        "CustomsClearance",
+        overlaps="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
     customer_delivery_invoices = db.relationship(
         "CustomerDeliveryInvoice",
         back_populates="project",
+        cascade="all, delete-orphan",
         lazy="select",
     )
-    
+
     customer_delivery_packing_lists = db.relationship(
         "CustomerDeliveryPackingList",
         back_populates="project",
+        cascade="all, delete-orphan",
         lazy="select",
     )
-    
+
     delivery_challans = db.relationship(
         "DeliveryChallan",
         back_populates="project",
+        cascade="all, delete-orphan",
         lazy="select",
     )
-    
+
     warranty_certificates = db.relationship(
         "WarrantyCertificate",
         back_populates="project",
+        cascade="all, delete-orphan",
         lazy="select",
     )
-    
+
     transport_details = db.relationship(
         "TransportDetail",
         back_populates="project",
+        cascade="all, delete-orphan",
         lazy="select",
     )
-    
+
     customer_payments = db.relationship(
         "CustomerPayment",
         back_populates="project",
+        cascade="all, delete-orphan",
         lazy="select",
     )
 
     supplier_payments = db.relationship(
         "SupplierPayment",
         back_populates="project",
+        cascade="all, delete-orphan",
         lazy="select",
     )
-    
-    
+
     steps = db.relationship(
         "ProjectStep",
         back_populates="project",
@@ -159,10 +215,6 @@ class Project(db.Model):
         lazy="select",
         order_by="ProjectStep.step_number",
     )
-
-
-
-
 
     def __repr__(self) -> str:
         return f"<Project {self.id}: {self.project_title}>"

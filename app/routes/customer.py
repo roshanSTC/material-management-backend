@@ -1,3 +1,4 @@
+from flask import current_app, jsonify
 from flask_jwt_extended import jwt_required
 from flask_smorest import Blueprint
 
@@ -9,6 +10,7 @@ from app.schemas.customer import (
 from app.services.customer_service import (
     CustomerNotFoundError,
     create_customer,
+    delete_customer,
     get_customer,
     list_customers,
     update_customer,
@@ -110,3 +112,35 @@ def update(data, customer_id):
         }, 404
 
     return _customer_response(customer), 200
+
+
+@customer_bp.delete("/<int:customer_id>")
+@customer_bp.doc(security=[{"BearerAuth": []}])
+@jwt_required()
+def delete(customer_id):
+    try:
+        delete_customer(customer_id)
+        return jsonify({
+            "success": True,
+            "message": f"Customer {customer_id} deleted successfully.",
+            "data": {
+                "id": customer_id,
+            },
+        }), 200
+    except CustomerNotFoundError as exc:
+        return {
+            "success": False,
+            "error": {
+                "code": "CUSTOMER_NOT_FOUND",
+                "message": str(exc),
+            },
+        }, 404
+    except Exception:
+        current_app.logger.exception("Failed to delete customer")
+        return {
+            "success": False,
+            "error": {
+                "code": "CUSTOMER_DELETE_FAILED",
+                "message": "Failed to delete customer.",
+            },
+        }, 500

@@ -75,3 +75,69 @@ def update_customer(
     db.session.commit()
 
     return customer
+
+
+def delete_customer(customer_id: int) -> list[str]:
+    customer = get_customer(customer_id)
+    all_storage_keys = []
+
+    from app.models.project import Project
+    from app.models.customer_query import CustomerQuery
+    from app.models.customer_quotation import CustomerQuotation
+    from app.models.customer_tender import CustomerTender
+    from app.models.purchase_order import PurchaseOrder
+
+    db.session.execute(
+        db.update(Project)
+        .where(Project.customer_id == customer_id)
+        .values(customer_id=None)
+    )
+    db.session.execute(
+        db.update(CustomerQuery)
+        .where(CustomerQuery.customer_id == customer_id)
+        .values(customer_id=None)
+    )
+    db.session.execute(
+        db.update(CustomerQuotation)
+        .where(CustomerQuotation.customer_id == customer_id)
+        .values(customer_id=None)
+    )
+    db.session.execute(
+        db.update(CustomerTender)
+        .where(CustomerTender.customer_id == customer_id)
+        .values(customer_id=None)
+    )
+    db.session.execute(
+        db.update(PurchaseOrder)
+        .where(PurchaseOrder.customer_id == customer_id)
+        .values(customer_id=None)
+    )
+
+    from app.models.attachment import Attachment
+    attachments = db.session.execute(
+        db.select(Attachment).where(
+            Attachment.entity_type == "customer",
+            Attachment.entity_id == customer_id,
+        )
+    ).scalars().all()
+    for att in attachments:
+        if att.storage_key:
+            all_storage_keys.append(att.storage_key)
+        db.session.delete(att)
+
+    db.session.delete(customer)
+    db.session.commit()
+
+    try:
+        from app.extensions.storage import get_storage
+        storage = get_storage()
+        for key in all_storage_keys:
+            try:
+                if storage.exists(key):
+                    storage.delete(key)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    return all_storage_keys

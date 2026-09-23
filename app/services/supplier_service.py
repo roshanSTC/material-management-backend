@@ -75,3 +75,93 @@ def update_supplier(
     db.session.commit()
 
     return supplier
+
+
+def delete_supplier(supplier_id: int) -> list[str]:
+    supplier = get_supplier(supplier_id)
+    all_storage_keys = []
+
+    from app.models.project import Project
+    from app.models.quotation_request import QuotationRequest
+    from app.models.supplier_quotation import SupplierQuotation
+    from app.models.supplier_order_confirmation import SupplierOrderConfirmation
+    from app.models.supplier_proforma_invoice import SupplierProformaInvoice
+    from app.models.supplier_invoice import SupplierInvoice
+    from app.models.supplier_packing_list import SupplierPackingList
+    from app.models.import_logistics import ImportLogistics
+    from app.models.supplier_payment import SupplierPayment
+
+    db.session.execute(
+        db.update(Project)
+        .where(Project.supplier_id == supplier_id)
+        .values(supplier_id=None)
+    )
+    db.session.execute(
+        db.update(QuotationRequest)
+        .where(QuotationRequest.supplier_id == supplier_id)
+        .values(supplier_id=None)
+    )
+    db.session.execute(
+        db.update(SupplierQuotation)
+        .where(SupplierQuotation.supplier_id == supplier_id)
+        .values(supplier_id=None)
+    )
+    db.session.execute(
+        db.update(SupplierOrderConfirmation)
+        .where(SupplierOrderConfirmation.supplier_id == supplier_id)
+        .values(supplier_id=None)
+    )
+    db.session.execute(
+        db.update(SupplierProformaInvoice)
+        .where(SupplierProformaInvoice.supplier_id == supplier_id)
+        .values(supplier_id=None)
+    )
+    db.session.execute(
+        db.update(SupplierInvoice)
+        .where(SupplierInvoice.supplier_id == supplier_id)
+        .values(supplier_id=None)
+    )
+    db.session.execute(
+        db.update(SupplierPackingList)
+        .where(SupplierPackingList.supplier_id == supplier_id)
+        .values(supplier_id=None)
+    )
+    db.session.execute(
+        db.update(ImportLogistics)
+        .where(ImportLogistics.supplier_id == supplier_id)
+        .values(supplier_id=None)
+    )
+    db.session.execute(
+        db.update(SupplierPayment)
+        .where(SupplierPayment.supplier_id == supplier_id)
+        .values(supplier_id=None)
+    )
+
+    from app.models.attachment import Attachment
+    attachments = db.session.execute(
+        db.select(Attachment).where(
+            Attachment.entity_type == "supplier",
+            Attachment.entity_id == supplier_id,
+        )
+    ).scalars().all()
+    for att in attachments:
+        if att.storage_key:
+            all_storage_keys.append(att.storage_key)
+        db.session.delete(att)
+
+    db.session.delete(supplier)
+    db.session.commit()
+
+    try:
+        from app.extensions.storage import get_storage
+        storage = get_storage()
+        for key in all_storage_keys:
+            try:
+                if storage.exists(key):
+                    storage.delete(key)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    return all_storage_keys

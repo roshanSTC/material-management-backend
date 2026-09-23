@@ -1,3 +1,4 @@
+from flask import current_app, jsonify
 from flask_jwt_extended import jwt_required
 from flask_smorest import Blueprint
 
@@ -9,6 +10,7 @@ from app.schemas.supplier import (
 from app.services.supplier_service import (
     SupplierNotFoundError,
     create_supplier,
+    delete_supplier,
     get_supplier,
     list_suppliers,
     update_supplier,
@@ -110,3 +112,35 @@ def update(data, supplier_id):
         }, 404
 
     return _supplier_response(supplier), 200
+
+
+@supplier_bp.delete("/<int:supplier_id>")
+@supplier_bp.doc(security=[{"BearerAuth": []}])
+@jwt_required()
+def delete(supplier_id):
+    try:
+        delete_supplier(supplier_id)
+        return jsonify({
+            "success": True,
+            "message": f"Supplier {supplier_id} deleted successfully.",
+            "data": {
+                "id": supplier_id,
+            },
+        }), 200
+    except SupplierNotFoundError as exc:
+        return {
+            "success": False,
+            "error": {
+                "code": "SUPPLIER_NOT_FOUND",
+                "message": str(exc),
+            },
+        }, 404
+    except Exception:
+        current_app.logger.exception("Failed to delete supplier")
+        return {
+            "success": False,
+            "error": {
+                "code": "SUPPLIER_DELETE_FAILED",
+                "message": "Failed to delete supplier.",
+            },
+        }, 500

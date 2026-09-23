@@ -30,7 +30,7 @@ class Customer(db.Model):
         db.Text,
         nullable=False,
     )
-    
+
     website_url = db.Column(
         db.String(2048),
         nullable=True,
@@ -48,25 +48,25 @@ class Customer(db.Model):
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
     )
-    
+
     customer_queries = db.relationship(
         "CustomerQuery",
         back_populates="customer",
         lazy="select",
     )
-    
+
     customer_quotations = db.relationship(
         "CustomerQuotation",
         back_populates="customer",
         lazy="select",
     )
-    
+
     projects = db.relationship(
         "Project",
         back_populates="customer",
         lazy="select",
     )
-    
+
     purchase_orders = db.relationship(
         "PurchaseOrder",
         back_populates="customer",

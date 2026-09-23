@@ -100,3 +100,68 @@ def update_project(
 
     return project
 
+
+def delete_project(project_id: int) -> list[str]:
+    project = get_project(project_id)
+    storage_keys = []
+
+    from app.models.attachment import Attachment
+
+    step_entities = [
+        ("customer_query", [cq.id for cq in project.customer_queries]),
+        ("quotation_request", [qr.id for qr in project.quotation_requests]),
+        ("supplier_quotation", [sq.id for sq in project.supplier_quotations]),
+        ("customer_quotation", [cq.id for cq in project.customer_quotations]),
+        ("customer_tender", [ct.id for ct in project.customer_tenders]),
+        ("bid_submission", [bs.id for bs in project.bid_submissions]),
+        ("purchase_order", [po.id for po in project.purchase_orders]),
+        ("order_confirmation", [soc.id for soc in project.supplier_order_confirmations]),
+        ("supplier_order_confirmation", [soc.id for soc in project.supplier_order_confirmations]),
+        ("supplier_proforma_invoice", [spi.id for spi in project.supplier_proforma_invoices]),
+        ("proforma_invoice", [spi.id for spi in project.supplier_proforma_invoices]),
+        ("supplier_invoice", [si.id for si in project.supplier_invoices]),
+        ("supplier_packing_list", [spl.id for spl in project.supplier_packing_lists]),
+        ("import_logistics", [il.id for il in project.import_logistics]),
+        ("bill_of_entry", [boe.id for boe in project.bills_of_entry]),
+        ("customs_clearance", [cc.id for cc in project.customs_clearances]),
+        ("customer_delivery_invoice", [cdi.id for cdi in project.customer_delivery_invoices]),
+        ("customer_delivery_packing_list", [cdpl.id for cdpl in project.customer_delivery_packing_lists]),
+        ("delivery_challan", [dc.id for dc in project.delivery_challans]),
+        ("warranty_certificate", [wc.id for wc in project.warranty_certificates]),
+        ("transport_detail", [td.id for td in project.transport_details]),
+        ("customer_payment", [cp.id for cp in project.customer_payments]),
+        ("supplier_payment", [sp.id for sp in project.supplier_payments]),
+        ("project", [project.id]),
+    ]
+
+    for entity_type, ids in step_entities:
+        if ids:
+            attachments = db.session.execute(
+                db.select(Attachment).where(
+                    Attachment.entity_type == entity_type,
+                    Attachment.entity_id.in_(ids),
+                )
+            ).scalars().all()
+            for att in attachments:
+                if att.storage_key:
+                    storage_keys.append(att.storage_key)
+                db.session.delete(att)
+
+    db.session.delete(project)
+    db.session.commit()
+
+    try:
+        from app.extensions.storage import get_storage
+        storage = get_storage()
+        for key in storage_keys:
+            try:
+                if storage.exists(key):
+                    storage.delete(key)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    return storage_keys
+
+

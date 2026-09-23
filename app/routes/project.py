@@ -1,5 +1,4 @@
-from datetime import date, datetime
-
+from flask import current_app, jsonify
 from flask_jwt_extended import jwt_required
 from flask_smorest import Blueprint
 
@@ -25,6 +24,7 @@ from app.services.project_service import (
     ProjectNotFoundError,
     SupplierNotFoundError,
     create_project,
+    delete_project,
     get_project,
     list_projects,
     update_project,
@@ -422,3 +422,36 @@ def update(data, project_id):
         }, 404
 
     return _project_response(project), 200
+
+
+@project_bp.delete("/<int:project_id>")
+@project_bp.doc(security=[{"BearerAuth": []}])
+@jwt_required()
+def delete(project_id):
+    try:
+        delete_project(project_id)
+        return jsonify({
+            "success": True,
+            "message": f"Project {project_id} and all associated data deleted successfully.",
+            "data": {
+                "id": project_id,
+            },
+        }), 200
+    except ProjectNotFoundError as exc:
+        return {
+            "success": False,
+            "error": {
+                "code": "PROJECT_NOT_FOUND",
+                "message": str(exc),
+            },
+        }, 404
+    except Exception:
+        current_app.logger.exception("Failed to delete project")
+        return {
+            "success": False,
+            "error": {
+                "code": "PROJECT_DELETE_FAILED",
+                "message": "Failed to delete project.",
+            },
+        }, 500
+

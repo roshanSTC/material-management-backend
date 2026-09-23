@@ -30,7 +30,7 @@ class Supplier(db.Model):
         db.Text,
         nullable=False,
     )
-    
+
     website_url = db.Column(
         db.String(2048),
         nullable=True,
@@ -48,13 +48,13 @@ class Supplier(db.Model):
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
     )
-    
+
     projects = db.relationship(
         "Project",
         back_populates="supplier",
         lazy="select",
     )
-    
+
     quotation_requests = db.relationship(
         "QuotationRequest",
         back_populates="supplier",
@@ -66,13 +66,13 @@ class Supplier(db.Model):
         back_populates="supplier",
         lazy="select",
     )
-    
+
     supplier_order_confirmations = db.relationship(
         "SupplierOrderConfirmation",
         back_populates="supplier",
         lazy="select",
     )
-    
+
     supplier_payments = db.relationship(
         "SupplierPayment",
         back_populates="supplier",

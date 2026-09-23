@@ -102,7 +102,8 @@ class TransportDetailCreateSchema(Schema):
         allow_none=True,
         load_default=None,
     )
-    remark = fields.String(allow_none=True, load_default=None)
+    remark = fields.Raw(allow_none=True, load_default=None)
+    remarks = fields.Raw(allow_none=True, load_default=None)
 
     @pre_load
     def preprocess(self, data, **kwargs):
@@ -134,7 +135,8 @@ class TransportDetailUpdateSchema(Schema):
     rr_no = fields.String(allow_none=True)
     awb_no = fields.String(allow_none=True)
     transport_charges = fields.Decimal(as_string=False, allow_none=True)
-    remark = fields.String(allow_none=True)
+    remark = fields.Raw(allow_none=True)
+    remarks = fields.Raw(allow_none=True)
 
     @pre_load
     def preprocess(self, data, **kwargs):
@@ -158,8 +160,8 @@ class TransportDetailResponseSchema(Schema):
     rr_no = fields.String(dump_only=True, allow_none=True)
     awb_no = fields.String(dump_only=True, allow_none=True)
     transport_charges = fields.Decimal(dump_only=True, as_string=False, allow_none=True)
-    remark = fields.String(dump_only=True, allow_none=True)
-    remarks = fields.String(dump_only=True, allow_none=True)
+    remark = fields.Raw(dump_only=True, allow_none=True)
+    remarks = fields.Raw(dump_only=True, allow_none=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
     attachments = fields.List(

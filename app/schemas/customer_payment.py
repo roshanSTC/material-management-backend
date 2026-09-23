@@ -73,7 +73,7 @@ class CustomerPaymentCreateSchema(Schema):
         as_string=True,
         places=2,
     )
-    remark = fields.String(
+    remark = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -208,7 +208,7 @@ class CustomerPaymentUpdateSchema(Schema):
         as_string=True,
         places=2,
     )
-    remark = fields.String(
+    remark = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -283,8 +283,8 @@ class CustomerPaymentResponseSchema(Schema):
     tds = fields.Decimal(dump_only=True, as_string=True, places=2, allow_none=True)
     ld = fields.Decimal(dump_only=True, as_string=True, places=2, allow_none=True)
     liquidated_damages = fields.Decimal(dump_only=True, as_string=True, places=2, allow_none=True)
-    remark = fields.String(dump_only=True)
-    remarks = fields.String(dump_only=True)
+    remark = fields.Raw(dump_only=True)
+    remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
     attachments = fields.List(

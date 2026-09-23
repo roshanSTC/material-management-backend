@@ -1,5 +1,7 @@
 from marshmallow import Schema, fields
 
+from app.schemas.step_remark import StepRemarkItemSchema
+
 
 class ProjectStepCreateUpdateSchema(Schema):
     data = fields.Dict(
@@ -42,5 +44,11 @@ class ProjectStepResponseSchema(Schema):
     )
 
     data = fields.Dict(
+        allow_none=True,
+    )
+
+    remarks = fields.List(
+        fields.Raw(),
+        dump_only=True,
         allow_none=True,
     )

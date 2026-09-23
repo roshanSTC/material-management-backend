@@ -52,6 +52,8 @@ def _normalize_bill_of_entry_payload(raw_data):
     # String stripping
     if "bill_of_entry_no" in normalized and isinstance(normalized["bill_of_entry_no"], str):
         normalized["bill_of_entry_no"] = normalized["bill_of_entry_no"].strip()
+    if "remarks" in normalized and "remark" not in normalized:
+        normalized["remark"] = normalized["remarks"]
     if "remark" in normalized and isinstance(normalized["remark"], str):
         normalized["remark"] = normalized["remark"].strip()
 
@@ -110,7 +112,8 @@ class BillOfEntryCreateSchema(Schema):
         allow_none=True,
         load_default=None,
     )
-    remark = fields.String(allow_none=True, load_default=None)
+    remark = fields.Raw(allow_none=True, load_default=None)
+    remarks = fields.Raw(allow_none=True, load_default=None)
 
     @pre_load
     def prepare_data(self, data, **kwargs):
@@ -147,7 +150,8 @@ class BillOfEntryUpdateSchema(Schema):
         as_string=False,
         allow_none=True,
     )
-    remark = fields.String(allow_none=True)
+    remark = fields.Raw(allow_none=True)
+    remarks = fields.Raw(allow_none=True)
 
     @pre_load
     def prepare_data(self, data, **kwargs):
@@ -176,7 +180,8 @@ class BillOfEntryResponseSchema(Schema):
     sws = fields.Raw(allow_none=True)
     igst = fields.Raw(allow_none=True)
     total_duty = fields.Raw(allow_none=True)
-    remark = fields.String(allow_none=True)
+    remark = fields.Raw(allow_none=True)
+    remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
 

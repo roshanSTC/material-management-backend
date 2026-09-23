@@ -81,7 +81,8 @@ class WarrantyCertificateCreateSchema(Schema):
         validate=validate.Length(max=100),
     )
     invoice_date = fields.Date(required=False, allow_none=True)
-    remark = fields.String(required=False, allow_none=True)
+    remark = fields.Raw(required=False, allow_none=True)
+    remarks = fields.Raw(required=False, allow_none=True)
 
     @pre_load
     def preprocess(self, data, **kwargs):
@@ -110,7 +111,8 @@ class WarrantyCertificateUpdateSchema(Schema):
         validate=validate.Length(max=100),
     )
     invoice_date = fields.Date(required=False, allow_none=True)
-    remark = fields.String(required=False, allow_none=True)
+    remark = fields.Raw(required=False, allow_none=True)
+    remarks = fields.Raw(required=False, allow_none=True)
 
     @pre_load
     def preprocess(self, data, **kwargs):
@@ -128,8 +130,8 @@ class WarrantyCertificateResponseSchema(Schema):
     invoice_no = fields.String(dump_only=True, allow_none=True)
     invoice_number = fields.String(dump_only=True, allow_none=True)
     invoice_date = fields.Date(dump_only=True, allow_none=True)
-    remark = fields.String(dump_only=True, allow_none=True)
-    remarks = fields.String(dump_only=True, allow_none=True)
+    remark = fields.Raw(dump_only=True, allow_none=True)
+    remarks = fields.Raw(dump_only=True, allow_none=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
     attachments = fields.List(

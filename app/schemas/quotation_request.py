@@ -22,7 +22,7 @@ class QuotationRequestCreateSchema(Schema):
         required=True
     )
 
-    remarks = fields.String(
+    remarks = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -41,7 +41,7 @@ class QuotationRequestResponseSchema(Schema):
     quotation_requested_date = fields.Date()
     supplier_contacted = fields.Boolean()
 
-    remarks = fields.String(
+    remarks = fields.Raw(
         allow_none=True
     )
 

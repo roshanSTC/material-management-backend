@@ -48,6 +48,7 @@ from app.models.material import Material
 from app.models.cost_sheet import CostSheet
 from app.models.cost_sheet_item import CostSheetItem
 from app.models.item_price_history import ItemPriceHistory
+from app.models.step_remark import StepRemark
 
 
 __all__ = [
@@ -100,4 +101,5 @@ __all__ = [
     "CostSheet",
     "CostSheetItem",
     "ItemPriceHistory",
+    "StepRemark",
 ]

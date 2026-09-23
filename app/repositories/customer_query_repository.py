@@ -4,6 +4,9 @@ from app.extensions.database import db
 from app.models import Customer, CustomerQuery, CustomerQueryItem, Project
 
 
+from app.utils.remark_utils import normalize_remark_for_db
+
+
 def get_project(project_id: int) -> Project | None:
     return db.session.get(Project, project_id)
 
@@ -24,7 +27,7 @@ def create_customer_query(
         project_id=project_id,
         customer_id=customer_id,
         qo_date=qo_date,
-        remark=remark.strip() if remark else None,
+        remark=normalize_remark_for_db(remark),
     )
 
     for item_data in items:

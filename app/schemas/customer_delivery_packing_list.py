@@ -210,7 +210,11 @@ class CustomerDeliveryPackingListCreateSchema(Schema):
         allow_none=True,
         validate=validate.Length(max=255),
     )
-    remark = fields.String(
+    remark = fields.Raw(
+        required=False,
+        allow_none=True,
+    )
+    remarks = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -351,7 +355,11 @@ class CustomerDeliveryPackingListUpdateSchema(Schema):
         allow_none=True,
         validate=validate.Length(max=255),
     )
-    remark = fields.String(
+    remark = fields.Raw(
+        required=False,
+        allow_none=True,
+    )
+    remarks = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -427,8 +435,8 @@ class CustomerDeliveryPackingListResponseSchema(Schema):
     packing_condition = fields.String(dump_only=True)
     net_weight = fields.String(dump_only=True)
     gross_weight = fields.String(dump_only=True)
-    remark = fields.String(dump_only=True)
-    remarks = fields.String(dump_only=True)
+    remark = fields.Raw(dump_only=True)
+    remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
     items = fields.List(

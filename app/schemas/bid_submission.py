@@ -208,7 +208,7 @@ class BidSubmissionCreateSchema(Schema):
         as_string=True,
         places=2,
     )
-    remark = fields.String(
+    remark = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -317,7 +317,7 @@ class BidSubmissionUpdateSchema(Schema):
     validity = fields.String(required=False, allow_none=True)
     warranty_period = fields.String(required=False, allow_none=True)
     gst_rate = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
-    remark = fields.String(required=False, allow_none=True)
+    remark = fields.Raw(required=False, allow_none=True)
     items = fields.List(
         fields.Nested(BidSubmissionItemUpdateSchema),
         required=False,
@@ -426,7 +426,7 @@ class BidSubmissionResponseSchema(Schema):
     validity = fields.String(allow_none=True)
     warranty_period = fields.String(allow_none=True)
     gst_rate = fields.Decimal(as_string=True, places=2, allow_none=True)
-    remark = fields.String(allow_none=True)
+    remark = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
     items = fields.List(

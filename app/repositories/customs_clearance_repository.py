@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from app.extensions.database import db
 from app.models import CustomsClearance, Project
+from app.utils.remark_utils import normalize_remark_for_db
 
 
 def get_project(project_id: int) -> Project | None:
@@ -83,7 +84,7 @@ def create_customs_clearance(data: dict) -> CustomsClearance:
         igst_amount=_parse_decimal_val(data.get("igst_amount")),
         other_customs_charges=_parse_decimal_val(data.get("other_customs_charges")),
         total_customs_amount=_parse_decimal_val(data.get("total_customs_amount")),
-        remark=data.get("remark"),
+        remark=normalize_remark_for_db(data.get("remark")),
     )
     db.session.add(record)
     db.session.flush()
@@ -120,7 +121,7 @@ def update_customs_clearance(record: CustomsClearance, data: dict) -> CustomsCle
     if "total_customs_amount" in data:
         record.total_customs_amount = _parse_decimal_val(data["total_customs_amount"])
     if "remark" in data:
-        record.remark = data["remark"]
+        record.remark = normalize_remark_for_db(data["remark"])
 
     record.updated_at = datetime.utcnow()
     db.session.flush()

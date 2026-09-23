@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from app.extensions.database import db
 from app.models import BillOfEntry, Project
+from app.utils.remark_utils import normalize_remark_for_db
 
 
 def get_project(project_id: int) -> Project | None:
@@ -74,7 +75,7 @@ def create_bill_of_entry(data: dict) -> BillOfEntry:
         sws=_parse_decimal_val(data.get("sws")),
         igst=_parse_decimal_val(data.get("igst")),
         total_duty=_parse_decimal_val(data.get("total_duty")),
-        remark=data.get("remark"),
+        remark=normalize_remark_for_db(data.get("remark")),
     )
     db.session.add(record)
     db.session.flush()
@@ -99,7 +100,7 @@ def update_bill_of_entry(record: BillOfEntry, data: dict) -> BillOfEntry:
     if "total_duty" in data:
         record.total_duty = _parse_decimal_val(data["total_duty"])
     if "remark" in data:
-        record.remark = data["remark"]
+        record.remark = normalize_remark_for_db(data["remark"])
 
     record.updated_at = datetime.utcnow()
     db.session.flush()

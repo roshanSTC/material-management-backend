@@ -54,6 +54,8 @@ def _normalize_customs_clearance_payload(raw_data):
         normalized["transaction_ref_no"] = normalized["transaction_payment_reference"]
     if "bill_of_entry_number" in normalized and "bill_of_entry_no" not in normalized:
         normalized["bill_of_entry_no"] = normalized["bill_of_entry_number"]
+    if "remarks" in normalized and "remark" not in normalized:
+        normalized["remark"] = normalized["remarks"]
 
     # Trimming strings
     for k in (
@@ -144,7 +146,8 @@ class CustomsClearanceCreateSchema(Schema):
         allow_none=True,
         load_default=None,
     )
-    remark = fields.String(allow_none=True, load_default=None)
+    remark = fields.Raw(allow_none=True, load_default=None)
+    remarks = fields.Raw(allow_none=True, load_default=None)
 
     @pre_load
     def normalize_input(self, data, **kwargs):
@@ -186,7 +189,8 @@ class CustomsClearanceUpdateSchema(Schema):
     igst_amount = fields.Decimal(as_string=False, allow_none=True)
     other_customs_charges = fields.Decimal(as_string=False, allow_none=True)
     total_customs_amount = fields.Decimal(as_string=False, allow_none=True)
-    remark = fields.String(allow_none=True)
+    remark = fields.Raw(allow_none=True)
+    remarks = fields.Raw(allow_none=True)
 
     @pre_load
     def normalize_input(self, data, **kwargs):
@@ -220,7 +224,8 @@ class CustomsClearanceResponseSchema(Schema):
     igst_amount = fields.Decimal(as_string=False, allow_none=True)
     other_customs_charges = fields.Decimal(as_string=False, allow_none=True)
     total_customs_amount = fields.Decimal(as_string=False, allow_none=True)
-    remark = fields.String(allow_none=True)
+    remark = fields.Raw(allow_none=True)
+    remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
     attachments = fields.List(

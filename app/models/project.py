@@ -222,5 +222,13 @@ class Project(db.Model):
         order_by="ProjectStep.step_number",
     )
 
+    step_remarks = db.relationship(
+        "StepRemark",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+        order_by="StepRemark.created_at.desc()",
+    )
+
     def __repr__(self) -> str:
         return f"<Project {self.id}: {self.project_title}>"

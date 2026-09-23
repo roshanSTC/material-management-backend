@@ -2,6 +2,7 @@ from datetime import date
 
 from app.extensions.database import db
 from app.models import CustomerQuery
+from app.utils.remark_utils import normalize_remark_for_db
 
 from app.models.customer_query_item import CustomerQueryItem
 from app.repositories.customer_query_repository import (
@@ -76,8 +77,9 @@ def create_customer_query_transaction(
     project_id: int,
     customer_id: int,
     qo_date,
-    remark: str | None,
+    remark,
     items: list[dict],
+    user_id: int | None = None,
 ) -> CustomerQuery:
 
     project = get_project(project_id)
@@ -110,6 +112,14 @@ def create_customer_query_transaction(
         items=items,
     )
 
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=1,
+        remarks_data=remark,
+        default_user_id=user_id,
+    )
+
     db.session.flush()
 
     sync_customer_query_step(project_id)
@@ -124,8 +134,10 @@ def update_customer_query_transaction(
     project_id: int,
     customer_id: int,
     qo_date,
-    remark: str | None,
+    remark,
     items: list[dict],
+    user_id: int | None = None,
+    sync_remarks: bool = True,
 ) -> CustomerQuery:
 
     customer_query = get_customer_query(
@@ -166,11 +178,16 @@ def update_customer_query_transaction(
     customer_query.project_id = project_id
     customer_query.customer_id = customer_id
     customer_query.qo_date = qo_date
-    customer_query.remark = (
-        remark.strip()
-        if remark
-        else None
-    )
+
+    if sync_remarks:
+        customer_query.remark = normalize_remark_for_db(remark)
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=project_id,
+            step_number=1,
+            remarks_data=remark,
+            default_user_id=user_id,
+        )
 
     customer_query.items.clear()
 
@@ -202,8 +219,14 @@ def delete_customer_query_transaction(customer_query_id: int):
     project_id = customer_query.project_id
 
     db.session.delete(customer_query)
-
     db.session.flush()
+
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=1,
+        remarks_data=None,
+    )
 
     sync_customer_query_step(project_id)
 

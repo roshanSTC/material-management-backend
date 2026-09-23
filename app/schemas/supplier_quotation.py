@@ -144,7 +144,7 @@ class SupplierQuotationCreateSchema(Schema):
         allow_none=True,
         validate=validate.Length(max=100),
     )
-    remark = fields.String(required=False, allow_none=True)
+    remark = fields.Raw(required=False, allow_none=True)
     items = fields.List(
         fields.Nested(SupplierQuotationItemSchema),
         required=True,
@@ -217,7 +217,7 @@ class SupplierQuotationUpdateSchema(Schema):
         allow_none=True,
         validate=validate.Length(max=100),
     )
-    remark = fields.String(allow_none=True)
+    remark = fields.Raw(allow_none=True)
     items = fields.List(
         fields.Nested(SupplierQuotationItemSchema),
         validate=validate.Length(min=1),
@@ -296,7 +296,7 @@ class SupplierQuotationResponseSchema(Schema):
     incoterms = fields.String(allow_none=True)
     payment_terms = fields.String(allow_none=True)
     delivery_period = fields.String(allow_none=True)
-    remark = fields.String(allow_none=True)
+    remark = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
     items = fields.List(fields.Nested(SupplierQuotationItemResponseSchema), required=True)

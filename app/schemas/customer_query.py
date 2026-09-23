@@ -35,7 +35,12 @@ class CustomerQueryCreateSchema(Schema):
         required=True,
     )
 
-    remark = fields.String(
+    remarks = fields.Raw(
+        required=False,
+        allow_none=True,
+    )
+
+    remark = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -45,6 +50,17 @@ class CustomerQueryCreateSchema(Schema):
         required=True,
         validate=validate.Length(min=1),
     )
+
+    @pre_load
+    def normalize_remarks(self, data, **kwargs):
+        if not isinstance(data, (dict, Mapping)):
+            return data
+        normalized = dict(data)
+        if "remarks" in normalized and not normalized.get("remark"):
+            normalized["remark"] = normalized["remarks"]
+        elif "remark" in normalized and not normalized.get("remarks"):
+            normalized["remarks"] = normalized["remark"]
+        return normalized
 
 
 class CustomerQueryItemResponseSchema(Schema):
@@ -62,7 +78,8 @@ class CustomerQueryResponseSchema(Schema):
     project_id = fields.Integer(required=True)
     customer_id = fields.Integer(required=True)
     qo_date = fields.Date(required=True)
-    remark = fields.String(allow_none=True)
+    remarks = fields.Raw(allow_none=True)
+    remark = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
 
@@ -80,12 +97,24 @@ class CustomerQueryUpdateSchema(Schema):
     project_id = fields.Integer(required=False)
     customer_id = fields.Integer(required=False)
     qo_date = fields.Date(required=False)
-    remark = fields.String(required=False, allow_none=True)
+    remarks = fields.Raw(required=False, allow_none=True)
+    remark = fields.Raw(required=False, allow_none=True)
 
     items = fields.List(
         fields.Nested(CustomerQueryItemSchema),
         required=False,
     )
+
+    @pre_load
+    def normalize_remarks(self, data, **kwargs):
+        if not isinstance(data, (dict, Mapping)):
+            return data
+        normalized = dict(data)
+        if "remarks" in normalized and not normalized.get("remark"):
+            normalized["remark"] = normalized["remarks"]
+        elif "remark" in normalized and not normalized.get("remarks"):
+            normalized["remarks"] = normalized["remark"]
+        return normalized
 
 
 class CustomerQueryQuerySchema(Schema):

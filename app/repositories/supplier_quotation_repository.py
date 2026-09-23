@@ -140,8 +140,15 @@ def _replace_items(
         )
 
 
-def _normalize_optional_string(value: str | None) -> str | None:
+from app.utils.remark_utils import normalize_remark_for_db
+
+
+def _normalize_optional_string(value) -> str | None:
     if value is None:
         return None
-    value = value.strip()
-    return value or None
+    if isinstance(value, (list, dict)):
+        return normalize_remark_for_db(value)
+    if isinstance(value, str):
+        value = value.strip()
+        return value or None
+    return str(value)

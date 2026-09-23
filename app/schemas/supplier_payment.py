@@ -76,7 +76,7 @@ class SupplierPaymentCreateSchema(Schema):
         as_string=True,
         places=2,
     )
-    remark = fields.String(
+    remark = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -219,7 +219,7 @@ class SupplierPaymentUpdateSchema(Schema):
         as_string=True,
         places=2,
     )
-    remark = fields.String(
+    remark = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -302,8 +302,8 @@ class SupplierPaymentResponseSchema(Schema):
     payment_date = fields.Date(dump_only=True)
     transaction_details = fields.String(dump_only=True)
     pending_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
-    remark = fields.String(dump_only=True)
-    remarks = fields.String(dump_only=True)
+    remark = fields.Raw(dump_only=True)
+    remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
     attachments = fields.List(

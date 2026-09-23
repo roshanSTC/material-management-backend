@@ -343,7 +343,11 @@ class SupplierPackingListCreateSchema(Schema):
         places=3,
         validate=validate.Range(min=Decimal("0.000")),
     )
-    remark = fields.String(
+    remark = fields.Raw(
+        required=False,
+        allow_none=True,
+    )
+    remarks = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -482,7 +486,11 @@ class SupplierPackingListUpdateSchema(Schema):
         places=3,
         validate=validate.Range(min=Decimal("0.000")),
     )
-    remark = fields.String(
+    remark = fields.Raw(
+        required=False,
+        allow_none=True,
+    )
+    remarks = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -573,8 +581,8 @@ class SupplierPackingListResponseSchema(Schema):
     weight = fields.Decimal(as_string=True, places=3, allow_none=True)
     total_weight = fields.Decimal(as_string=True, places=3, allow_none=True)
     total_gross_weight_kg = fields.Decimal(dump_only=True, as_string=True, places=3, allow_none=True)
-    remark = fields.String(allow_none=True)
-    remarks = fields.String(dump_only=True)
+    remark = fields.Raw(allow_none=True)
+    remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
     items = fields.List(

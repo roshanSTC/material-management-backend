@@ -105,6 +105,9 @@ def create_app(config_class=Config):
     from app.routes.supplier_payment import (
         supplier_payment_bp,
     )
+    from app.routes.step_remark import (
+        step_remarks_bp,
+    )
     
     api.register_blueprint(auth_bp)
     api.register_blueprint(customer_bp)
@@ -112,6 +115,7 @@ def create_app(config_class=Config):
     api.register_blueprint(project_bp)
     api.register_blueprint(customer_query_bp)
     api.register_blueprint(project_step_bp)
+    api.register_blueprint(step_remarks_bp)
     api.register_blueprint(material_bp)
     api.register_blueprint(attachment_bp)
     api.register_blueprint(quotation_request_bp)

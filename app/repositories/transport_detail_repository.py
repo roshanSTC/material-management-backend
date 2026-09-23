@@ -42,9 +42,14 @@ def list_transport_details(
     return list(db.session.execute(stmt).scalars().all())
 
 
-def _normalize_optional_string(value: str | None) -> str | None:
+from app.utils.remark_utils import normalize_remark_for_db
+
+
+def _normalize_optional_string(value) -> str | None:
     if value is None:
         return None
+    if isinstance(value, (list, dict)):
+        return normalize_remark_for_db(value)
     cleaned = str(value).strip()
     return cleaned if cleaned else None
 

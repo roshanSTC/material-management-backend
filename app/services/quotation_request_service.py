@@ -19,6 +19,7 @@ from app.services.attachment_service import (
     create_attachment,
 )
 from app.services.project_step_service import sync_quotation_request_step
+from app.utils.remark_utils import normalize_remark_for_db
 
 class QuotationRequestError(Exception):
     """Base error for quotation request operations."""
@@ -212,7 +213,7 @@ def update_quotation_request_transaction(
         )
 
     if remarks is not None:
-        quotation_request.remarks = remarks
+        quotation_request.remarks = normalize_remark_for_db(remarks)
 
     # Replace items only when items are supplied
     if items is not None:

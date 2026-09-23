@@ -69,6 +69,9 @@ def _normalize_import_logistics_payload(raw_data):
         if k in normalized and isinstance(normalized[k], str):
             normalized[k] = normalized[k].strip()
 
+    if "remarks" in normalized and "remark" not in normalized:
+        normalized["remark"] = normalized["remarks"]
+
     return normalized
 
 
@@ -87,7 +90,8 @@ class ImportLogisticsCreateSchema(Schema):
     )
     date = fields.Date(required=True)
     port_of_discharge = fields.String(allow_none=True, load_default=None)
-    remark = fields.String(allow_none=True, load_default=None)
+    remark = fields.Raw(allow_none=True, load_default=None)
+    remarks = fields.Raw(allow_none=True, load_default=None)
 
     # Air transport fields
     airway_bill_no = fields.String(allow_none=True, load_default=None)
@@ -121,7 +125,8 @@ class ImportLogisticsUpdateSchema(Schema):
     )
     date = fields.Date(required=False)
     port_of_discharge = fields.String(allow_none=True)
-    remark = fields.String(allow_none=True)
+    remark = fields.Raw(allow_none=True)
+    remarks = fields.Raw(allow_none=True)
 
     # Air transport fields
     airway_bill_no = fields.String(allow_none=True)
@@ -157,7 +162,8 @@ class ImportLogisticsResponseSchema(Schema):
     logistic_type = fields.String(required=True)
     date = fields.Date(required=True)
     port_of_discharge = fields.String(allow_none=True)
-    remark = fields.String(allow_none=True)
+    remark = fields.Raw(allow_none=True)
+    remarks = fields.Raw(dump_only=True)
 
     # Air fields
     airway_bill_no = fields.String(allow_none=True)

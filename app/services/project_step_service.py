@@ -721,6 +721,32 @@ def serialize_project_step(step: ProjectStep) -> dict:
         step.data,
     )
 
+    from app.repositories.step_remark_repository import list_remarks_for_step
+    from app.services.step_remark_service import serialize_remark
+    from app.utils.remark_utils import deserialize_remark_for_entity, normalize_remark_for_response
+
+    db_remarks = [
+        serialize_remark(r)
+        for r in list_remarks_for_step(step.project_id, step.step_number)
+    ]
+
+    if step.data is None:
+        data = None
+    else:
+        data = dict(step.data)
+        if "remark" in data and data["remark"] is not None:
+            data["remark"] = deserialize_remark_for_entity(data["remark"])
+        if "remarks" in data and data["remarks"] is not None:
+            data["remarks"] = deserialize_remark_for_entity(data["remarks"])
+
+    if db_remarks:
+        remarks = db_remarks
+    else:
+        raw = None
+        if data:
+            raw = data.get("remarks") if data.get("remarks") is not None else data.get("remark")
+        remarks = normalize_remark_for_response(raw)
+
     return {
         "id": step.id,
         "project_id": step.project_id,
@@ -730,7 +756,8 @@ def serialize_project_step(step: ProjectStep) -> dict:
         "status": status,
         "progress_percentage": progress_percentage,
         "completed_at": step.completed_at,
-        "data": step.data,
+        "data": data,
+        "remarks": remarks,
     }
 
 
@@ -812,6 +839,7 @@ def sync_customer_query_step(project_id: int) -> ProjectStep | None:
             else str(customer_query.qo_date)
         ) if customer_query.qo_date else None,
         "remark": customer_query.remark,
+        "remarks": customer_query.remark,
     }
 
     return upsert_project_step_record(
@@ -1092,6 +1120,10 @@ def sync_customer_tender_step(project_id: int):
         "tender_number": customer_tender.tender_number,
         "tender_title": customer_tender.tender_title,
         "tender_date": customer_tender.tender_date.isoformat(),
+        "submission_date": sub_date,
+        "submitted_date": sub_date,
+        "remarks": customer_tender.remark,
+        "remark": customer_tender.remark,
     }
 
     return upsert_project_step_record(
@@ -1133,7 +1165,10 @@ def sync_bid_submission_step(project_id: int):
     step_data = {
         "tender_number": doc_ref,
         "submission_date": sub_date,
+        "submitted_date": sub_date,
         "tender_title": bid_submission.tender_title,  
+        "remarks": bid_submission.remark,
+        "remark": bid_submission.remark,
     }
 
     return upsert_project_step_record(
@@ -1194,7 +1229,8 @@ def sync_purchase_order_step(project_id: int):
         "payment_terms": purchase_order.payment_terms,
         "warranty_period": purchase_order.warranty_period,
         "gst_rate": str(purchase_order.gst_rate) if purchase_order.gst_rate is not None else None,
-        
+        "remarks": purchase_order.remark,
+        "remark": purchase_order.remark,
     }
 
     return upsert_project_step_record(
@@ -1240,6 +1276,8 @@ def sync_supplier_order_confirmation_step(project_id: int):
         "email": order_confirmation.email,
         "payment_terms": order_confirmation.payment_terms,
         "warranty_period": order_confirmation.warranty_period,
+        "remarks": order_confirmation.remark,
+        "remark": order_confirmation.remark,
     }
 
     return upsert_project_step_record(

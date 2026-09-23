@@ -198,7 +198,7 @@ class CustomerTenderCreateSchema(Schema):
         allow_none=True,
         validate=validate.Length(max=100),
     )
-    remark = fields.String(
+    remark = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -273,7 +273,7 @@ class CustomerTenderUpdateSchema(Schema):
     delivery_period = fields.String(required=False, allow_none=True)
     payment_terms = fields.String(required=False, allow_none=True)
     warranty_period = fields.String(required=False, allow_none=True)
-    remark = fields.String(required=False, allow_none=True)
+    remark = fields.Raw(required=False, allow_none=True)
     items = fields.List(
         fields.Nested(CustomerTenderItemUpdateSchema),
         required=False,
@@ -393,7 +393,7 @@ class CustomerTenderResponseSchema(Schema):
     delivery_period = fields.String(allow_none=True)
     payment_terms = fields.String(allow_none=True)
     warranty_period = fields.String(allow_none=True)
-    remark = fields.String(allow_none=True)
+    remark = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
     items = fields.List(

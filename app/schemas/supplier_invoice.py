@@ -279,7 +279,7 @@ class SupplierInvoiceCreateSchema(Schema):
         places=2,
         validate=validate.Range(min=Decimal("0.00")),
     )
-    remark = fields.String(
+    remark = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -461,7 +461,7 @@ class SupplierInvoiceUpdateSchema(Schema):
         places=2,
         validate=validate.Range(min=Decimal("0.00")),
     )
-    remark = fields.String(
+    remark = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -554,8 +554,8 @@ class SupplierInvoiceResponseSchema(Schema):
     warranty_period = fields.String(allow_none=True)
     total_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
-    remark = fields.String(allow_none=True)
-    remarks = fields.String(dump_only=True)
+    remark = fields.Raw(allow_none=True)
+    remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
     items = fields.List(

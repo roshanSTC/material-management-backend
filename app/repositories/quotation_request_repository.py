@@ -5,6 +5,7 @@ from app.models import (
     QuotationRequestItem,
     Supplier,
 )
+from app.utils.remark_utils import normalize_remark_for_db
 
 
 def get_project(project_id: int) -> Project | None:
@@ -30,7 +31,7 @@ def create_quotation_request(
         supplier_id=supplier_id,
         quotation_requested_date=quotation_requested_date,
         supplier_contacted=supplier_contacted,
-        remarks=remarks.strip() if remarks else None,
+        remarks=normalize_remark_for_db(remarks),
     )
 
     for item_data in items:

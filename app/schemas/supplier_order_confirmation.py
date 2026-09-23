@@ -277,11 +277,11 @@ class SupplierOrderConfirmationCreateSchema(Schema):
         as_string=True,
         places=2,
     )
-    remark = fields.String(
+    remark = fields.Raw(
         required=False,
         allow_none=True,
     )
-    remarks = fields.String(
+    remarks = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -454,8 +454,8 @@ class SupplierOrderConfirmationUpdateSchema(Schema):
     warranty_period = fields.String(required=False, allow_none=True, validate=validate.Length(max=100))
     total_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
     total_net_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
-    remark = fields.String(required=False, allow_none=True)
-    remarks = fields.String(required=False, allow_none=True)
+    remark = fields.Raw(required=False, allow_none=True)
+    remarks = fields.Raw(required=False, allow_none=True)
     items = fields.List(
         fields.Nested(SupplierOrderConfirmationItemUpdateSchema),
         required=False,
@@ -652,8 +652,8 @@ class SupplierOrderConfirmationResponseSchema(Schema):
     warranty_period = fields.String(allow_none=True)
     total_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
-    remark = fields.String(allow_none=True)
-    remarks = fields.String(dump_only=True)
+    remark = fields.Raw(allow_none=True)
+    remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
     items = fields.List(

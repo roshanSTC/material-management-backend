@@ -4,6 +4,7 @@ from sqlalchemy import select
 
 from app.extensions.database import db
 from app.models import ImportLogistics, Project, Supplier
+from app.utils.remark_utils import normalize_remark_for_db
 
 
 def get_project(project_id: int) -> Project | None:
@@ -66,7 +67,7 @@ def create_import_logistics(data: dict) -> ImportLogistics:
         logistic_type=data["logistic_type"],
         date=_parse_date_val(data["date"]),
         port_of_discharge=data.get("port_of_discharge"),
-        remark=data.get("remark"),
+        remark=normalize_remark_for_db(data.get("remark")),
         # Air fields
         airway_bill_no=data.get("airway_bill_no"),
         flight_name=data.get("flight_name"),
@@ -95,7 +96,7 @@ def update_import_logistics(logistics: ImportLogistics, data: dict) -> ImportLog
     if "port_of_discharge" in data:
         logistics.port_of_discharge = data["port_of_discharge"]
     if "remark" in data:
-        logistics.remark = data["remark"]
+        logistics.remark = normalize_remark_for_db(data["remark"])
 
     # Air fields
     if "airway_bill_no" in data:

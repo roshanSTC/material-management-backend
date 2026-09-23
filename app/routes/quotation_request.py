@@ -13,6 +13,7 @@ from app.schemas.quotation_request import (
     QuotationRequestQuerySchema,
     QuotationRequestResponseSchema,
 )
+from app.utils.remark_utils import deserialize_remark_for_entity
 
 from app.services.attachment_service import AttachmentValidationError, create_attachment, delete_attachment, list_attachments
 from app.services.quotation_request_service import (
@@ -59,7 +60,8 @@ def _quotation_request_response(
             quotation_request.supplier_contacted
         ),
 
-        "remarks": quotation_request.remarks,
+        "remarks": deserialize_remark_for_entity(quotation_request.remarks),
+        "remark": deserialize_remark_for_entity(quotation_request.remarks),
 
         "created_at": quotation_request.created_at,
         "updated_at": quotation_request.updated_at,
@@ -131,28 +133,29 @@ def create():
 
     files = request.files.getlist("file")
 
-    data_raw = request.form.get("data")
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data_raw = request.form.get("data")
+        if not data_raw:
+            return {
+                "success": False,
+                "error": {
+                    "code": "DATA_REQUIRED",
+                    "message": "data is required.",
+                },
+            }, 422
 
-    if not data_raw:
-        return {
-            "success": False,
-            "error": {
-                "code": "DATA_REQUIRED",
-                "message": "data is required.",
-            },
-        }, 422
-
-    try:
-        data = json.loads(data_raw)
-
-    except json.JSONDecodeError:
-        return {
-            "success": False,
-            "error": {
-                "code": "INVALID_DATA",
-                "message": "data must contain valid JSON.",
-            },
-        }, 422
+        try:
+            data = json.loads(data_raw)
+        except json.JSONDecodeError:
+            return {
+                "success": False,
+                "error": {
+                    "code": "INVALID_DATA",
+                    "message": "data must contain valid JSON.",
+                },
+            }, 422
 
     try:
         validated_data = (
@@ -385,32 +388,31 @@ def update(quotation_request_id):
 
     files = request.files.getlist("file")
 
-    data_raw = request.form.get("data")
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data_raw = request.form.get("data")
+        if not data_raw:
+            return {
+                "success": False,
+                "error": {
+                    "code": "DATA_REQUIRED",
+                    "message": "data is required.",
+                },
+            }, 422
 
-    if not data_raw:
-        return {
-            "success": False,
-            "error": {
-                "code": "DATA_REQUIRED",
-                "message": "data is required.",
-            },
-        }, 422
-
-    try:
-        data = json.loads(data_raw)
-
-    except json.JSONDecodeError:
-
-        return {
-            "success": False,
-            "error": {
-                "code": "INVALID_DATA",
-                "message": "data must contain valid JSON.",
-            },
-        }, 422
+        try:
+            data = json.loads(data_raw)
+        except json.JSONDecodeError:
+            return {
+                "success": False,
+                "error": {
+                    "code": "INVALID_DATA",
+                    "message": "data must contain valid JSON.",
+                },
+            }, 422
 
     if not isinstance(data, dict):
-
         return {
             "success": False,
             "error": {

@@ -15,6 +15,7 @@ from app.services.attachment_service import (
 )
 
 from app.services.storage.factory import get_storage
+from app.utils.remark_utils import deserialize_remark_for_entity
 
 from app.schemas.customer_query import (
     CustomerQueryCreateSchema,
@@ -58,12 +59,33 @@ def _customer_query_response(customer_query):
         entity_id=customer_query.id,
     )
 
+    from app.repositories.step_remark_repository import list_remarks_for_step
+    from app.services.step_remark_service import serialize_remark
+    from app.utils.remark_utils import normalize_remark_for_response
+
+    db_remarks = [
+        serialize_remark(r)
+        for r in list_remarks_for_step(customer_query.project_id, 1)
+    ]
+
+    raw_remark = deserialize_remark_for_entity(customer_query.remark)
+    if db_remarks:
+        remarks_arr = db_remarks
+    else:
+        remarks_arr = normalize_remark_for_response(raw_remark)
+
+    if isinstance(raw_remark, str) and not (isinstance(raw_remark, list) or raw_remark.startswith("[") or raw_remark.startswith("{")):
+        resp_remark = raw_remark
+    else:
+        resp_remark = remarks_arr
+
     return {
         "id": customer_query.id,
         "project_id": customer_query.project_id,
         "customer_id": customer_query.customer_id,
         "qo_date": customer_query.qo_date,
-        "remark": customer_query.remark,
+        "remarks": remarks_arr,
+        "remark": resp_remark,
         "created_at": customer_query.created_at,
         "updated_at": customer_query.updated_at,
 
@@ -140,28 +162,29 @@ def create():
 
     files = request.files.getlist("file")
 
-    data_raw = request.form.get("data")
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data_raw = request.form.get("data")
+        if not data_raw:
+            return {
+                "success": False,
+                "error": {
+                    "code": "DATA_REQUIRED",
+                    "message": "data is required.",
+                },
+            }, 422
 
-    if not data_raw:
-        return {
-            "success": False,
-            "error": {
-                "code": "DATA_REQUIRED",
-                "message": "data is required.",
-            },
-        }, 422
-
-    try:
-        data = json.loads(data_raw)
-
-    except json.JSONDecodeError:
-        return {
-            "success": False,
-            "error": {
-                "code": "INVALID_DATA",
-                "message": "data must contain valid JSON.",
-            },
-        }, 422
+        try:
+            data = json.loads(data_raw)
+        except json.JSONDecodeError:
+            return {
+                "success": False,
+                "error": {
+                    "code": "INVALID_DATA",
+                    "message": "data must contain valid JSON.",
+                },
+            }, 422
 
     try:
         validated_data = CustomerQueryCreateSchema().load(data)
@@ -178,14 +201,27 @@ def create():
     uploaded_storage_keys = []
 
     try:
-        user_id = int(get_jwt_identity())
+        user_id = None
+        identity = get_jwt_identity()
+        if identity is not None:
+            try:
+                user_id = int(identity)
+            except (ValueError, TypeError):
+                user_id = None
+
+        remark_input = (
+            validated_data.get("remark")
+            if validated_data.get("remark") is not None
+            else validated_data.get("remarks")
+        )
 
         customer_query = create_customer_query_transaction(
             project_id=validated_data["project_id"],
             customer_id=validated_data["customer_id"],
             qo_date=validated_data["qo_date"],
-            remark=validated_data.get("remark"),
+            remark=remark_input,
             items=validated_data["items"],
+            user_id=user_id,
         )
 
         for file in files:
@@ -407,40 +443,54 @@ def get_latest_customer_query(args=None):
 def update(customer_query_id):
 
     files = request.files.getlist("file")
-    data_raw = request.form.get("data")
 
-    if not data_raw:
-        return {
-            "success": False,
-            "error": {
-                "code": "DATA_REQUIRED",
-                "message": "data is required.",
-            },
-        }, 422
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data_raw = request.form.get("data")
+        if not data_raw:
+            return {
+                "success": False,
+                "error": {
+                    "code": "DATA_REQUIRED",
+                    "message": "data is required.",
+                },
+            }, 422
 
-    try:
-        data = json.loads(data_raw)
-    except json.JSONDecodeError:
-        return {
-            "success": False,
-            "error": {
-                "code": "INVALID_DATA",
-                "message": "data must contain valid JSON.",
-            },
-        }, 422
+        try:
+            data = json.loads(data_raw)
+        except json.JSONDecodeError:
+            return {
+                "success": False,
+                "error": {
+                    "code": "INVALID_DATA",
+                    "message": "data must contain valid JSON.",
+                },
+            }, 422
 
     uploaded_storage_keys = []
 
     try:
-        user_id = int(get_jwt_identity())
+        user_id = None
+        identity = get_jwt_identity()
+        if identity is not None:
+            try:
+                user_id = int(identity)
+            except (ValueError, TypeError):
+                user_id = None
+
+        has_remark = ("remark" in data) or ("remarks" in data)
+        remark_input = data.get("remark") if "remark" in data else data.get("remarks")
 
         customer_query = update_customer_query_transaction(
             customer_query_id=customer_query_id,
             project_id=data.get("project_id"),
             customer_id=data.get("customer_id"),
             qo_date=data.get("qo_date"),
-            remark=data.get("remark"),
+            remark=remark_input,
             items=data.get("items"),
+            user_id=user_id,
+            sync_remarks=has_remark,
         )
 
         for file in files:

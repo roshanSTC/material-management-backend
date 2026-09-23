@@ -11,6 +11,12 @@ class Project(db.Model):
         primary_key=True,
     )
 
+    project_code = db.Column(
+        db.String(100),
+        nullable=True,
+        index=True,
+    )
+
     project_title = db.Column(
         db.String(255),
         nullable=False,

@@ -10,6 +10,12 @@ class ProjectCreateSchema(Schema):
         validate=validate.Length(min=1, max=255),
     )
 
+    project_code = fields.String(
+        required=False,
+        allow_none=True,
+        validate=validate.Length(max=100),
+    )
+
     customer_id = fields.Integer(
         required=True,
         strict=True,
@@ -29,6 +35,12 @@ class ProjectUpdateSchema(Schema):
         validate=validate.Length(min=1, max=255),
     )
 
+    project_code = fields.String(
+        required=False,
+        allow_none=True,
+        validate=validate.Length(max=100),
+    )
+
     customer_id = fields.Integer(
         strict=True,
     )
@@ -43,9 +55,10 @@ class ProjectResponseSchema(Schema):
         unknown = EXCLUDE
 
     id = fields.Integer(required=True)
+    project_code = fields.String(allow_none=True)
     project_title = fields.String(required=True)
-    customer_id = fields.Integer(required=True)
-    supplier_id = fields.Integer(required=True)
+    customer_id = fields.Integer(allow_none=True)
+    supplier_id = fields.Integer(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
 
@@ -55,10 +68,11 @@ class ProjectSummaryItemSchema(Schema):
         unknown = EXCLUDE
 
     id = fields.Integer(required=True)
+    project_code = fields.String(allow_none=True)
     project_title = fields.String(required=True)
-    customer_id = fields.Integer(required=True)
+    customer_id = fields.Integer(allow_none=True)
     customer_name = fields.String(allow_none=True)
-    supplier_id = fields.Integer(required=True)
+    supplier_id = fields.Integer(allow_none=True)
     supplier_name = fields.String(allow_none=True)
     current_step_number = fields.Integer(required=True)
     total_steps = fields.Integer(required=True)

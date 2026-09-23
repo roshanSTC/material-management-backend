@@ -77,6 +77,7 @@ STEP_NEXT_ACTIONS = {
 def _project_response(project):
     return {
         "id": project.id,
+        "project_code": project.project_code,
         "project_title": project.project_title,
         "customer_id": project.customer_id,
         "supplier_id": project.supplier_id,
@@ -287,6 +288,7 @@ def _project_summary_response(project):
 
     return {
         "id": project.id,
+        "project_code": project.project_code,
         "project_title": project.project_title,
         "customer_id": project.customer_id,
         "customer_name": project.customer.name if project.customer else "",
@@ -320,6 +322,7 @@ def create(data):
             project_title=data["project_title"],
             customer_id=data["customer_id"],
             supplier_id=data["supplier_id"],
+            project_code=data.get("project_code"),
         )
 
     except CustomerNotFoundError as exc:
@@ -392,6 +395,7 @@ def update(data, project_id):
             project_title=data.get("project_title"),
             customer_id=data.get("customer_id"),
             supplier_id=data.get("supplier_id"),
+            project_code=data.get("project_code"),
         )
 
     except ProjectNotFoundError as exc:

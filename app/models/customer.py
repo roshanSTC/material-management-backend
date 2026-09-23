@@ -16,19 +16,54 @@ class Customer(db.Model):
         nullable=False,
     )
 
+    nickname = db.Column(
+        db.String(100),
+        nullable=True,
+    )
+
     email = db.Column(
         db.String(255),
-        nullable=False,
+        nullable=True,
     )
 
     contact_number = db.Column(
         db.String(30),
-        nullable=False,
+        nullable=True,
     )
 
     address = db.Column(
         db.Text,
-        nullable=False,
+        nullable=True,
+    )
+
+    street = db.Column(
+        db.Text,
+        nullable=True,
+    )
+
+    area = db.Column(
+        db.String(255),
+        nullable=True,
+    )
+
+    city = db.Column(
+        db.String(100),
+        nullable=True,
+    )
+
+    state = db.Column(
+        db.String(100),
+        nullable=True,
+    )
+
+    pincode = db.Column(
+        db.String(20),
+        nullable=True,
+    )
+
+    country = db.Column(
+        db.String(100),
+        nullable=True,
     )
 
     website_url = db.Column(
@@ -47,6 +82,13 @@ class Customer(db.Model):
         nullable=False,
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
+    )
+
+    pocs = db.relationship(
+        "CustomerPoc",
+        back_populates="customer",
+        cascade="all, delete-orphan",
+        lazy="select",
     )
 
     customer_queries = db.relationship(

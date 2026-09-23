@@ -1,26 +1,98 @@
 from app.extensions.database import db
-from app.models import Supplier
+from app.models import Supplier, SupplierPoc
 
 
 class SupplierNotFoundError(Exception):
     """Raised when a supplier does not exist."""
 
 
+def _format_address(
+    street: str | None = None,
+    area: str | None = None,
+    city: str | None = None,
+    state: str | None = None,
+    pincode: str | None = None,
+    country: str | None = None,
+) -> str | None:
+    parts = []
+    if street and street.strip():
+        parts.append(street.strip())
+    if area and area.strip():
+        parts.append(area.strip())
+    if city and city.strip():
+        parts.append(city.strip())
+
+    state_pin = []
+    if state and state.strip():
+        state_pin.append(state.strip())
+    if pincode and pincode.strip():
+        state_pin.append(pincode.strip())
+    if state_pin:
+        parts.append(" ".join(state_pin))
+
+    if country and country.strip():
+        parts.append(country.strip())
+
+    return ", ".join(parts) if parts else None
+
+
 def create_supplier(
     *,
     name: str,
-    email: str,
-    contact_number: str,
-    address: str,
+    nickname: str | None = None,
+    street: str | None = None,
+    area: str | None = None,
+    city: str | None = None,
+    state: str | None = None,
+    pincode: str | None = None,
+    country: str | None = None,
+    pocs: list[dict] | None = None,
+    email: str | None = None,
+    contact_number: str | None = None,
+    address: str | None = None,
     website_url: str | None = None,
 ) -> Supplier:
+    # If address not provided, compute from segregated fields
+    if not address or not address.strip():
+        address = _format_address(street, area, city, state, pincode, country)
+    elif address:
+        address = address.strip()
+
+    # If email/contact_number not provided at top level, sync from first POC if available
+    if (not email or not email.strip()) and pocs:
+        first_poc_email = pocs[0].get("email")
+        if first_poc_email:
+            email = first_poc_email.strip()
+
+    if (not contact_number or not contact_number.strip()) and pocs:
+        first_poc_contact = pocs[0].get("contact_number")
+        if first_poc_contact:
+            contact_number = first_poc_contact.strip()
+
     supplier = Supplier(
         name=name.strip(),
-        email=email.strip(),
-        contact_number=contact_number.strip(),
-        address=address.strip(),
+        nickname=nickname.strip() if nickname else None,
+        email=email.strip() if email else None,
+        contact_number=contact_number.strip() if contact_number else None,
+        address=address,
+        street=street.strip() if street else None,
+        area=area.strip() if area else None,
+        city=city.strip() if city else None,
+        state=state.strip() if state else None,
+        pincode=pincode.strip() if pincode else None,
+        country=country.strip() if country else None,
         website_url=website_url.strip() if website_url else None,
     )
+
+    if pocs:
+        for poc_data in pocs:
+            poc = SupplierPoc(
+                name=poc_data["name"].strip(),
+                email=poc_data.get("email", "").strip() if poc_data.get("email") else None,
+                contact_number=poc_data.get("contact_number", "").strip() if poc_data.get("contact_number") else None,
+                designation=poc_data.get("designation", "").strip() if poc_data.get("designation") else None,
+            )
+            supplier.pocs.append(poc)
 
     db.session.add(supplier)
     db.session.commit()
@@ -50,6 +122,14 @@ def update_supplier(
     supplier_id: int,
     *,
     name: str | None = None,
+    nickname: str | None = None,
+    street: str | None = None,
+    area: str | None = None,
+    city: str | None = None,
+    state: str | None = None,
+    pincode: str | None = None,
+    country: str | None = None,
+    pocs: list[dict] | None = None,
     email: str | None = None,
     contact_number: str | None = None,
     address: str | None = None,
@@ -60,17 +140,63 @@ def update_supplier(
     if name is not None:
         supplier.name = name.strip()
 
-    if email is not None:
-        supplier.email = email.strip()
+    if nickname is not None:
+        supplier.nickname = nickname.strip() if nickname else None
 
-    if contact_number is not None:
-        supplier.contact_number = contact_number.strip()
+    if street is not None:
+        supplier.street = street.strip() if street else None
+
+    if area is not None:
+        supplier.area = area.strip() if area else None
+
+    if city is not None:
+        supplier.city = city.strip() if city else None
+
+    if state is not None:
+        supplier.state = state.strip() if state else None
+
+    if pincode is not None:
+        supplier.pincode = pincode.strip() if pincode else None
+
+    if country is not None:
+        supplier.country = country.strip() if country else None
 
     if address is not None:
-        supplier.address = address.strip()
+        supplier.address = address.strip() if address else None
+    elif any(x is not None for x in (street, area, city, state, pincode, country)):
+        supplier.address = _format_address(
+            supplier.street,
+            supplier.area,
+            supplier.city,
+            supplier.state,
+            supplier.pincode,
+            supplier.country,
+        )
+
+    if email is not None:
+        supplier.email = email.strip() if email else None
+
+    if contact_number is not None:
+        supplier.contact_number = contact_number.strip() if contact_number else None
 
     if website_url is not None:
-        supplier.website_url = website_url.strip()
+        supplier.website_url = website_url.strip() if website_url else None
+
+    if pocs is not None:
+        supplier.pocs.clear()
+        for poc_data in pocs:
+            poc = SupplierPoc(
+                name=poc_data["name"].strip(),
+                email=poc_data.get("email", "").strip() if poc_data.get("email") else None,
+                contact_number=poc_data.get("contact_number", "").strip() if poc_data.get("contact_number") else None,
+                designation=poc_data.get("designation", "").strip() if poc_data.get("designation") else None,
+            )
+            supplier.pocs.append(poc)
+
+        if not supplier.email and supplier.pocs:
+            supplier.email = supplier.pocs[0].email
+        if not supplier.contact_number and supplier.pocs:
+            supplier.contact_number = supplier.pocs[0].contact_number
 
     db.session.commit()
 

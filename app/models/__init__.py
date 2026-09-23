@@ -1,5 +1,6 @@
 from app.models.associations import role_permissions, user_roles
 from app.models.customer import Customer
+from app.models.customer_poc import CustomerPoc
 from app.models.customer_query import CustomerQuery
 from app.models.customer_query_item import CustomerQueryItem
 from app.models.customer_quotation import CustomerQuotation
@@ -8,6 +9,7 @@ from app.models.project import Project
 from app.models.quotation_request import QuotationRequest
 from app.models.quotation_request_item import QuotationRequestItem
 from app.models.supplier import Supplier
+from app.models.supplier_poc import SupplierPoc
 from app.models.supplier_quotation import SupplierQuotation
 from app.models.supplier_quotation_item import SupplierQuotationItem
 from app.models.bid_submission import BidSubmission
@@ -53,6 +55,7 @@ __all__ = [
     "Permission",
     "Role",
     "Customer",
+    "CustomerPoc",
     "CustomerQuery",
     "CustomerQueryItem",
     "CustomerQuotation",
@@ -61,6 +64,7 @@ __all__ = [
     "QuotationRequest",
     "QuotationRequestItem",
     "Supplier",
+    "SupplierPoc",
     "SupplierQuotation",
     "SupplierQuotationItem",
     "BidSubmission",

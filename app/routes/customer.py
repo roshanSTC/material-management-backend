@@ -29,10 +29,27 @@ def _customer_response(customer):
     return {
         "id": customer.id,
         "name": customer.name,
+        "nickname": customer.nickname,
         "email": customer.email,
         "contact_number": customer.contact_number,
         "address": customer.address,
+        "street": customer.street,
+        "area": customer.area,
+        "city": customer.city,
+        "state": customer.state,
+        "pincode": customer.pincode,
+        "country": customer.country,
         "website_url": customer.website_url,
+        "pocs": [
+            {
+                "id": poc.id,
+                "name": poc.name,
+                "email": poc.email,
+                "contact_number": poc.contact_number,
+                "designation": poc.designation,
+            }
+            for poc in customer.pocs
+        ] if customer.pocs else [],
         "created_at": customer.created_at,
         "updated_at": customer.updated_at,
     }
@@ -46,9 +63,17 @@ def _customer_response(customer):
 def create(data):
     customer = create_customer(
         name=data["name"],
-        email=data["email"],
-        contact_number=data["contact_number"],
-        address=data["address"],
+        nickname=data.get("nickname"),
+        street=data.get("street"),
+        area=data.get("area"),
+        city=data.get("city"),
+        state=data.get("state"),
+        pincode=data.get("pincode"),
+        country=data.get("country"),
+        pocs=data.get("pocs"),
+        email=data.get("email"),
+        contact_number=data.get("contact_number"),
+        address=data.get("address"),
         website_url=data.get("website_url"),
     )
 
@@ -97,6 +122,14 @@ def update(data, customer_id):
         customer = update_customer(
             customer_id,
             name=data.get("name"),
+            nickname=data.get("nickname"),
+            street=data.get("street"),
+            area=data.get("area"),
+            city=data.get("city"),
+            state=data.get("state"),
+            pincode=data.get("pincode"),
+            country=data.get("country"),
+            pocs=data.get("pocs"),
             email=data.get("email"),
             contact_number=data.get("contact_number"),
             address=data.get("address"),

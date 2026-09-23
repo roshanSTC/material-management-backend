@@ -74,18 +74,12 @@ def _customer_query_response(customer_query):
     else:
         remarks_arr = normalize_remark_for_response(raw_remark)
 
-    if isinstance(raw_remark, str) and not (isinstance(raw_remark, list) or raw_remark.startswith("[") or raw_remark.startswith("{")):
-        resp_remark = raw_remark
-    else:
-        resp_remark = remarks_arr
-
     return {
         "id": customer_query.id,
         "project_id": customer_query.project_id,
         "customer_id": customer_query.customer_id,
         "qo_date": customer_query.qo_date,
         "remarks": remarks_arr,
-        "remark": resp_remark,
         "created_at": customer_query.created_at,
         "updated_at": customer_query.updated_at,
 

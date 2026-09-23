@@ -79,7 +79,6 @@ class CustomerQueryResponseSchema(Schema):
     customer_id = fields.Integer(required=True)
     qo_date = fields.Date(required=True)
     remarks = fields.Raw(allow_none=True)
-    remark = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
 

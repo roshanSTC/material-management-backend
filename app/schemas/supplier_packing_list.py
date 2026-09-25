@@ -593,3 +593,32 @@ class SupplierPackingListResponseSchema(Schema):
         required=False,
     )
 
+
+class LatestSupplierPackingListQuerySchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    project_id = fields.Integer(required=True, validate=validate.Range(min=1))
+
+    @pre_load
+    def normalize_keys(self, data, **kwargs):
+        if not isinstance(data, (dict, Mapping)):
+            return data
+        normalized = dict(data)
+        resolved_pid = (
+            normalized.get("project_id")
+            if normalized.get("project_id") is not None
+            else normalized.get("projectId")
+        )
+        if resolved_pid is not None and str(resolved_pid).strip() != "":
+            normalized["project_id"] = str(resolved_pid).strip()
+        return normalized
+
+
+class LatestSupplierPackingListResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    total_gross_weight_kg = fields.Decimal(as_string=True, places=3, allow_none=True)
+    total_weight = fields.Decimal(as_string=True, places=3, allow_none=True)
+

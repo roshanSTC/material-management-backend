@@ -7,6 +7,8 @@ from marshmallow import ValidationError
 
 from app.extensions.database import db
 from app.schemas.supplier_packing_list import (
+    LatestSupplierPackingListQuerySchema,
+    LatestSupplierPackingListResponseSchema,
     SupplierPackingListCreateSchema,
     SupplierPackingListQuerySchema,
     SupplierPackingListResponseSchema,
@@ -25,6 +27,7 @@ from app.services.supplier_packing_list_service import (
     SupplierPackingListNotFoundError,
     create_supplier_packing_list_transaction,
     delete_supplier_packing_list_transaction,
+    get_latest_supplier_packing_list_record,
     get_supplier_packing_list_record,
     list_supplier_packing_list_records,
     update_supplier_packing_list_transaction,
@@ -109,6 +112,39 @@ def _supplier_packing_list_response(packing_list):
             }
             for attachment in attachments
         ],
+    }
+
+
+def _format_decimal_str(val, places=3):
+    if val is None:
+        return None
+    try:
+        from decimal import Decimal
+        d = Decimal(str(val).strip())
+        return f"{d:.{places}f}"
+    except Exception:
+        return str(val)
+
+
+def _latest_supplier_packing_list_response(packing_list):
+    total_wt = packing_list.total_weight
+    if total_wt is None:
+        total_wt = packing_list.weight
+    if total_wt is None and packing_list.items:
+        try:
+            from decimal import Decimal
+            total_wt = sum(
+                (item.total_weight or Decimal(0))
+                for item in packing_list.items
+                if item.total_weight is not None
+            )
+        except Exception:
+            pass
+
+    formatted_wt = _format_decimal_str(total_wt, places=3)
+    return {
+        "total_gross_weight_kg": formatted_wt,
+        "total_weight": formatted_wt,
     }
 
 
@@ -250,6 +286,49 @@ def _handle_get_supplier_packing_list(supplier_packing_list_id: int):
         return _error(
             "SUPPLIER_PACKING_LIST_GET_FAILED",
             "Failed to get supplier packing list.",
+            500,
+        )
+
+
+def _handle_get_latest_supplier_packing_list(args=None):
+    if args is None:
+        args = {}
+
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    if not project_id:
+        return _error(
+            "PROJECT_ID_REQUIRED",
+            "project_id query parameter is required.",
+            400,
+        )
+
+    try:
+        project_id = int(project_id)
+        if project_id <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return _error(
+            "INVALID_PROJECT_ID",
+            "project_id must be a positive integer.",
+            400,
+        )
+
+    try:
+        packing_list = get_latest_supplier_packing_list_record(project_id)
+        return _latest_supplier_packing_list_response(packing_list), 200
+    except ProjectNotFoundError as exc:
+        return _error("PROJECT_NOT_FOUND", str(exc), 404)
+    except SupplierPackingListNotFoundError as exc:
+        return _error("SUPPLIER_PACKING_LIST_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get latest supplier packing list")
+        return _error(
+            "SUPPLIER_PACKING_LIST_GET_FAILED",
+            "Failed to get latest supplier packing list.",
             500,
         )
 
@@ -420,6 +499,21 @@ def create_supplier_packing_list():
 @jwt_required()
 def list_supplier_packing_lists(args=None):
     return _handle_list_supplier_packing_lists(args)
+
+
+@supplier_packing_list_bp.get("/latest")
+@supplier_packing_list_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Supplier Packing List for Project",
+    description="Retrieve total_gross_weight_kg and total_weight for the latest supplier packing list of a project.",
+)
+@supplier_packing_list_bp.arguments(LatestSupplierPackingListQuerySchema, location="query")
+@supplier_packing_list_bp.response(200, LatestSupplierPackingListResponseSchema)
+@jwt_required()
+def get_latest_supplier_packing_list(args=None):
+    return _handle_get_latest_supplier_packing_list(args)
+
+
 @supplier_packing_list_bp.get("/<int:supplier_packing_list_id>")
 @supplier_packing_list_bp.doc(security=[{"BearerAuth": []}])
 @supplier_packing_list_bp.response(200, SupplierPackingListResponseSchema)
@@ -445,4 +539,9 @@ def update_supplier_packing_list(supplier_packing_list_id):
 @jwt_required()
 def delete_supplier_packing_list(supplier_packing_list_id):
     return _handle_delete_supplier_packing_list(supplier_packing_list_id)
+
+
+
+
+
 

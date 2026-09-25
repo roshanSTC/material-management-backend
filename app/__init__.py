@@ -5,10 +5,15 @@ from app.config.settings import Config
 from app.extensions.api import api
 from app.extensions.database import db, migrate
 from app.extensions.jwt import jwt
+from app.utils.date_utils import CustomJSONProvider, configure_marshmallow_date_format
 
 
 def create_app(config_class=Config):
+    configure_marshmallow_date_format()
+
     app = Flask(__name__)
+    app.json_provider_class = CustomJSONProvider
+    app.json = CustomJSONProvider(app)
 
     app.config.from_object(config_class)
     

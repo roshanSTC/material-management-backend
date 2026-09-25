@@ -414,7 +414,7 @@ class BidSubmissionResponseSchema(Schema):
     tender_id = fields.Integer(allow_none=True)
     tender_title = fields.String(allow_none=True)
     tender_name = fields.String(attribute="tender_title", allow_none=True, dump_only=True)
-    submission_date = fields.DateTime(allow_none=True)
+    submission_date = fields.Date(allow_none=True)
     tender_number = fields.String(required=True)
     submission_number = fields.String(attribute="tender_number", allow_none=True, dump_only=True)
     delivery_term = fields.String(allow_none=True)

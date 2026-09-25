@@ -383,7 +383,7 @@ class CustomerTenderResponseSchema(Schema):
     contact_number = fields.String(allow_none=True)
     tender_title = fields.String(allow_none=True)
     tender_number = fields.String(required=True)
-    tender_date = fields.DateTime(allow_none=True)
+    tender_date = fields.Date(allow_none=True)
     opening_date_time = fields.DateTime(allow_none=True)
     closing_date_time = fields.DateTime(allow_none=True)
     tender_fee = fields.Decimal(as_string=True, places=2, allow_none=True)

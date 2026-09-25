@@ -32,14 +32,12 @@ def _customer_response(customer):
         "nickname": customer.nickname,
         "email": customer.email,
         "contact_number": customer.contact_number,
-        "address": customer.address,
         "street": customer.street,
         "area": customer.area,
         "city": customer.city,
         "state": customer.state,
         "pincode": customer.pincode,
         "country": customer.country,
-        "website_url": customer.website_url,
         "pocs": [
             {
                 "id": poc.id,
@@ -73,8 +71,6 @@ def create(data):
         pocs=data.get("pocs"),
         email=data.get("email"),
         contact_number=data.get("contact_number"),
-        address=data.get("address"),
-        website_url=data.get("website_url"),
     )
 
     return _customer_response(customer), 201
@@ -132,8 +128,6 @@ def update(data, customer_id):
             pocs=data.get("pocs"),
             email=data.get("email"),
             contact_number=data.get("contact_number"),
-            address=data.get("address"),
-            website_url=data.get("website_url"),
         )
     except CustomerNotFoundError as exc:
         return {

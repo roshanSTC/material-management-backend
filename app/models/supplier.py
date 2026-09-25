@@ -31,11 +31,6 @@ class Supplier(db.Model):
         nullable=True,
     )
 
-    address = db.Column(
-        db.Text,
-        nullable=True,
-    )
-
     street = db.Column(
         db.Text,
         nullable=True,
@@ -63,11 +58,6 @@ class Supplier(db.Model):
 
     country = db.Column(
         db.String(100),
-        nullable=True,
-    )
-
-    website_url = db.Column(
-        db.String(2048),
         nullable=True,
     )
 

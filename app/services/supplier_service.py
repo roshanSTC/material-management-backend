@@ -6,36 +6,6 @@ class SupplierNotFoundError(Exception):
     """Raised when a supplier does not exist."""
 
 
-def _format_address(
-    street: str | None = None,
-    area: str | None = None,
-    city: str | None = None,
-    state: str | None = None,
-    pincode: str | None = None,
-    country: str | None = None,
-) -> str | None:
-    parts = []
-    if street and street.strip():
-        parts.append(street.strip())
-    if area and area.strip():
-        parts.append(area.strip())
-    if city and city.strip():
-        parts.append(city.strip())
-
-    state_pin = []
-    if state and state.strip():
-        state_pin.append(state.strip())
-    if pincode and pincode.strip():
-        state_pin.append(pincode.strip())
-    if state_pin:
-        parts.append(" ".join(state_pin))
-
-    if country and country.strip():
-        parts.append(country.strip())
-
-    return ", ".join(parts) if parts else None
-
-
 def create_supplier(
     *,
     name: str,
@@ -49,15 +19,7 @@ def create_supplier(
     pocs: list[dict] | None = None,
     email: str | None = None,
     contact_number: str | None = None,
-    address: str | None = None,
-    website_url: str | None = None,
 ) -> Supplier:
-    # If address not provided, compute from segregated fields
-    if not address or not address.strip():
-        address = _format_address(street, area, city, state, pincode, country)
-    elif address:
-        address = address.strip()
-
     # If email/contact_number not provided at top level, sync from first POC if available
     if (not email or not email.strip()) and pocs:
         first_poc_email = pocs[0].get("email")
@@ -74,14 +36,12 @@ def create_supplier(
         nickname=nickname.strip() if nickname else None,
         email=email.strip() if email else None,
         contact_number=contact_number.strip() if contact_number else None,
-        address=address,
         street=street.strip() if street else None,
         area=area.strip() if area else None,
         city=city.strip() if city else None,
         state=state.strip() if state else None,
         pincode=pincode.strip() if pincode else None,
         country=country.strip() if country else None,
-        website_url=website_url.strip() if website_url else None,
     )
 
     if pocs:
@@ -132,8 +92,6 @@ def update_supplier(
     pocs: list[dict] | None = None,
     email: str | None = None,
     contact_number: str | None = None,
-    address: str | None = None,
-    website_url: str | None = None,
 ) -> Supplier:
     supplier = get_supplier(supplier_id)
 
@@ -161,26 +119,11 @@ def update_supplier(
     if country is not None:
         supplier.country = country.strip() if country else None
 
-    if address is not None:
-        supplier.address = address.strip() if address else None
-    elif any(x is not None for x in (street, area, city, state, pincode, country)):
-        supplier.address = _format_address(
-            supplier.street,
-            supplier.area,
-            supplier.city,
-            supplier.state,
-            supplier.pincode,
-            supplier.country,
-        )
-
     if email is not None:
         supplier.email = email.strip() if email else None
 
     if contact_number is not None:
         supplier.contact_number = contact_number.strip() if contact_number else None
-
-    if website_url is not None:
-        supplier.website_url = website_url.strip() if website_url else None
 
     if pocs is not None:
         supplier.pocs.clear()

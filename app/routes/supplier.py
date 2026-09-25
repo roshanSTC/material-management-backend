@@ -32,14 +32,12 @@ def _supplier_response(supplier):
         "nickname": supplier.nickname,
         "email": supplier.email,
         "contact_number": supplier.contact_number,
-        "address": supplier.address,
         "street": supplier.street,
         "area": supplier.area,
         "city": supplier.city,
         "state": supplier.state,
         "pincode": supplier.pincode,
         "country": supplier.country,
-        "website_url": supplier.website_url,
         "pocs": [
             {
                 "id": poc.id,
@@ -73,8 +71,6 @@ def create(data):
         pocs=data.get("pocs"),
         email=data.get("email"),
         contact_number=data.get("contact_number"),
-        address=data.get("address"),
-        website_url=data.get("website_url"),
     )
 
     return _supplier_response(supplier), 201
@@ -132,8 +128,6 @@ def update(data, supplier_id):
             pocs=data.get("pocs"),
             email=data.get("email"),
             contact_number=data.get("contact_number"),
-            address=data.get("address"),
-            website_url=data.get("website_url"),
         )
     except SupplierNotFoundError as exc:
         return {

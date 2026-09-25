@@ -18,11 +18,6 @@ class CustomerDeliveryPackingListItem(db.Model):
         index=True,
     )
 
-    package_no = db.Column(
-        db.String(100),
-        nullable=True,
-    )
-
     material_name = db.Column(
         db.String(255),
         nullable=False,
@@ -63,6 +58,14 @@ class CustomerDeliveryPackingListItem(db.Model):
     )
 
     # Property aliases for backward/forward compatibility
+    @property
+    def package_no(self):
+        return None
+
+    @package_no.setter
+    def package_no(self, val):
+        pass
+
     @property
     def material_description(self):
         return self.material_name

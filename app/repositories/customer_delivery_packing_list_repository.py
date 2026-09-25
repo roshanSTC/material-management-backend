@@ -72,9 +72,6 @@ def _replace_items(
 ) -> None:
     packing_list.items.clear()
     for item in items:
-        pkg_no = _normalize_optional_string(
-            item.get("package_no") or item.get("packageNo")
-        )
         mat_name = _normalize_optional_string(
             item.get("material_name") or item.get("material_description")
         ) or ""
@@ -90,7 +87,6 @@ def _replace_items(
         )
 
         item_obj = CustomerDeliveryPackingListItem(
-            package_no=pkg_no,
             material_name=mat_name,
             hsn_code=hsn,
             quantity=qty,

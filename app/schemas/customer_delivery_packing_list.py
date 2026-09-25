@@ -41,11 +41,6 @@ class CustomerDeliveryPackingListItemCreateSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
-    package_no = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=100),
-    )
     material_name = fields.String(
         required=True,
         validate=validate.And(
@@ -76,15 +71,6 @@ class CustomerDeliveryPackingListItemCreateSchema(Schema):
         if not isinstance(data, (dict, Mapping)):
             return data
         normalized = dict(data)
-
-        # Handle package_no
-        pkg_no = (
-            normalized.get("package_no")
-            if normalized.get("package_no") is not None
-            else normalized.get("packageNo")
-        )
-        if pkg_no is not None:
-            normalized["package_no"] = str(pkg_no).strip()
 
         # Handle material_name / material_description fallback
         mat_name = (
@@ -135,11 +121,6 @@ class CustomerDeliveryPackingListItemUpdateSchema(Schema):
         unknown = EXCLUDE
 
     id = fields.Integer(required=False, allow_none=True)
-    package_no = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=100),
-    )
     material_name = fields.String(
         required=False,
         validate=validate.And(
@@ -169,7 +150,6 @@ class CustomerDeliveryPackingListItemUpdateSchema(Schema):
 class CustomerDeliveryPackingListItemResponseSchema(Schema):
     id = fields.Integer(dump_only=True)
     packing_list_id = fields.Integer(dump_only=True)
-    package_no = fields.String(dump_only=True)
     material_name = fields.String(dump_only=True)
     hsn_code = fields.String(dump_only=True)
     quantity = fields.Decimal(dump_only=True, as_string=True, places=3)

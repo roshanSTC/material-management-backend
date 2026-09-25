@@ -73,7 +73,6 @@ def _customer_delivery_packing_list_response(packing_list):
             {
                 "id": item.id,
                 "packing_list_id": item.packing_list_id,
-                "package_no": item.package_no,
                 "material_name": item.material_name,
                 "material_description": item.material_name,
                 "hsn_code": item.hsn_code,
@@ -381,7 +380,7 @@ _REQUEST_BODY_CREATE_DOC = {
                         "type": "string",
                         "description": "Serialized JSON string matching CustomerDeliveryPackingListCreateSchema",
                         "example": (
-                            '{"project_id":2,"packing_list_no":"vgfrde467","packing_list_date":"2026-09-07","total_no_of_packs":7,"packing_condition":"bvcfgdesr5gyuj","net_weight":"465tyghvb","gross_weight":"v cfdrytugyh","items":[{"package_no":"Box #1","material_name":"steel cold","hsn_code":"65465","quantity":55,"weight":8},{"package_no":"Box #2","material_name":"gdfhbvf","hsn_code":"5464","quantity":55,"weight":855}]}'
+                            '{"project_id":2,"packing_list_no":"vgfrde467","packing_list_date":"2026-09-07","total_no_of_packs":7,"packing_condition":"bvcfgdesr5gyuj","net_weight":"465tyghvb","gross_weight":"v cfdrytugyh","items":[{"material_name":"steel cold","hsn_code":"65465","quantity":55,"weight":8},{"material_name":"gdfhbvf","hsn_code":"5464","quantity":55,"weight":855}]}'
                         ),
                     },
                     "file": {

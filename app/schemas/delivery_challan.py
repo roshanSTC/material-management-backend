@@ -310,13 +310,10 @@ class DeliveryChallanCreateSchema(Schema):
                 normalized["net_total"] = nt
 
         # Handle remark / remarks
-        rem = (
-            normalized.get("remark")
-            if normalized.get("remark") is not None
-            else normalized.get("remarks")
-        )
-        if rem is not None:
-            normalized["remark"] = rem
+        if "remarks" in normalized and not normalized.get("remark"):
+            normalized["remark"] = normalized["remarks"]
+        elif "remark" in normalized and not normalized.get("remarks"):
+            normalized["remarks"] = normalized["remark"]
 
         return normalized
 
@@ -421,10 +418,10 @@ class DeliveryChallanUpdateSchema(Schema):
             if nt is not None:
                 normalized["net_total"] = nt
 
-        if "remark" in normalized or "remarks" in normalized:
-            rem = normalized.get("remark") or normalized.get("remarks")
-            if rem is not None:
-                normalized["remark"] = rem
+        if "remarks" in normalized and not normalized.get("remark"):
+            normalized["remark"] = normalized["remarks"]
+        elif "remark" in normalized and not normalized.get("remarks"):
+            normalized["remarks"] = normalized["remark"]
 
         return normalized
 
@@ -439,7 +436,6 @@ class DeliveryChallanResponseSchema(Schema):
     gst_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
     round_off = fields.Decimal(dump_only=True, as_string=True, places=2)
     net_total = fields.Decimal(dump_only=True, as_string=True, places=2)
-    remark = fields.Raw(dump_only=True)
     remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
@@ -458,4 +454,5 @@ class DeliveryChallanQuerySchema(Schema):
         unknown = EXCLUDE
 
     project_id = fields.Integer(required=False)
+    delivery_challan_no = fields.String(required=False)
 

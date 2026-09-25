@@ -47,7 +47,7 @@ def serialize_remark(remark: StepRemark) -> dict:
         name_parts = [p for p in (remark.author.first_name, remark.author.last_name) if p]
         user_display = " ".join(name_parts) if name_parts else remark.author.email
 
-    return {
+    data = {
         "id": remark.id,
         "project_id": remark.project_id,
         "step_number": remark.step_number,
@@ -57,6 +57,9 @@ def serialize_remark(remark: StepRemark) -> dict:
         "created_at": remark.created_at,
         "updated_at": remark.updated_at,
     }
+    if remark.entity_id is not None:
+        data["entity_id"] = remark.entity_id
+    return data
 
 
 def add_step_remark(
@@ -151,10 +154,11 @@ def sync_step_remarks(
     step_number: int,
     remarks_data,
     default_user_id: int | None = None,
+    entity_id: int | None = None,
 ) -> list[StepRemark]:
     """
-    Synchronizes remarks for a given project and step_number with the step_remarks table.
-    - If remarks_data is None or empty, deletes existing remarks for that step.
+    Synchronizes remarks for a given project, step_number, and optional entity_id with the step_remarks table.
+    - If remarks_data is None or empty, deletes existing remarks for that step (and entity).
     - If remarks_data has items, updates existing StepRemark records where id matches,
       creates new StepRemark records for new items, and removes any not in the incoming list.
     """
@@ -166,14 +170,16 @@ def sync_step_remarks(
     if project is None:
         return []
 
+    query = db.select(StepRemark).where(
+        StepRemark.project_id == project_id,
+        StepRemark.step_number == step_number,
+    )
+    if entity_id is not None:
+        query = query.where(StepRemark.entity_id == entity_id)
+
     existing_remarks = (
         db.session.execute(
-            db.select(StepRemark)
-            .where(
-                StepRemark.project_id == project_id,
-                StepRemark.step_number == step_number,
-            )
-            .order_by(StepRemark.id.asc())
+            query.order_by(StepRemark.id.asc())
         )
         .scalars()
         .all()
@@ -243,6 +249,8 @@ def sync_step_remarks(
         if item_id and item_id in existing_map and item_id not in matched_ids:
             r = existing_map[item_id]
             r.remark = text
+            if entity_id is not None:
+                r.entity_id = entity_id
             if uid is not None:
                 r.user_id = uid
             r.updated_at = datetime.utcnow()
@@ -252,6 +260,7 @@ def sync_step_remarks(
             new_r = StepRemark(
                 project_id=project_id,
                 step_number=step_number,
+                entity_id=entity_id,
                 remark=text,
                 user_id=uid,
                 created_at=created_dt,

@@ -144,6 +144,7 @@ class SupplierQuotationCreateSchema(Schema):
         allow_none=True,
         validate=validate.Length(max=100),
     )
+    remarks = fields.Raw(required=False, allow_none=True)
     remark = fields.Raw(required=False, allow_none=True)
     items = fields.List(
         fields.Nested(SupplierQuotationItemSchema),
@@ -156,6 +157,11 @@ class SupplierQuotationCreateSchema(Schema):
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
+
+        if "remarks" in normalized and not normalized.get("remark"):
+            normalized["remark"] = normalized["remarks"]
+        elif "remark" in normalized and not normalized.get("remarks"):
+            normalized["remarks"] = normalized["remark"]
 
         # Support currency_symbol / value_symbol as aliases for currency_unit
         currency_symbol = normalized.pop("currency_symbol", None)
@@ -217,6 +223,7 @@ class SupplierQuotationUpdateSchema(Schema):
         allow_none=True,
         validate=validate.Length(max=100),
     )
+    remarks = fields.Raw(allow_none=True)
     remark = fields.Raw(allow_none=True)
     items = fields.List(
         fields.Nested(SupplierQuotationItemSchema),
@@ -228,6 +235,11 @@ class SupplierQuotationUpdateSchema(Schema):
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
+
+        if "remarks" in normalized and not normalized.get("remark"):
+            normalized["remark"] = normalized["remarks"]
+        elif "remark" in normalized and not normalized.get("remarks"):
+            normalized["remarks"] = normalized["remark"]
 
         # Support currency_symbol / value_symbol as aliases for currency_unit
         currency_symbol = normalized.pop("currency_symbol", None)
@@ -296,7 +308,7 @@ class SupplierQuotationResponseSchema(Schema):
     incoterms = fields.String(allow_none=True)
     payment_terms = fields.String(allow_none=True)
     delivery_period = fields.String(allow_none=True)
-    remark = fields.Raw(allow_none=True)
+    remarks = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
     items = fields.List(fields.Nested(SupplierQuotationItemResponseSchema), required=True)

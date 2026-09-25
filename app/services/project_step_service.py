@@ -1229,6 +1229,7 @@ def sync_purchase_order_step(project_id: int):
         "payment_terms": purchase_order.payment_terms,
         "warranty_period": purchase_order.warranty_period,
         "gst_rate": str(purchase_order.gst_rate) if purchase_order.gst_rate is not None else None,
+        "po_amount": po_amount_str,
         "remarks": purchase_order.remark,
         "remark": purchase_order.remark,
     }
@@ -1270,9 +1271,12 @@ def sync_supplier_order_confirmation_step(project_id: int):
 
     step_data = {
         "order_confirmation_date": conf_date_str,
+        "confirmation_date": conf_date_str,
         "delivery_period": order_confirmation.delivery_period,
+        "expected_delivery_date": order_confirmation.delivery_period,
         "shipping_terms": order_confirmation.shipping_terms,
         "reference_number": order_confirmation.ref_no,
+        "ref_no": order_confirmation.ref_no,
         "email": order_confirmation.email,
         "payment_terms": order_confirmation.payment_terms,
         "warranty_period": order_confirmation.warranty_period,

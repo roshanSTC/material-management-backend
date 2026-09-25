@@ -48,6 +48,9 @@ def _error(code: str, message: str, status: int):
     )
 
 
+from app.utils.remark_utils import get_step_remarks_for_response
+
+
 def _proforma_invoice_response(invoice):
     attachments = list_attachments(
         entity_type="supplier_proforma_invoice",
@@ -77,8 +80,12 @@ def _proforma_invoice_response(invoice):
         "warranty_period": invoice.warranty_period,
         "total_amount": invoice.total_amount,
         "total_net_amount": invoice.total_net_amount,
-        "remark": invoice.remark,
-        "remarks": invoice.remark,
+        "remarks": get_step_remarks_for_response(
+            project_id=invoice.project_id,
+            step_number=10,
+            fallback_raw=invoice.remark,
+            entity_id=invoice.id,
+        ),
         "created_at": invoice.created_at,
         "updated_at": invoice.updated_at,
         "items": [
@@ -191,7 +198,10 @@ def _handle_create_supplier_proforma_invoice():
         return _error("VALIDATION_ERROR", str(err.messages), 422)
 
     try:
-        invoice = create_supplier_proforma_invoice_transaction(data=validated_data)
+        invoice = create_supplier_proforma_invoice_transaction(
+            data=validated_data,
+            user_id=user_id,
+        )
 
         for file in files:
             if not file or not getattr(file, "filename", None):
@@ -278,6 +288,7 @@ def _handle_update_supplier_proforma_invoice(proforma_invoice_id: int):
         invoice = update_supplier_proforma_invoice_transaction(
             invoice_id=proforma_invoice_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -344,6 +355,21 @@ def _handle_delete_supplier_proforma_invoice(proforma_invoice_id: int):
         return _error(
             "PROFORMA_INVOICE_DELETE_FAILED",
             "Failed to delete supplier proforma invoice.",
+            500,
+        )
+
+
+def _handle_get_supplier_proforma_invoice(proforma_invoice_id: int):
+    try:
+        invoice = get_supplier_proforma_invoice_record(proforma_invoice_id)
+        return _proforma_invoice_response(invoice), 200
+    except ProformaInvoiceNotFoundError as exc:
+        return _error("PROFORMA_INVOICE_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get supplier proforma invoice")
+        return _error(
+            "PROFORMA_INVOICE_GET_FAILED",
+            "Failed to get supplier proforma invoice.",
             500,
         )
 
@@ -465,6 +491,13 @@ def list_supplier_proforma_invoices(args=None):
 def get_latest_supplier_proforma_invoice(args=None):
     return _handle_get_latest_supplier_proforma_invoice(args)
 
+
+@supplier_proforma_invoice_bp.get("/<int:proforma_invoice_id>")
+@supplier_proforma_invoice_bp.doc(security=[{"BearerAuth": []}])
+@supplier_proforma_invoice_bp.response(200, SupplierProformaInvoiceResponseSchema)
+@jwt_required()
+def get_supplier_proforma_invoice(proforma_invoice_id):
+    return _handle_get_supplier_proforma_invoice(proforma_invoice_id)
 
 
 @supplier_proforma_invoice_bp.patch("/<int:proforma_invoice_id>")

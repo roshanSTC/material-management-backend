@@ -72,7 +72,9 @@ def _calculate_amounts(data: dict) -> None:
             pass
 
 
-def create_customer_delivery_invoice_transaction(*, data: dict) -> CustomerDeliveryInvoice:
+def create_customer_delivery_invoice_transaction(
+    *, data: dict, user_id: int | None = None
+) -> CustomerDeliveryInvoice:
     project_id = data.get("project_id")
     if not project_id:
         raise ProjectNotFoundError("Project ID is required.")
@@ -85,6 +87,16 @@ def create_customer_delivery_invoice_transaction(*, data: dict) -> CustomerDeliv
 
     invoice = create_customer_delivery_invoice(data=data)
     db.session.flush()
+
+    remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=13,
+        remarks_data=remarks_val,
+        default_user_id=user_id,
+        entity_id=invoice.id,
+    )
 
     return invoice
 
@@ -113,6 +125,7 @@ def update_customer_delivery_invoice_transaction(
     *,
     invoice_id: int,
     data: dict,
+    user_id: int | None = None,
 ) -> CustomerDeliveryInvoice:
     invoice = get_customer_delivery_invoice(invoice_id)
     if invoice is None:
@@ -135,6 +148,17 @@ def update_customer_delivery_invoice_transaction(
     )
     db.session.flush()
 
+    if "remarks" in data or "remark" in data:
+        remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=updated_invoice.project_id,
+            step_number=13,
+            remarks_data=remarks_val,
+            default_user_id=user_id,
+            entity_id=updated_invoice.id,
+        )
+
     return updated_invoice
 
 
@@ -145,8 +169,18 @@ def delete_customer_delivery_invoice_transaction(invoice_id: int) -> list[str]:
             f"Customer delivery invoice with ID {invoice_id} not found."
         )
 
+    project_id = invoice.project_id
     storage_keys = delete_customer_delivery_invoice(invoice_id)
     db.session.flush()
+
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=13,
+        remarks_data=None,
+        entity_id=invoice_id,
+    )
+
     return storage_keys
 
 

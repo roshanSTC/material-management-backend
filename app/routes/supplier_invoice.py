@@ -18,6 +18,7 @@ from app.services.attachment_service import (
     list_attachments,
 )
 from app.services.storage.factory import get_storage
+from app.utils.remark_utils import get_step_remarks_for_response
 from app.services.supplier_invoice_service import (
     ProjectNotFoundError,
     SupplierInvoiceAlreadyExistsError,
@@ -66,8 +67,12 @@ def _supplier_invoice_response(invoice):
         "warranty_period": invoice.warranty_period,
         "total_amount": invoice.total_amount,
         "total_net_amount": invoice.total_net_amount,
-        "remark": invoice.remark,
-        "remarks": invoice.remark,
+        "remarks": get_step_remarks_for_response(
+            project_id=invoice.project_id,
+            step_number=10,
+            fallback_raw=invoice.remark,
+            entity_id=invoice.id,
+        ),
         "created_at": invoice.created_at,
         "updated_at": invoice.updated_at,
         "items": [
@@ -154,7 +159,10 @@ def _handle_create_supplier_invoice():
 
     storage_keys = []
     try:
-        invoice = create_supplier_invoice_transaction(data=validated_data)
+        invoice = create_supplier_invoice_transaction(
+            data=validated_data,
+            user_id=user_id,
+        )
 
         for file in files:
             if not file or not getattr(file, "filename", None):
@@ -263,6 +271,7 @@ def _handle_update_supplier_invoice(supplier_invoice_id: int):
         invoice = update_supplier_invoice_transaction(
             invoice_id=supplier_invoice_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -411,6 +420,13 @@ def create_supplier_invoice():
 def list_supplier_invoices(args=None):
     return _handle_list_supplier_invoices(args)
 
+
+@supplier_invoice_bp.get("/<int:supplier_invoice_id>")
+@supplier_invoice_bp.doc(security=[{"BearerAuth": []}])
+@supplier_invoice_bp.response(200, SupplierInvoiceResponseSchema)
+@jwt_required()
+def get_supplier_invoice(supplier_invoice_id):
+    return _handle_get_supplier_invoice(supplier_invoice_id)
 
 
 @supplier_invoice_bp.patch("/<int:supplier_invoice_id>")

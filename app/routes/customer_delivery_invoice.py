@@ -30,6 +30,7 @@ from app.services.customer_delivery_invoice_service import (
     update_customer_delivery_invoice_transaction,
 )
 from app.services.storage.factory import get_storage
+from app.utils.remark_utils import get_step_remarks_for_response
 
 customer_delivery_invoice_bp = Blueprint(
     "customer_delivery_invoices",
@@ -61,8 +62,12 @@ def _customer_delivery_invoice_response(invoice):
         "gst_amount": invoice.gst_amount,
         "round_off": invoice.round_off,
         "net_total": invoice.net_total,
-        "remark": invoice.remark,
-        "remarks": invoice.remark,
+        "remarks": get_step_remarks_for_response(
+            project_id=invoice.project_id,
+            step_number=13,
+            fallback_raw=invoice.remark,
+            entity_id=invoice.id,
+        ),
         "created_at": invoice.created_at,
         "updated_at": invoice.updated_at,
         "items": [
@@ -202,7 +207,10 @@ def _handle_create_customer_delivery_invoice():
 
     storage_keys = []
     try:
-        invoice = create_customer_delivery_invoice_transaction(data=validated_data)
+        invoice = create_customer_delivery_invoice_transaction(
+            data=validated_data,
+            user_id=user_id,
+        )
 
         for file in files:
             if not file or not getattr(file, "filename", None):
@@ -252,10 +260,16 @@ def _handle_list_customer_delivery_invoices(args=None):
         except (ValueError, TypeError):
             project_id = None
 
+    invoice_no = (
+        args.get("invoice_no")
+        or request.args.get("invoice_no")
+        or request.args.get("invoice_number")
+    )
 
     try:
         invoices = list_customer_delivery_invoice_records(
             project_id=project_id,
+            invoice_no=invoice_no,
         )
         return [_customer_delivery_invoice_response(inv) for inv in invoices], 200
     except Exception:
@@ -300,6 +314,7 @@ def _handle_update_customer_delivery_invoice(invoice_id: int):
         invoice = update_customer_delivery_invoice_transaction(
             invoice_id=invoice_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -501,6 +516,13 @@ def get_latest_customer_delivery_invoice(args=None):
             500,
         )
 
+
+@customer_delivery_invoice_bp.get("/<int:customer_delivery_invoice_id>")
+@customer_delivery_invoice_bp.doc(security=[{"BearerAuth": []}])
+@customer_delivery_invoice_bp.response(200, CustomerDeliveryInvoiceResponseSchema)
+@jwt_required()
+def get_customer_delivery_invoice(customer_delivery_invoice_id):
+    return _handle_get_customer_delivery_invoice(customer_delivery_invoice_id)
 
 
 @customer_delivery_invoice_bp.patch("/<int:customer_delivery_invoice_id>")

@@ -18,6 +18,7 @@ from app.services.attachment_service import (
     create_attachment,
 )
 from app.services.storage.factory import get_storage
+from app.utils.remark_utils import get_step_remarks_for_response
 from app.services.transport_detail_service import (
     ProjectNotFoundError,
     TransportDetailNotFoundError,
@@ -76,8 +77,12 @@ def _transport_detail_response(detail: TransportDetail) -> dict:
         "rr_no": detail.rr_no,
         "awb_no": detail.awb_no,
         "transport_charges": detail.transport_charges,
-        "remark": detail.remark,
-        "remarks": detail.remark,
+        "remarks": get_step_remarks_for_response(
+            project_id=detail.project_id,
+            step_number=13,
+            fallback_raw=detail.remark,
+            entity_id=detail.id,
+        ),
         "created_at": detail.created_at,
         "updated_at": detail.updated_at,
         "attachments": [
@@ -165,7 +170,10 @@ def _handle_create_transport_detail():
 
     storage_keys = []
     try:
-        detail = create_transport_detail_transaction(data=validated_data)
+        detail = create_transport_detail_transaction(
+            data=validated_data,
+            user_id=user_id,
+        )
 
         for file in files:
             if not file or not getattr(file, "filename", None):
@@ -215,11 +223,27 @@ def _handle_list_transport_details(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    
+    transport_mode = (
+        args.get("transport_mode")
+        or request.args.get("transport_mode")
+        or request.args.get("transportMode")
+    )
+    if transport_mode:
+        transport_mode = str(transport_mode).strip()
+
+    lr_no = (
+        args.get("lr_no")
+        or request.args.get("lr_no")
+        or request.args.get("lrNo")
+    )
+    if lr_no:
+        lr_no = str(lr_no).strip()
 
     try:
         details = list_transport_detail_records(
             project_id=project_id,
+            transport_mode=transport_mode,
+            lr_no=lr_no,
         )
         return [_transport_detail_response(d) for d in details], 200
     except Exception:
@@ -264,6 +288,7 @@ def _handle_update_transport_detail(transport_detail_id: int):
         detail = update_transport_detail_transaction(
             transport_detail_id=transport_detail_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -418,6 +443,14 @@ def create_transport_detail():
 @jwt_required()
 def list_transport_details(args=None):
     return _handle_list_transport_details(args)
+
+
+@transport_detail_bp.get("/<int:transport_detail_id>")
+@transport_detail_bp.doc(security=[{"BearerAuth": []}])
+@transport_detail_bp.response(200, TransportDetailResponseSchema)
+@jwt_required()
+def get_transport_detail(transport_detail_id):
+    return _handle_get_transport_detail(transport_detail_id)
 
 
 @transport_detail_bp.patch("/<int:transport_detail_id>")

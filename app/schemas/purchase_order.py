@@ -683,8 +683,7 @@ class PurchaseOrderResponseSchema(Schema):
     gst_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_gross_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
-    remark = fields.Raw(allow_none=True)
-    remarks = fields.Raw(allow_none=True, dump_only=True)
+    remarks = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
     items = fields.List(

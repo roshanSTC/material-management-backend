@@ -80,6 +80,10 @@ class SupplierPaymentCreateSchema(Schema):
         required=False,
         allow_none=True,
     )
+    remarks = fields.Raw(
+        required=False,
+        allow_none=True,
+    )
 
     @pre_load
     def normalize_data(self, data, **kwargs):
@@ -169,14 +173,11 @@ class SupplierPaymentCreateSchema(Schema):
         if pend is not None:
             normalized["pending_amount"] = pend
 
-        # Handle remark
-        rem = (
-            normalized.get("remark")
-            if normalized.get("remark") is not None
-            else normalized.get("remarks")
-        )
-        if rem is not None:
-            normalized["remark"] = rem
+        # Handle remark / remarks
+        if "remarks" in normalized and not normalized.get("remark"):
+            normalized["remark"] = normalized["remarks"]
+        elif "remark" in normalized and not normalized.get("remarks"):
+            normalized["remarks"] = normalized["remark"]
 
         return normalized
 
@@ -220,6 +221,10 @@ class SupplierPaymentUpdateSchema(Schema):
         places=2,
     )
     remark = fields.Raw(
+        required=False,
+        allow_none=True,
+    )
+    remarks = fields.Raw(
         required=False,
         allow_none=True,
     )
@@ -281,10 +286,10 @@ class SupplierPaymentUpdateSchema(Schema):
             if pend is not None:
                 normalized["pending_amount"] = pend
 
-        if "remark" in normalized or "remarks" in normalized:
-            rem = normalized.get("remark") or normalized.get("remarks")
-            if rem is not None:
-                normalized["remark"] = rem
+        if "remarks" in normalized and not normalized.get("remark"):
+            normalized["remark"] = normalized["remarks"]
+        elif "remark" in normalized and not normalized.get("remarks"):
+            normalized["remarks"] = normalized["remark"]
 
         return normalized
 
@@ -302,7 +307,6 @@ class SupplierPaymentResponseSchema(Schema):
     payment_date = fields.Date(dump_only=True)
     transaction_details = fields.String(dump_only=True)
     pending_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
-    remark = fields.Raw(dump_only=True)
     remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
@@ -317,3 +321,5 @@ class SupplierPaymentQuerySchema(Schema):
         unknown = EXCLUDE
 
     project_id = fields.Integer(required=False)
+    supplier_id = fields.Integer(required=False)
+    currency = fields.String(required=False)

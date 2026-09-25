@@ -30,6 +30,7 @@ from app.services.supplier_payment_service import (
     update_supplier_payment_transaction,
 )
 from app.services.storage.factory import get_storage
+from app.utils.remark_utils import get_step_remarks_for_response
 
 supplier_payment_bp = Blueprint(
     "supplier_payments",
@@ -76,6 +77,7 @@ def _supplier_payment_response(payment):
         "pending_amount": _format_decimal(payment.pending_amount),
         "remark": payment.remark,
         "remarks": payment.remark,
+        "remarks": get_step_remarks_for_response(payment.project_id, 15, payment.remark),
         "created_at": payment.created_at,
         "updated_at": payment.updated_at,
         "attachments": [
@@ -163,7 +165,9 @@ def _handle_create_supplier_payment():
 
     storage_keys = []
     try:
-        payment = create_supplier_payment_transaction(data=validated_data)
+        payment = create_supplier_payment_transaction(
+            data=validated_data, user_id=user_id
+        )
 
         for file in files:
             if not file or not getattr(file, "filename", None):
@@ -226,10 +230,29 @@ def _handle_list_supplier_payments(args=None):
             project_id = None
 
     
+    supplier_id = (
+        args.get("supplier_id")
+        or request.args.get("supplier_id")
+        or request.args.get("supplierId")
+    )
+    if supplier_id is not None:
+        try:
+            supplier_id = int(supplier_id)
+        except (ValueError, TypeError):
+            supplier_id = None
+
+    currency = (
+        args.get("currency")
+        or request.args.get("currency")
+    )
+    if currency is not None:
+        currency = str(currency).strip().upper()
 
     try:
         payments = list_supplier_payment_records(
             project_id=project_id,
+            supplier_id=supplier_id,
+            currency=currency,
         )
         return [_supplier_payment_response(p) for p in payments], 200
     except Exception:
@@ -274,6 +297,7 @@ def _handle_update_supplier_payment(payment_id: int):
         payment = update_supplier_payment_transaction(
             payment_id=payment_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -434,6 +458,14 @@ def create_supplier_payment():
 @jwt_required()
 def list_supplier_payments(args=None):
     return _handle_list_supplier_payments(args)
+
+
+@supplier_payment_bp.get("/<int:supplier_payment_id>")
+@supplier_payment_bp.doc(security=[{"BearerAuth": []}])
+@supplier_payment_bp.response(200, SupplierPaymentResponseSchema)
+@jwt_required()
+def get_supplier_payment(supplier_payment_id):
+    return _handle_get_supplier_payment(supplier_payment_id)
 
 
 @supplier_payment_bp.patch("/<int:supplier_payment_id>")

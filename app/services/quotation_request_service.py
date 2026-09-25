@@ -82,6 +82,7 @@ def create_quotation_request_transaction(
     remarks: str | None,
     items: list[dict],
     files=None,
+    user_id: int | None = None,
 ) -> QuotationRequest:
 
     project = get_project(project_id)
@@ -115,8 +116,16 @@ def create_quotation_request_transaction(
         remarks=remarks,
         items=items,
     )
-
     db.session.flush()
+
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=2,
+        remarks_data=remarks,
+        default_user_id=user_id,
+        entity_id=quotation_request.id,
+    )
 
     sync_quotation_request_step(project_id)
 
@@ -151,6 +160,8 @@ def update_quotation_request_transaction(
     supplier_contacted=None,
     remarks=None,
     items=None,
+    user_id: int | None = None,
+    sync_remarks: bool = True,
 ):
     quotation_request = (
         db.session.get(
@@ -212,8 +223,16 @@ def update_quotation_request_transaction(
             supplier_contacted
         )
 
-    if remarks is not None:
+    if sync_remarks:
         quotation_request.remarks = normalize_remark_for_db(remarks)
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=quotation_request.project_id,
+            step_number=2,
+            remarks_data=remarks,
+            default_user_id=user_id,
+            entity_id=quotation_request.id,
+        )
 
     # Replace items only when items are supplied
     if items is not None:
@@ -258,6 +277,14 @@ def delete_quotation_request_transaction(quotation_request_id: int):
     db.session.delete(quotation_request)
 
     db.session.flush()
+
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=2,
+        remarks_data=None,
+        entity_id=quotation_request_id,
+    )
 
     sync_quotation_request_step(project_id)
 

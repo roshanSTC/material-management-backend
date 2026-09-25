@@ -80,3 +80,39 @@ class RemarkField(fields.Field):
 
     def _deserialize(self, value, attr, data, **kwargs):
         return value
+
+
+def get_step_remarks_for_response(
+    project_id: int | None,
+    step_number: int,
+    fallback_raw=None,
+    entity_id: int | None = None,
+) -> list[dict]:
+    """
+    Returns remark objects from the step_remarks table for (project_id, step_number, entity_id).
+    Falls back to deserializing and normalizing fallback_raw if no database remarks exist.
+    """
+    if not project_id or not step_number:
+        return []
+    from app.repositories.step_remark_repository import list_remarks_for_step
+    from app.services.step_remark_service import serialize_remark
+
+    db_remarks = [
+        serialize_remark(r)
+        for r in list_remarks_for_step(project_id, step_number, entity_id=entity_id)
+    ]
+    if db_remarks:
+        return db_remarks
+
+    # If entity_id was provided but no entity-scoped remarks exist, check for legacy un-scoped remarks
+    if entity_id is not None:
+        legacy_remarks = [
+            serialize_remark(r)
+            for r in list_remarks_for_step(project_id, step_number)
+            if r.entity_id is None
+        ]
+        if legacy_remarks:
+            return legacy_remarks
+
+    return normalize_remark_for_response(deserialize_remark_for_entity(fallback_raw))
+

@@ -33,6 +33,7 @@ from app.services.supplier_quotation_service import (
     update_supplier_quotation_transaction,
 )
 from app.services.excel_parser_service import parse_supplier_quotation_excel
+from app.utils.remark_utils import get_step_remarks_for_response
 
 
 supplier_quotation_bp = Blueprint(
@@ -63,7 +64,12 @@ def _supplier_quotation_response(supplier_quotation):
         "incoterms": supplier_quotation.incoterms,
         "payment_terms": supplier_quotation.payment_terms,
         "delivery_period": supplier_quotation.delivery_period,
-        "remark": supplier_quotation.remark,
+        "remarks": get_step_remarks_for_response(
+            supplier_quotation.project_id,
+            3,
+            fallback_raw=supplier_quotation.remark,
+            entity_id=supplier_quotation.id,
+        ),
         "created_at": supplier_quotation.created_at,
         "updated_at": supplier_quotation.updated_at,
         "items": [
@@ -264,10 +270,15 @@ def create():
 
     storage_keys = []
     try:
-        supplier_quotation = create_supplier_quotation_transaction(data=data)
+        identity = get_jwt_identity()
+        user_id = int(identity) if identity is not None else None
+        supplier_quotation = create_supplier_quotation_transaction(
+            data=data,
+            user_id=user_id,
+        )
         _attach_files(
             supplier_quotation_id=supplier_quotation.id,
-            uploaded_by=int(get_jwt_identity()),
+            uploaded_by=user_id,
             storage_keys=storage_keys,
         )
         db.session.commit()
@@ -373,13 +384,16 @@ def update(supplier_quotation_id):
 
     storage_keys = []
     try:
+        identity = get_jwt_identity()
+        user_id = int(identity) if identity is not None else None
         supplier_quotation = update_supplier_quotation_transaction(
             supplier_quotation_id=supplier_quotation_id,
             data=data,
+            user_id=user_id,
         )
         _attach_files(
             supplier_quotation_id=supplier_quotation.id,
-            uploaded_by=int(get_jwt_identity()),
+            uploaded_by=user_id,
             storage_keys=storage_keys,
         )
         db.session.commit()
@@ -508,6 +522,7 @@ def get_latest_supplier_quotation_v1(args=None):
     return _handle_get_latest_supplier_quotation(args)
 
 
+@supplier_quotation_bp.post("/upload-excel")
 @supplier_quotation_bp.post("/parse-excel")
 @supplier_quotation_bp.doc(
     security=[{"BearerAuth": []}],
@@ -552,10 +567,30 @@ def upload_excel():
 
     
 
+    project_id = request.form.get("project_id") or request.form.get("projectId")
+    supplier_id = request.form.get("supplier_id") or request.form.get("supplierId")
+
     try:
         parsed_data = parse_supplier_quotation_excel(
             file,
         )
+        if project_id:
+            try:
+                pid = int(project_id)
+                parsed_data["project_id"] = pid
+                if not supplier_id:
+                    from app.models.project import Project
+                    proj = Project.query.get(pid)
+                    if proj and proj.supplier_id:
+                        parsed_data["supplier_id"] = proj.supplier_id
+            except (ValueError, TypeError):
+                pass
+        if supplier_id:
+            try:
+                parsed_data["supplier_id"] = int(supplier_id)
+            except (ValueError, TypeError):
+                pass
+
         return jsonify(parsed_data), 200
     except Exception as exc:
         current_app.logger.exception("Failed to parse supplier quotation Excel: %s", exc)

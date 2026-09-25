@@ -22,7 +22,9 @@ class CustomerDeliveryPackingListNotFoundError(CustomerDeliveryPackingListError)
     pass
 
 
-def create_customer_delivery_packing_list_transaction(*, data: dict) -> CustomerDeliveryPackingList:
+def create_customer_delivery_packing_list_transaction(
+    *, data: dict, user_id: int | None = None
+) -> CustomerDeliveryPackingList:
     project_id = data.get("project_id")
     if not project_id:
         raise ProjectNotFoundError("Project ID is required.")
@@ -33,6 +35,16 @@ def create_customer_delivery_packing_list_transaction(*, data: dict) -> Customer
 
     packing_list = create_customer_delivery_packing_list(data=data)
     db.session.flush()
+
+    remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=13,
+        remarks_data=remarks_val,
+        default_user_id=user_id,
+        entity_id=packing_list.id,
+    )
 
     return packing_list
 
@@ -61,6 +73,7 @@ def update_customer_delivery_packing_list_transaction(
     *,
     packing_list_id: int,
     data: dict,
+    user_id: int | None = None,
 ) -> CustomerDeliveryPackingList:
     packing_list = get_customer_delivery_packing_list(packing_list_id)
     if packing_list is None:
@@ -80,6 +93,17 @@ def update_customer_delivery_packing_list_transaction(
     )
     db.session.flush()
 
+    if "remarks" in data or "remark" in data:
+        remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=updated_packing_list.project_id,
+            step_number=13,
+            remarks_data=remarks_val,
+            default_user_id=user_id,
+            entity_id=updated_packing_list.id,
+        )
+
     return updated_packing_list
 
 
@@ -90,7 +114,17 @@ def delete_customer_delivery_packing_list_transaction(packing_list_id: int) -> l
             f"Customer delivery packing list with ID {packing_list_id} not found."
         )
 
+    project_id = packing_list.project_id
     storage_keys = delete_customer_delivery_packing_list(packing_list_id)
     db.session.flush()
+
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=13,
+        remarks_data=None,
+        entity_id=packing_list_id,
+    )
+
     return storage_keys
 

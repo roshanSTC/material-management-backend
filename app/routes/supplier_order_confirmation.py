@@ -18,6 +18,7 @@ from app.services.attachment_service import (
     create_attachment,
     list_attachments,
 )
+from app.utils.remark_utils import get_step_remarks_for_response
 from app.services.storage.factory import get_storage
 from app.services.supplier_order_confirmation_service import (
     OrderConfirmationAlreadyExistsError,
@@ -78,8 +79,12 @@ def _order_confirmation_response(confirmation):
         "payment_term": confirmation.payment_terms,
         "total_amount": confirmation.total_amount,
         "total_net_amount": confirmation.total_net_amount,
-        "remark": confirmation.remark,
-        "remarks": confirmation.remark,
+        "remarks": get_step_remarks_for_response(
+            project_id=confirmation.project_id,
+            step_number=9,
+            fallback_raw=confirmation.remark,
+            entity_id=confirmation.id,
+        ),
         "created_at": confirmation.created_at,
         "updated_at": confirmation.updated_at,
         "items": [
@@ -195,7 +200,10 @@ def _handle_create_order_confirmation():
         return _error("VALIDATION_ERROR", str(err.messages), 422)
 
     try:
-        confirmation = create_supplier_order_confirmation_transaction(data=validated_data)
+        confirmation = create_supplier_order_confirmation_transaction(
+            data=validated_data,
+            user_id=user_id,
+        )
 
         for file in files:
             if not file or not getattr(file, "filename", None):
@@ -321,6 +329,7 @@ def _handle_update_order_confirmation(order_confirmation_id: int):
         confirmation = update_supplier_order_confirmation_transaction(
             confirmation_id=order_confirmation_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -473,6 +482,20 @@ def list_order_confirmations(args=None):
 def get_latest_order_confirmation(args=None):
     return _handle_get_latest_order_confirmation(args)
 
+
+@order_confirmation_bp.get("/<int:order_confirmation_id>")
+@order_confirmation_bp.doc(security=[{"BearerAuth": []}])
+@order_confirmation_bp.response(200, SupplierOrderConfirmationResponseSchema)
+@jwt_required()
+def get_order_confirmation(order_confirmation_id):
+    try:
+        confirmation = get_supplier_order_confirmation_record(order_confirmation_id)
+        return _order_confirmation_response(confirmation), 200
+    except OrderConfirmationNotFoundError as exc:
+        return _error("ORDER_CONFIRMATION_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get order confirmation")
+        return _error("ORDER_CONFIRMATION_GET_FAILED", "Failed to get order confirmation.", 500)
 
 
 @order_confirmation_bp.patch("/<int:order_confirmation_id>")

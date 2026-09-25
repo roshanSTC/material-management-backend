@@ -77,6 +77,10 @@ class CustomerPaymentCreateSchema(Schema):
         required=False,
         allow_none=True,
     )
+    remarks = fields.Raw(
+        required=False,
+        allow_none=True,
+    )
 
     @pre_load
     def normalize_data(self, data, **kwargs):
@@ -212,6 +216,10 @@ class CustomerPaymentUpdateSchema(Schema):
         required=False,
         allow_none=True,
     )
+    remarks = fields.Raw(
+        required=False,
+        allow_none=True,
+    )
 
     @pre_load
     def normalize_data(self, data, **kwargs):
@@ -283,7 +291,6 @@ class CustomerPaymentResponseSchema(Schema):
     tds = fields.Decimal(dump_only=True, as_string=True, places=2, allow_none=True)
     ld = fields.Decimal(dump_only=True, as_string=True, places=2, allow_none=True)
     liquidated_damages = fields.Decimal(dump_only=True, as_string=True, places=2, allow_none=True)
-    remark = fields.Raw(dump_only=True)
     remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
@@ -298,3 +305,4 @@ class CustomerPaymentQuerySchema(Schema):
         unknown = EXCLUDE
 
     project_id = fields.Integer(required=False)
+    invoice_no = fields.String(required=False)

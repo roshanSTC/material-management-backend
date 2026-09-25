@@ -27,6 +27,7 @@ from app.services.customer_payment_service import (
     update_customer_payment_transaction,
 )
 from app.services.storage.factory import get_storage
+from app.utils.remark_utils import get_step_remarks_for_response
 
 customer_payment_bp = Blueprint(
     "customer_payments",
@@ -60,8 +61,12 @@ def _customer_payment_response(payment):
         "tds": payment.tds,
         "ld": payment.ld,
         "liquidated_damages": payment.ld,
-        "remark": payment.remark,
-        "remarks": payment.remark,
+        "remarks": get_step_remarks_for_response(
+            project_id=payment.project_id,
+            step_number=14,
+            fallback_raw=payment.remark,
+            entity_id=payment.id,
+        ),
         "created_at": payment.created_at,
         "updated_at": payment.updated_at,
         "attachments": [
@@ -149,7 +154,10 @@ def _handle_create_customer_payment():
 
     storage_keys = []
     try:
-        payment = create_customer_payment_transaction(data=validated_data)
+        payment = create_customer_payment_transaction(
+            data=validated_data,
+            user_id=user_id,
+        )
 
         for file in files:
             if not file or not getattr(file, "filename", None):
@@ -199,11 +207,18 @@ def _handle_list_customer_payments(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    
+    invoice_no = (
+        args.get("invoice_no")
+        or request.args.get("invoice_no")
+        or request.args.get("invoiceNo")
+    )
+    if invoice_no:
+        invoice_no = str(invoice_no).strip()
 
     try:
         payments = list_customer_payment_records(
             project_id=project_id,
+            invoice_no=invoice_no,
         )
         return [_customer_payment_response(p) for p in payments], 200
     except Exception:
@@ -248,6 +263,7 @@ def _handle_update_customer_payment(payment_id: int):
         payment = update_customer_payment_transaction(
             payment_id=payment_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -397,6 +413,14 @@ def create_customer_payment():
 def list_customer_payments(args=None):
     return _handle_list_customer_payments(args)
 
+
+
+@customer_payment_bp.get("/<int:customer_payment_id>")
+@customer_payment_bp.doc(security=[{"BearerAuth": []}])
+@customer_payment_bp.response(200, CustomerPaymentResponseSchema)
+@jwt_required()
+def get_customer_payment(customer_payment_id):
+    return _handle_get_customer_payment(customer_payment_id)
 
 
 @customer_payment_bp.patch("/<int:customer_payment_id>")

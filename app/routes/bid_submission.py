@@ -33,6 +33,7 @@ from app.services.bid_submission_service import (
     update_bid_submission_transaction,
 )
 from app.services.storage.factory import get_storage
+from app.utils.remark_utils import get_step_remarks_for_response
 
 bid_submission_bp = Blueprint(
     "bid_submissions",
@@ -73,7 +74,12 @@ def _bid_submission_response(bid_submission):
         "validity": bid_submission.validity,
         "warranty_period": bid_submission.warranty_period,
         "gst_rate": bid_submission.gst_rate,
-        "remark": bid_submission.remark,
+        "remarks": get_step_remarks_for_response(
+            project_id=bid_submission.project_id,
+            step_number=7,
+            fallback_raw=bid_submission.remark,
+            entity_id=bid_submission.id,
+        ),
         "created_at": bid_submission.created_at,
         "updated_at": bid_submission.updated_at,
         "items": [
@@ -206,7 +212,10 @@ def create_bid_submission():
         return _error("VALIDATION_ERROR", str(err.messages), 422)
 
     try:
-        bid_submission = create_bid_submission_transaction(data=validated_data)
+        bid_submission = create_bid_submission_transaction(
+            data=validated_data,
+            user_id=user_id,
+        )
 
         # Handle file attachments safely
         for file in files:
@@ -308,6 +317,20 @@ def get_latest_bid_submission(args=None):
     return _handle_get_latest_bid_submission(args)
 
 
+@bid_submission_bp.get("/<int:bid_submission_id>")
+@bid_submission_bp.doc(security=[{"BearerAuth": []}])
+@bid_submission_bp.response(200, BidSubmissionResponseSchema)
+@jwt_required()
+def get_bid_submission(bid_submission_id):
+    try:
+        submission = get_bid_submission_record(bid_submission_id)
+        return _bid_submission_response(submission), 200
+    except BidSubmissionNotFoundError as exc:
+        return _error("BID_SUBMISSION_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get bid submission")
+        return _error("BID_SUBMISSION_GET_FAILED", "Failed to get bid submission.", 500)
+
 
 @bid_submission_bp.patch("/<int:bid_submission_id>")
 @bid_submission_bp.doc(
@@ -358,6 +381,7 @@ def update_bid_submission(bid_submission_id):
         bid_submission = update_bid_submission_transaction(
             bid_submission_id=bid_submission_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -418,5 +442,23 @@ def delete_bid_submission(bid_submission_id):
         db.session.rollback()
         current_app.logger.exception("Failed to delete bid submission")
         return _error("BID_SUBMISSION_DELETE_FAILED", "Failed to delete bid submission.", 500)
+
+
+bid_submission_singular_bp = Blueprint(
+    "bid_submission_singular",
+    __name__,
+    url_prefix="/api/v1/bid-submission",
+    description="Bid Submission Singular Alias APIs",
+)
+
+
+@bid_submission_singular_bp.get("/latest")
+@bid_submission_singular_bp.doc(security=[{"BearerAuth": []}])
+@bid_submission_singular_bp.arguments(LatestBidSubmissionQuerySchema, location="query")
+@bid_submission_singular_bp.response(200, LatestBidSubmissionResponseSchema)
+@jwt_required()
+def get_latest_bid_submission_singular(args=None):
+    return _handle_get_latest_bid_submission(args)
+
 
 

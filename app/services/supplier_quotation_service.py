@@ -68,10 +68,22 @@ def get_latest_supplier_quotation_record(project_id: int) -> SupplierQuotation:
 
 
 
-def create_supplier_quotation_transaction(*, data: dict) -> SupplierQuotation:
+def create_supplier_quotation_transaction(
+    *,
+    data: dict,
+    user_id: int | None = None,
+) -> SupplierQuotation:
     _validate_project_supplier(data["project_id"], data["supplier_id"])
     supplier_quotation = create_supplier_quotation(data=data)
     db.session.flush()
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=data["project_id"],
+        step_number=3,
+        remarks_data=data.get("remarks") if "remarks" in data else data.get("remark"),
+        default_user_id=user_id,
+        entity_id=supplier_quotation.id,
+    )
     sync_supplier_quotation_step(data["project_id"])
     return supplier_quotation
 
@@ -80,6 +92,7 @@ def update_supplier_quotation_transaction(
     *,
     supplier_quotation_id: int,
     data: dict,
+    user_id: int | None = None,
 ) -> SupplierQuotation:
     supplier_quotation = get_supplier_quotation_record(supplier_quotation_id)
     previous_project_id = supplier_quotation.project_id
@@ -87,6 +100,16 @@ def update_supplier_quotation_transaction(
     supplier_id = data.get("supplier_id", supplier_quotation.supplier_id)
     _validate_project_supplier(project_id, supplier_id)
     update_supplier_quotation(supplier_quotation, data=data)
+    if "remarks" in data or "remark" in data:
+        remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=project_id,
+            step_number=3,
+            remarks_data=remarks_val,
+            default_user_id=user_id,
+            entity_id=supplier_quotation.id,
+        )
     db.session.flush()
     sync_supplier_quotation_step(project_id)
     if previous_project_id != project_id:
@@ -123,5 +146,12 @@ def delete_supplier_quotation_transaction(supplier_quotation_id: int):
     project_id = supplier_quotation.project_id
     db.session.delete(supplier_quotation)
     db.session.flush()
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=3,
+        remarks_data=None,
+        entity_id=supplier_quotation_id,
+    )
     sync_supplier_quotation_step(project_id)
     return supplier_quotation

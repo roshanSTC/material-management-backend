@@ -27,6 +27,7 @@ from app.services.delivery_challan_service import (
     update_delivery_challan_transaction,
 )
 from app.services.storage.factory import get_storage
+from app.utils.remark_utils import get_step_remarks_for_response
 
 delivery_challan_bp = Blueprint(
     "delivery_challans",
@@ -58,8 +59,12 @@ def _delivery_challan_response(delivery_challan):
         "gst_amount": delivery_challan.gst_amount,
         "round_off": delivery_challan.round_off,
         "net_total": delivery_challan.net_total,
-        "remark": delivery_challan.remark,
-        "remarks": delivery_challan.remark,
+        "remarks": get_step_remarks_for_response(
+            project_id=delivery_challan.project_id,
+            step_number=13,
+            fallback_raw=delivery_challan.remark,
+            entity_id=delivery_challan.id,
+        ),
         "created_at": delivery_challan.created_at,
         "updated_at": delivery_challan.updated_at,
         "items": [
@@ -166,7 +171,8 @@ def _handle_create_delivery_challan():
     storage_keys = []
     try:
         delivery_challan = create_delivery_challan_transaction(
-            data=validated_data
+            data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -217,11 +223,18 @@ def _handle_list_delivery_challans(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-
+    delivery_challan_no = (
+        args.get("delivery_challan_no")
+        or request.args.get("delivery_challan_no")
+        or request.args.get("deliveryChallanNo")
+    )
+    if delivery_challan_no:
+        delivery_challan_no = str(delivery_challan_no).strip()
 
     try:
         delivery_challans = list_delivery_challan_records(
             project_id=project_id,
+            delivery_challan_no=delivery_challan_no,
         )
         return (
             [
@@ -272,6 +285,7 @@ def _handle_update_delivery_challan(delivery_challan_id: int):
         delivery_challan = update_delivery_challan_transaction(
             delivery_challan_id=delivery_challan_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -429,6 +443,16 @@ def create_delivery_challan():
 def list_delivery_challans(args=None):
     return _handle_list_delivery_challans(args)
 
+
+
+@delivery_challan_bp.get("/<int:delivery_challan_id>")
+@delivery_challan_bp.doc(security=[{"BearerAuth": []}])
+@delivery_challan_bp.response(
+    200, DeliveryChallanResponseSchema
+)
+@jwt_required()
+def get_delivery_challan(delivery_challan_id):
+    return _handle_get_delivery_challan(delivery_challan_id)
 
 
 @delivery_challan_bp.patch("/<int:delivery_challan_id>")

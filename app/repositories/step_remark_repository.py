@@ -8,10 +8,12 @@ def create_remark(
     step_number: int,
     remark: str,
     user_id: int | None = None,
+    entity_id: int | None = None,
 ) -> StepRemark:
     remark_obj = StepRemark(
         project_id=project_id,
         step_number=step_number,
+        entity_id=entity_id,
         remark=remark,
         user_id=user_id,
     )
@@ -32,15 +34,21 @@ def list_remarks_for_project(project_id: int) -> list[StepRemark]:
     )
 
 
-def list_remarks_for_step(project_id: int, step_number: int) -> list[StepRemark]:
+def list_remarks_for_step(
+    project_id: int,
+    step_number: int,
+    entity_id: int | None = None,
+) -> list[StepRemark]:
+    query = db.select(StepRemark).where(
+        StepRemark.project_id == project_id,
+        StepRemark.step_number == step_number,
+    )
+    if entity_id is not None:
+        query = query.where(StepRemark.entity_id == entity_id)
+
     return (
         db.session.execute(
-            db.select(StepRemark)
-            .where(
-                StepRemark.project_id == project_id,
-                StepRemark.step_number == step_number,
-            )
-            .order_by(StepRemark.created_at.asc())
+            query.order_by(StepRemark.created_at.asc())
         )
         .scalars()
         .all()

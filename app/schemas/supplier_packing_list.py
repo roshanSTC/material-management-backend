@@ -581,8 +581,7 @@ class SupplierPackingListResponseSchema(Schema):
     weight = fields.Decimal(as_string=True, places=3, allow_none=True)
     total_weight = fields.Decimal(as_string=True, places=3, allow_none=True)
     total_gross_weight_kg = fields.Decimal(dump_only=True, as_string=True, places=3, allow_none=True)
-    remark = fields.Raw(allow_none=True)
-    remarks = fields.Raw(dump_only=True)
+    remarks = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
     items = fields.List(

@@ -33,7 +33,7 @@ class SupplierPackingListAlreadyExistsError(SupplierPackingListError):
     pass
 
 
-def create_supplier_packing_list_transaction(*, data: dict) -> SupplierPackingList:
+def create_supplier_packing_list_transaction(*, data: dict, user_id: int | None = None) -> SupplierPackingList:
     project_id = data.get("project_id")
     if not project_id:
         raise ProjectNotFoundError("Project ID is required.")
@@ -60,6 +60,16 @@ def create_supplier_packing_list_transaction(*, data: dict) -> SupplierPackingLi
 
     packing_list = create_supplier_packing_list(data=data)
     db.session.flush()
+
+    remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=10,
+        remarks_data=remarks_val,
+        default_user_id=user_id,
+        entity_id=packing_list.id,
+    )
 
     sync_supplier_packing_list_step(project_id)
     return packing_list
@@ -104,6 +114,7 @@ def update_supplier_packing_list_transaction(
     *,
     packing_list_id: int,
     data: dict,
+    user_id: int | None = None,
 ) -> SupplierPackingList:
     packing_list = get_supplier_packing_list_record(packing_list_id)
     previous_project_id = packing_list.project_id
@@ -129,6 +140,17 @@ def update_supplier_packing_list_transaction(
     updated = update_supplier_packing_list(packing_list=packing_list, data=data)
     db.session.flush()
 
+    if "remarks" in data or "remark" in data:
+        remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=updated.project_id,
+            step_number=10,
+            remarks_data=remarks_val,
+            default_user_id=user_id,
+            entity_id=updated.id,
+        )
+
     sync_supplier_packing_list_step(updated.project_id)
     if new_project_id is not None and new_project_id != previous_project_id:
         sync_supplier_packing_list_step(previous_project_id)
@@ -142,6 +164,14 @@ def delete_supplier_packing_list_transaction(packing_list_id: int) -> list[str]:
 
     storage_keys = delete_supplier_packing_list(packing_list_id)
     db.session.flush()
+
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=10,
+        remarks_data=None,
+        entity_id=packing_list_id,
+    )
 
     sync_supplier_packing_list_step(project_id)
     return storage_keys

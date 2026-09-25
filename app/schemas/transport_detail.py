@@ -55,8 +55,10 @@ def _normalize_transport_detail_payload(raw_data):
     # Aliases
     if "lr_number" in normalized and "lr_no" not in normalized:
         normalized["lr_no"] = normalized["lr_number"]
-    if "remarks" in normalized and "remark" not in normalized:
+    if "remarks" in normalized and not normalized.get("remark"):
         normalized["remark"] = normalized["remarks"]
+    elif "remark" in normalized and not normalized.get("remarks"):
+        normalized["remarks"] = normalized["remark"]
 
     # String trimming
     for field_name in (
@@ -65,7 +67,6 @@ def _normalize_transport_detail_payload(raw_data):
         "awb_no",
         "from_location",
         "to_location",
-        "remark",
     ):
         if field_name in normalized and isinstance(normalized[field_name], str):
             normalized[field_name] = normalized[field_name].strip()
@@ -160,7 +161,6 @@ class TransportDetailResponseSchema(Schema):
     rr_no = fields.String(dump_only=True, allow_none=True)
     awb_no = fields.String(dump_only=True, allow_none=True)
     transport_charges = fields.Decimal(dump_only=True, as_string=False, allow_none=True)
-    remark = fields.Raw(dump_only=True, allow_none=True)
     remarks = fields.Raw(dump_only=True, allow_none=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
@@ -173,3 +173,5 @@ class TransportDetailResponseSchema(Schema):
 
 class TransportDetailQuerySchema(Schema):
     project_id = fields.Integer(required=False)
+    transport_mode = fields.String(required=False)
+    lr_no = fields.String(required=False)

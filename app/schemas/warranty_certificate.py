@@ -48,8 +48,10 @@ def _normalize_warranty_certificate_payload(raw_data):
         normalized['po_no'] = normalized['po_number']
     if 'invoice_number' in normalized and 'invoice_no' not in normalized:
         normalized['invoice_no'] = normalized['invoice_number']
-    if 'remarks' in normalized and 'remark' not in normalized:
+    if 'remarks' in normalized and not normalized.get('remark'):
         normalized['remark'] = normalized['remarks']
+    elif 'remark' in normalized and not normalized.get('remarks'):
+        normalized['remarks'] = normalized['remark']
 
     # String trimming
     for str_field in ('warranty_period', 'po_no', 'invoice_no'):
@@ -130,7 +132,6 @@ class WarrantyCertificateResponseSchema(Schema):
     invoice_no = fields.String(dump_only=True, allow_none=True)
     invoice_number = fields.String(dump_only=True, allow_none=True)
     invoice_date = fields.Date(dump_only=True, allow_none=True)
-    remark = fields.Raw(dump_only=True, allow_none=True)
     remarks = fields.Raw(dump_only=True, allow_none=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
@@ -143,3 +144,5 @@ class WarrantyCertificateResponseSchema(Schema):
 
 class WarrantyCertificateQuerySchema(Schema):
     project_id = fields.Integer(required=False)
+    po_no = fields.String(required=False)
+    invoice_no = fields.String(required=False)

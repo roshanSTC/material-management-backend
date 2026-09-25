@@ -61,7 +61,7 @@ def _compute_total_duty(data: dict, existing: BillOfEntry | None = None) -> Deci
     return None
 
 
-def create_bill_of_entry_transaction(data: dict) -> BillOfEntry:
+def create_bill_of_entry_transaction(data: dict, user_id: int | None = None) -> BillOfEntry:
     project_id = data["project_id"]
     project = repository.get_project(project_id)
     if not project:
@@ -78,12 +78,24 @@ def create_bill_of_entry_transaction(data: dict) -> BillOfEntry:
     except Exception:
         pass
     db.session.flush()
+
+    remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=11,
+        remarks_data=remarks_val,
+        default_user_id=user_id,
+        entity_id=record.id,
+    )
+
     return record
 
 
 def update_bill_of_entry_transaction(
     bill_of_entry_id: int,
     data: dict,
+    user_id: int | None = None,
 ) -> BillOfEntry:
     record = repository.get_bill_of_entry(bill_of_entry_id)
     if not record:
@@ -109,6 +121,18 @@ def update_bill_of_entry_transaction(
     except Exception:
         pass
     db.session.flush()
+
+    if "remarks" in data or "remark" in data:
+        remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=updated.project_id,
+            step_number=11,
+            remarks_data=remarks_val,
+            default_user_id=user_id,
+            entity_id=updated.id,
+        )
+
     return updated
 
 
@@ -137,6 +161,15 @@ def delete_bill_of_entry_transaction(bill_of_entry_id: int) -> list[str]:
     except Exception:
         pass
     db.session.flush()
+
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=11,
+        remarks_data=None,
+        entity_id=bill_of_entry_id,
+    )
+
     return storage_keys
 
 

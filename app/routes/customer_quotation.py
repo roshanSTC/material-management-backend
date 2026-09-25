@@ -31,6 +31,7 @@ from app.services.customer_quotation_service import (
     update_customer_quotation_transaction,
 )
 from app.services.storage.factory import get_storage
+from app.utils.remark_utils import get_step_remarks_for_response
 
 customer_quotation_bp = Blueprint(
     "customer_quotations",
@@ -67,7 +68,12 @@ def _customer_quotation_response(customer_quotation):
         "currency_symbol": customer_quotation.currency_symbol,
         "total_net_amount": customer_quotation.total_net_amount,
         "validity": customer_quotation.validity,
-        "remark": customer_quotation.remark,
+        "remarks": get_step_remarks_for_response(
+            customer_quotation.project_id,
+            5,
+            fallback_raw=customer_quotation.remark,
+            entity_id=customer_quotation.id,
+        ),
         "created_at": customer_quotation.created_at,
         "updated_at": customer_quotation.updated_at,
         "items": [
@@ -171,7 +177,10 @@ def create_customer_quotation():
         return _error("VALIDATION_ERROR", str(err.messages), 422)
 
     try:
-        customer_quotation = create_customer_quotation_transaction(data=validated_data)
+        customer_quotation = create_customer_quotation_transaction(
+            data=validated_data,
+            user_id=user_id,
+        )
 
         # Handle file attachments safely
         for file in files:
@@ -229,6 +238,19 @@ def list_customer_quotations(args=None):
         return _error("CUSTOMER_QUOTATION_LIST_FAILED", "Failed to list customer quotations.", 500)
 
 
+@customer_quotation_bp.get("/<int:customer_quotation_id>")
+@customer_quotation_bp.doc(security=[{"BearerAuth": []}])
+@customer_quotation_bp.response(200, CustomerQuotationResponseSchema)
+@jwt_required()
+def get_customer_quotation(customer_quotation_id):
+    try:
+        quotation = get_customer_quotation_record(customer_quotation_id)
+        return _customer_quotation_response(quotation), 200
+    except CustomerQuotationNotFoundError as exc:
+        return _error("CUSTOMER_QUOTATION_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get customer quotation")
+        return _error("CUSTOMER_QUOTATION_GET_FAILED", "Failed to get customer quotation.", 500)
 
 
 @customer_quotation_bp.patch("/<int:customer_quotation_id>")
@@ -280,6 +302,7 @@ def update_customer_quotation(customer_quotation_id):
         customer_quotation = update_customer_quotation_transaction(
             customer_quotation_id=customer_quotation_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:

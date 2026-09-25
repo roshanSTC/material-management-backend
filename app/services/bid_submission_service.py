@@ -64,11 +64,23 @@ def _resolve_and_validate_parties(data: dict) -> tuple[int, int | None]:
     return project_id, data.get("tender_id")
 
 
-def create_bid_submission_transaction(*, data: dict) -> BidSubmission:
+def create_bid_submission_transaction(
+    *,
+    data: dict,
+    user_id: int | None = None,
+) -> BidSubmission:
     project_id, _ = _resolve_and_validate_parties(data)
 
     bid_submission = create_bid_submission(data=data)
     db.session.flush()
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=7,
+        remarks_data=data.get("remarks") if "remarks" in data else data.get("remark"),
+        default_user_id=user_id,
+        entity_id=bid_submission.id,
+    )
 
     sync_bid_submission_step(project_id)
     return bid_submission
@@ -105,6 +117,7 @@ def update_bid_submission_transaction(
     *,
     bid_submission_id: int,
     data: dict,
+    user_id: int | None = None,
 ) -> BidSubmission:
     bid_submission = get_bid_submission_record(bid_submission_id)
     previous_project_id = bid_submission.project_id
@@ -120,6 +133,16 @@ def update_bid_submission_transaction(
         data["tender_id"] = resolved_tid
 
     bid_submission = update_bid_submission(bid_submission, data=data)
+    if "remarks" in data or "remark" in data:
+        remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=bid_submission.project_id,
+            step_number=7,
+            remarks_data=remarks_val,
+            default_user_id=user_id,
+            entity_id=bid_submission.id,
+        )
     db.session.flush()
 
     project_id = bid_submission.project_id
@@ -142,6 +165,14 @@ def delete_bid_submission_transaction(bid_submission_id: int) -> list[str]:
 
     delete_bid_submission(bid_submission)
     db.session.flush()
+
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=7,
+        remarks_data=None,
+        entity_id=bid_submission_id,
+    )
 
     sync_bid_submission_step(project_id)
     return storage_keys

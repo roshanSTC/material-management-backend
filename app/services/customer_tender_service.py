@@ -60,11 +60,23 @@ def _resolve_and_validate_parties(data: dict) -> tuple[int, int]:
     return project_id, customer_id
 
 
-def create_customer_tender_transaction(*, data: dict) -> CustomerTender:
+def create_customer_tender_transaction(
+    *,
+    data: dict,
+    user_id: int | None = None,
+) -> CustomerTender:
     project_id, _ = _resolve_and_validate_parties(data)
 
     customer_tender = create_customer_tender(data=data)
     db.session.flush()
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=6,
+        remarks_data=data.get("remarks") if "remarks" in data else data.get("remark"),
+        default_user_id=user_id,
+        entity_id=customer_tender.id,
+    )
 
     sync_customer_tender_step(project_id)
     return customer_tender
@@ -101,6 +113,7 @@ def update_customer_tender_transaction(
     *,
     customer_tender_id: int,
     data: dict,
+    user_id: int | None = None,
 ) -> CustomerTender:
     customer_tender = get_customer_tender_record(customer_tender_id)
     previous_project_id = customer_tender.project_id
@@ -116,6 +129,16 @@ def update_customer_tender_transaction(
         data["customer_id"] = resolved_cid
 
     customer_tender = update_customer_tender(customer_tender, data=data)
+    if "remarks" in data or "remark" in data:
+        remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=customer_tender.project_id,
+            step_number=6,
+            remarks_data=remarks_val,
+            default_user_id=user_id,
+            entity_id=customer_tender.id,
+        )
     db.session.flush()
 
     project_id = customer_tender.project_id
@@ -138,6 +161,14 @@ def delete_customer_tender_transaction(customer_tender_id: int) -> list[str]:
 
     delete_customer_tender(customer_tender)
     db.session.flush()
+
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=6,
+        remarks_data=None,
+        entity_id=customer_tender_id,
+    )
 
     sync_customer_tender_step(project_id)
     return storage_keys

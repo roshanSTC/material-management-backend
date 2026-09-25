@@ -69,8 +69,10 @@ def _normalize_import_logistics_payload(raw_data):
         if k in normalized and isinstance(normalized[k], str):
             normalized[k] = normalized[k].strip()
 
-    if "remarks" in normalized and "remark" not in normalized:
+    if "remarks" in normalized and not normalized.get("remark"):
         normalized["remark"] = normalized["remarks"]
+    elif "remark" in normalized and not normalized.get("remarks"):
+        normalized["remarks"] = normalized["remark"]
 
     return normalized
 
@@ -162,8 +164,7 @@ class ImportLogisticsResponseSchema(Schema):
     logistic_type = fields.String(required=True)
     date = fields.Date(required=True)
     port_of_discharge = fields.String(allow_none=True)
-    remark = fields.Raw(allow_none=True)
-    remarks = fields.Raw(dump_only=True)
+    remarks = fields.Raw(allow_none=True)
 
     # Air fields
     airway_bill_no = fields.String(allow_none=True)

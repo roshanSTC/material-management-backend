@@ -22,7 +22,9 @@ class TransportDetailNotFoundError(TransportDetailError):
     pass
 
 
-def create_transport_detail_transaction(*, data: dict) -> TransportDetail:
+def create_transport_detail_transaction(
+    *, data: dict, user_id: int | None = None
+) -> TransportDetail:
     project_id = data.get("project_id")
     if not project_id:
         raise ProjectNotFoundError("Project ID is required.")
@@ -33,6 +35,16 @@ def create_transport_detail_transaction(*, data: dict) -> TransportDetail:
 
     detail = create_transport_detail(data=data)
     db.session.flush()
+
+    remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=13,
+        remarks_data=remarks_val,
+        default_user_id=user_id,
+        entity_id=detail.id,
+    )
 
     return detail
 
@@ -63,6 +75,7 @@ def update_transport_detail_transaction(
     *,
     transport_detail_id: int,
     data: dict,
+    user_id: int | None = None,
 ) -> TransportDetail:
     detail = get_transport_detail(transport_detail_id)
     if detail is None:
@@ -82,6 +95,17 @@ def update_transport_detail_transaction(
     )
     db.session.flush()
 
+    if "remarks" in data or "remark" in data:
+        remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=updated_detail.project_id,
+            step_number=13,
+            remarks_data=remarks_val,
+            default_user_id=user_id,
+            entity_id=updated_detail.id,
+        )
+
     return updated_detail
 
 
@@ -92,6 +116,16 @@ def delete_transport_detail_transaction(transport_detail_id: int) -> list[str]:
             f"Transport detail with ID {transport_detail_id} not found."
         )
 
+    project_id = detail.project_id
     storage_keys = delete_transport_detail(transport_detail_id)
     db.session.flush()
+
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=13,
+        remarks_data=None,
+        entity_id=transport_detail_id,
+    )
+
     return storage_keys

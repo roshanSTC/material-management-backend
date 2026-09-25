@@ -27,6 +27,7 @@ from app.services.customs_clearance_service import (
     update_customs_clearance_transaction,
 )
 from app.services.storage.factory import get_storage
+from app.utils.remark_utils import get_step_remarks_for_response
 
 customs_clearance_bp = Blueprint(
     "customs_clearances",
@@ -69,7 +70,12 @@ def _customs_clearance_response(record):
         "igst_amount": record.igst_amount,
         "other_customs_charges": record.other_customs_charges,
         "total_customs_amount": record.total_customs_amount,
-        "remark": record.remark,
+        "remarks": get_step_remarks_for_response(
+            project_id=record.project_id,
+            step_number=12,
+            fallback_raw=record.remark,
+            entity_id=record.id,
+        ),
         "created_at": record.created_at,
         "updated_at": record.updated_at,
         "attachments": [
@@ -161,7 +167,10 @@ def _handle_create_customs_clearance():
 
     storage_keys = []
     try:
-        record = create_customs_clearance_transaction(data=validated_data)
+        record = create_customs_clearance_transaction(
+            data=validated_data,
+            user_id=user_id,
+        )
 
         for file in files:
             if not file or not getattr(file, "filename", None):
@@ -260,6 +269,7 @@ def _handle_update_customs_clearance(clearance_id: int):
         record = update_customs_clearance_transaction(
             clearance_id=clearance_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -454,6 +464,16 @@ def create_customs_clearance_route():
 def list_customs_clearances_route(args=None):
     return _handle_list_customs_clearances(args)
 
+
+@customs_clearance_bp.route("/<int:clearance_id>", methods=["GET"])
+@customs_clearance_bp.doc(
+    summary="Get Customs Clearance by ID",
+    security=[{"BearerAuth": []}],
+)
+@customs_clearance_bp.response(200, CustomsClearanceResponseSchema)
+@jwt_required()
+def get_customs_clearance_route(clearance_id: int):
+    return _handle_get_customs_clearance(clearance_id)
 
 
 @customs_clearance_bp.route("/<int:clearance_id>", methods=["PATCH"])

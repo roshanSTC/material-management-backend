@@ -28,6 +28,7 @@ from app.services.import_logistics_service import (
     update_import_logistics_transaction,
 )
 from app.services.storage.factory import get_storage
+from app.utils.remark_utils import get_step_remarks_for_response
 
 import_logistics_bp = Blueprint(
     "import_logistics",
@@ -57,7 +58,12 @@ def _import_logistics_response(logistics):
         "logistic_type": logistics.logistic_type,
         "date": logistics.date,
         "port_of_discharge": logistics.port_of_discharge,
-        "remark": logistics.remark,
+        "remarks": get_step_remarks_for_response(
+            project_id=logistics.project_id,
+            step_number=11,
+            fallback_raw=logistics.remark,
+            entity_id=logistics.id,
+        ),
         # Air fields
         "airway_bill_no": logistics.airway_bill_no,
         "flight_name": logistics.flight_name,
@@ -156,7 +162,10 @@ def _handle_create_import_logistics():
 
     storage_keys = []
     try:
-        logistics = create_import_logistics_transaction(data=validated_data)
+        logistics = create_import_logistics_transaction(
+            data=validated_data,
+            user_id=user_id,
+        )
 
         for file in files:
             if not file or not getattr(file, "filename", None):
@@ -278,6 +287,7 @@ def _handle_update_import_logistics(logistics_id: int):
         record = update_import_logistics_transaction(
             logistics_id=logistics_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:

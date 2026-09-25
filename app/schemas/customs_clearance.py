@@ -224,8 +224,7 @@ class CustomsClearanceResponseSchema(Schema):
     igst_amount = fields.Decimal(as_string=False, allow_none=True)
     other_customs_charges = fields.Decimal(as_string=False, allow_none=True)
     total_customs_amount = fields.Decimal(as_string=False, allow_none=True)
-    remark = fields.Raw(allow_none=True)
-    remarks = fields.Raw(dump_only=True)
+    remarks = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
     attachments = fields.List(

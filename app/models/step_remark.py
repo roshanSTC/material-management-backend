@@ -24,6 +24,12 @@ class StepRemark(db.Model):
         index=True,
     )
 
+    entity_id = db.Column(
+        db.Integer,
+        nullable=True,
+        index=True,
+    )
+
     remark = db.Column(
         db.Text,
         nullable=False,

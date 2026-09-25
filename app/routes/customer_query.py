@@ -59,20 +59,14 @@ def _customer_query_response(customer_query):
         entity_id=customer_query.id,
     )
 
-    from app.repositories.step_remark_repository import list_remarks_for_step
-    from app.services.step_remark_service import serialize_remark
-    from app.utils.remark_utils import normalize_remark_for_response
+    from app.utils.remark_utils import get_step_remarks_for_response
 
-    db_remarks = [
-        serialize_remark(r)
-        for r in list_remarks_for_step(customer_query.project_id, 1)
-    ]
-
-    raw_remark = deserialize_remark_for_entity(customer_query.remark)
-    if db_remarks:
-        remarks_arr = db_remarks
-    else:
-        remarks_arr = normalize_remark_for_response(raw_remark)
+    remarks_arr = get_step_remarks_for_response(
+        customer_query.project_id,
+        1,
+        fallback_raw=customer_query.remark,
+        entity_id=customer_query.id,
+    )
 
     return {
         "id": customer_query.id,

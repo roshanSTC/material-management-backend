@@ -34,6 +34,7 @@ from app.services.customer_tender_service import (
     update_customer_tender_transaction,
 )
 from app.services.storage.factory import get_storage
+from app.utils.remark_utils import get_step_remarks_for_response
 
 customer_tender_bp = Blueprint(
     "customer_tenders",
@@ -79,7 +80,12 @@ def _customer_tender_response(customer_tender):
         "delivery_period": customer_tender.delivery_period,
         "payment_terms": customer_tender.payment_terms,
         "warranty_period": customer_tender.warranty_period,
-        "remark": customer_tender.remark,
+        "remarks": get_step_remarks_for_response(
+            customer_tender.project_id,
+            6,
+            fallback_raw=customer_tender.remark,
+            entity_id=customer_tender.id,
+        ),
         "created_at": customer_tender.created_at,
         "updated_at": customer_tender.updated_at,
         "items": [
@@ -215,7 +221,10 @@ def create_customer_tender():
         return _error("VALIDATION_ERROR", str(err.messages), 422)
 
     try:
-        customer_tender = create_customer_tender_transaction(data=validated_data)
+        customer_tender = create_customer_tender_transaction(
+            data=validated_data,
+            user_id=user_id,
+        )
 
         # Handle file attachments safely
         for file in files:
@@ -371,6 +380,7 @@ def update_customer_tender(customer_tender_id):
         customer_tender = update_customer_tender_transaction(
             customer_tender_id=customer_tender_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:

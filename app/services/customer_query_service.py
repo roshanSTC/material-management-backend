@@ -111,6 +111,7 @@ def create_customer_query_transaction(
         remark=remark,
         items=items,
     )
+    db.session.flush()
 
     from app.services.step_remark_service import sync_step_remarks
     sync_step_remarks(
@@ -118,9 +119,8 @@ def create_customer_query_transaction(
         step_number=1,
         remarks_data=remark,
         default_user_id=user_id,
+        entity_id=customer_query.id,
     )
-
-    db.session.flush()
 
     sync_customer_query_step(project_id)
 
@@ -187,6 +187,7 @@ def update_customer_query_transaction(
             step_number=1,
             remarks_data=remark,
             default_user_id=user_id,
+            entity_id=customer_query.id,
         )
 
     customer_query.items.clear()
@@ -226,6 +227,7 @@ def delete_customer_query_transaction(customer_query_id: int):
         project_id=project_id,
         step_number=1,
         remarks_data=None,
+        entity_id=customer_query_id,
     )
 
     sync_customer_query_step(project_id)

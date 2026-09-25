@@ -455,7 +455,6 @@ class CustomerDeliveryInvoiceResponseSchema(Schema):
     gst_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
     round_off = fields.Decimal(dump_only=True, as_string=True, places=2)
     net_total = fields.Decimal(dump_only=True, as_string=True, places=2)
-    remark = fields.Raw(dump_only=True)
     remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)

@@ -71,11 +71,23 @@ def _resolve_and_validate_parties(data: dict) -> tuple[int, int]:
     return project_id, customer_id
 
 
-def create_purchase_order_transaction(*, data: dict) -> PurchaseOrder:
+def create_purchase_order_transaction(
+    *,
+    data: dict,
+    user_id: int | None = None,
+) -> PurchaseOrder:
     project_id, _ = _resolve_and_validate_parties(data)
 
     purchase_order = create_purchase_order(data=data)
     db.session.flush()
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=8,
+        remarks_data=data.get("remarks") if "remarks" in data else data.get("remark"),
+        default_user_id=user_id,
+        entity_id=purchase_order.id,
+    )
 
     sync_purchase_order_step(project_id)
     return purchase_order
@@ -112,6 +124,7 @@ def update_purchase_order_transaction(
     *,
     purchase_order_id: int,
     data: dict,
+    user_id: int | None = None,
 ) -> PurchaseOrder:
     purchase_order = get_purchase_order_record(purchase_order_id)
     previous_project_id = purchase_order.project_id
@@ -132,6 +145,16 @@ def update_purchase_order_transaction(
             raise TenderNotFoundError(f"Customer tender with ID {data['tender_id']} not found.")
 
     purchase_order = update_purchase_order(purchase_order, data=data)
+    if "remarks" in data or "remark" in data:
+        remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=purchase_order.project_id,
+            step_number=8,
+            remarks_data=remarks_val,
+            default_user_id=user_id,
+            entity_id=purchase_order.id,
+        )
     db.session.flush()
 
     project_id = purchase_order.project_id
@@ -154,6 +177,14 @@ def delete_purchase_order_transaction(purchase_order_id: int) -> list[str]:
 
     delete_purchase_order(purchase_order)
     db.session.flush()
+
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=8,
+        remarks_data=None,
+        entity_id=purchase_order_id,
+    )
 
     sync_purchase_order_step(project_id)
     return storage_keys

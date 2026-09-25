@@ -22,7 +22,9 @@ class CustomerPaymentNotFoundError(CustomerPaymentError):
     pass
 
 
-def create_customer_payment_transaction(*, data: dict) -> CustomerPayment:
+def create_customer_payment_transaction(
+    *, data: dict, user_id: int | None = None
+) -> CustomerPayment:
     project_id = data.get("project_id")
     if not project_id:
         raise ProjectNotFoundError("Project ID is required.")
@@ -33,6 +35,17 @@ def create_customer_payment_transaction(*, data: dict) -> CustomerPayment:
 
     payment = create_customer_payment(data=data)
     db.session.flush()
+
+    remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=14,
+        remarks_data=remarks_val,
+        default_user_id=user_id,
+        entity_id=payment.id,
+    )
+
     return payment
 
 
@@ -60,6 +73,7 @@ def update_customer_payment_transaction(
     *,
     payment_id: int,
     data: dict,
+    user_id: int | None = None,
 ) -> CustomerPayment:
     payment = get_customer_payment(payment_id)
     if payment is None:
@@ -78,6 +92,18 @@ def update_customer_payment_transaction(
         data=data,
     )
     db.session.flush()
+
+    if "remarks" in data or "remark" in data:
+        remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=updated_payment.project_id,
+            step_number=14,
+            remarks_data=remarks_val,
+            default_user_id=user_id,
+            entity_id=updated_payment.id,
+        )
+
     return updated_payment
 
 
@@ -88,6 +114,16 @@ def delete_customer_payment_transaction(payment_id: int) -> list[str]:
             f"Customer payment with ID {payment_id} not found."
         )
 
+    project_id = payment.project_id
     storage_keys = delete_customer_payment(payment_id)
     db.session.flush()
+
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=14,
+        remarks_data=None,
+        entity_id=payment_id,
+    )
+
     return storage_keys

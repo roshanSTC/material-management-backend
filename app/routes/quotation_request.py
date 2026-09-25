@@ -13,7 +13,7 @@ from app.schemas.quotation_request import (
     QuotationRequestQuerySchema,
     QuotationRequestResponseSchema,
 )
-from app.utils.remark_utils import deserialize_remark_for_entity
+from app.utils.remark_utils import deserialize_remark_for_entity, get_step_remarks_for_response
 
 from app.services.attachment_service import AttachmentValidationError, create_attachment, delete_attachment, list_attachments
 from app.services.quotation_request_service import (
@@ -60,8 +60,12 @@ def _quotation_request_response(
             quotation_request.supplier_contacted
         ),
 
-        "remarks": deserialize_remark_for_entity(quotation_request.remarks),
-        "remark": deserialize_remark_for_entity(quotation_request.remarks),
+        "remarks": get_step_remarks_for_response(
+            quotation_request.project_id,
+            2,
+            fallback_raw=quotation_request.remarks,
+            entity_id=quotation_request.id,
+        ),
 
         "created_at": quotation_request.created_at,
         "updated_at": quotation_request.updated_at,
@@ -187,8 +191,9 @@ def create():
                 supplier_contacted=validated_data[
                     "supplier_contacted"
                 ],
-                remarks=validated_data.get("remarks"),
+                remarks=validated_data.get("remarks") if "remarks" in validated_data else validated_data.get("remark"),
                 items=validated_data["items"],
+                user_id=user_id,
             )
         )
 
@@ -341,8 +346,34 @@ def list_all(args=None):
         for quotation_request
         in quotation_requests
     ], 200
-    
-    
+
+
+@quotation_request_bp.get("/<int:quotation_request_id>")
+@quotation_request_bp.doc(security=[{"BearerAuth": []}])
+@quotation_request_bp.response(200, QuotationRequestResponseSchema)
+@jwt_required()
+def get_by_id(quotation_request_id):
+    try:
+        quotation_request = get_quotation_request_record(quotation_request_id)
+        if not quotation_request:
+            return {
+                "success": False,
+                "error": {
+                    "code": "QUOTATION_REQUEST_NOT_FOUND",
+                    "message": f"Quotation request {quotation_request_id} not found.",
+                },
+            }, 404
+        return _quotation_request_response(quotation_request), 200
+    except QuotationRequestNotFoundError as exc:
+        return {
+            "success": False,
+            "error": {
+                "code": "QUOTATION_REQUEST_NOT_FOUND",
+                "message": str(exc),
+            },
+        }, 404
+
+
 @quotation_request_bp.patch(
     "/<int:quotation_request_id>"
 )
@@ -446,8 +477,9 @@ def update(quotation_request_id):
                     supplier_contacted=data.get(
                         "supplier_contacted"
                     ),
-                    remarks=data.get("remarks"),
+                    remarks=data.get("remarks") if "remarks" in data else data.get("remark"),
                     items=data.get("items"),
+                    user_id=user_id,
                 )
             )
 

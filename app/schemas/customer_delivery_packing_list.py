@@ -435,7 +435,6 @@ class CustomerDeliveryPackingListResponseSchema(Schema):
     packing_condition = fields.String(dump_only=True)
     net_weight = fields.String(dump_only=True)
     gross_weight = fields.String(dump_only=True)
-    remark = fields.Raw(dump_only=True)
     remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
@@ -454,4 +453,5 @@ class CustomerDeliveryPackingListQuerySchema(Schema):
         unknown = EXCLUDE
 
     project_id = fields.Integer(required=False)
+    packing_list_no = fields.String(required=False)
 

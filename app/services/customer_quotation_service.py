@@ -76,13 +76,25 @@ def get_customer_quotation_record(
     return customer_quotation
 
 
-def create_customer_quotation_transaction(*, data: dict) -> CustomerQuotation:
+def create_customer_quotation_transaction(
+    *,
+    data: dict,
+    user_id: int | None = None,
+) -> CustomerQuotation:
     customer_id = data.get("customer_id")
     resolved_customer_id = _validate_project_customer(data["project_id"], customer_id)
     data["customer_id"] = resolved_customer_id
 
     customer_quotation = create_customer_quotation(data=data)
     db.session.flush()
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=data["project_id"],
+        step_number=5,
+        remarks_data=data.get("remarks") if "remarks" in data else data.get("remark"),
+        default_user_id=user_id,
+        entity_id=customer_quotation.id,
+    )
     sync_customer_quotation_step(data["project_id"])
     return customer_quotation
 
@@ -91,6 +103,7 @@ def update_customer_quotation_transaction(
     *,
     customer_quotation_id: int,
     data: dict,
+    user_id: int | None = None,
 ) -> CustomerQuotation:
     customer_quotation = get_customer_quotation_record(customer_quotation_id)
     previous_project_id = customer_quotation.project_id
@@ -101,6 +114,16 @@ def update_customer_quotation_transaction(
     data["customer_id"] = resolved_customer_id
 
     update_customer_quotation(customer_quotation, data=data)
+    if "remarks" in data or "remark" in data:
+        remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=project_id,
+            step_number=5,
+            remarks_data=remarks_val,
+            default_user_id=user_id,
+            entity_id=customer_quotation.id,
+        )
     db.session.flush()
     sync_customer_quotation_step(project_id)
     if previous_project_id != project_id:
@@ -120,6 +143,15 @@ def delete_customer_quotation_transaction(customer_quotation_id: int) -> list[st
 
     delete_customer_quotation(customer_quotation)
     db.session.flush()
+
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=5,
+        remarks_data=None,
+        entity_id=customer_quotation_id,
+    )
+
     sync_customer_quotation_step(project_id)
     return storage_keys
 

@@ -393,7 +393,7 @@ class CustomerTenderResponseSchema(Schema):
     delivery_period = fields.String(allow_none=True)
     payment_terms = fields.String(allow_none=True)
     warranty_period = fields.String(allow_none=True)
-    remark = fields.Raw(allow_none=True)
+    remarks = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
     items = fields.List(

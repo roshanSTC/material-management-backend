@@ -180,8 +180,7 @@ class BillOfEntryResponseSchema(Schema):
     sws = fields.Raw(allow_none=True)
     igst = fields.Raw(allow_none=True)
     total_duty = fields.Raw(allow_none=True)
-    remark = fields.Raw(allow_none=True)
-    remarks = fields.Raw(dump_only=True)
+    remarks = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
 

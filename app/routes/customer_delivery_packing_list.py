@@ -27,6 +27,7 @@ from app.services.customer_delivery_packing_list_service import (
     update_customer_delivery_packing_list_transaction,
 )
 from app.services.storage.factory import get_storage
+from app.utils.remark_utils import get_step_remarks_for_response
 
 customer_delivery_packing_list_bp = Blueprint(
     "customer_delivery_packing_lists",
@@ -60,8 +61,12 @@ def _customer_delivery_packing_list_response(packing_list):
         "net_weight_kg": packing_list.net_weight,
         "gross_weight": packing_list.gross_weight,
         "gross_weight_kg": packing_list.gross_weight,
-        "remark": packing_list.remark,
-        "remarks": packing_list.remark,
+        "remarks": get_step_remarks_for_response(
+            project_id=packing_list.project_id,
+            step_number=13,
+            fallback_raw=packing_list.remark,
+            entity_id=packing_list.id,
+        ),
         "created_at": packing_list.created_at,
         "updated_at": packing_list.updated_at,
         "items": [
@@ -168,7 +173,8 @@ def _handle_create_customer_delivery_packing_list():
     storage_keys = []
     try:
         packing_list = create_customer_delivery_packing_list_transaction(
-            data=validated_data
+            data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -221,9 +227,18 @@ def _handle_list_customer_delivery_packing_lists(args=None):
 
     
 
+    packing_list_no = (
+        args.get("packing_list_no")
+        or request.args.get("packing_list_no")
+        or request.args.get("packingListNo")
+    )
+    if packing_list_no:
+        packing_list_no = str(packing_list_no).strip()
+
     try:
         packing_lists = list_customer_delivery_packing_list_records(
             project_id=project_id,
+            packing_list_no=packing_list_no,
         )
         return (
             [
@@ -274,6 +289,7 @@ def _handle_update_customer_delivery_packing_list(packing_list_id: int):
         packing_list = update_customer_delivery_packing_list_transaction(
             packing_list_id=packing_list_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -431,6 +447,16 @@ def create_customer_delivery_packing_list():
 def list_customer_delivery_packing_lists(args=None):
     return _handle_list_customer_delivery_packing_lists(args)
 
+
+
+@customer_delivery_packing_list_bp.get("/<int:packing_list_id>")
+@customer_delivery_packing_list_bp.doc(security=[{"BearerAuth": []}])
+@customer_delivery_packing_list_bp.response(
+    200, CustomerDeliveryPackingListResponseSchema
+)
+@jwt_required()
+def get_customer_delivery_packing_list(packing_list_id):
+    return _handle_get_customer_delivery_packing_list(packing_list_id)
 
 
 @customer_delivery_packing_list_bp.patch("/<int:packing_list_id>")

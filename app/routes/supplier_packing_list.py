@@ -45,6 +45,9 @@ def _error(code: str, message: str, status: int):
     )
 
 
+from app.utils.remark_utils import get_step_remarks_for_response
+
+
 def _supplier_packing_list_response(packing_list):
     attachments = list_attachments(
         entity_type="supplier_packing_list",
@@ -62,8 +65,12 @@ def _supplier_packing_list_response(packing_list):
         "weight": packing_list.weight,
         "total_weight": packing_list.total_weight,
         "total_gross_weight_kg": packing_list.total_weight,
-        "remark": packing_list.remark,
-        "remarks": packing_list.remark,
+        "remarks": get_step_remarks_for_response(
+            project_id=packing_list.project_id,
+            step_number=10,
+            fallback_raw=packing_list.remark,
+            entity_id=packing_list.id,
+        ),
         "created_at": packing_list.created_at,
         "updated_at": packing_list.updated_at,
         "items": [
@@ -155,7 +162,10 @@ def _handle_create_supplier_packing_list():
 
     storage_keys = []
     try:
-        packing_list = create_supplier_packing_list_transaction(data=validated_data)
+        packing_list = create_supplier_packing_list_transaction(
+            data=validated_data,
+            user_id=user_id,
+        )
 
         for file in files:
             if not file or not getattr(file, "filename", None):
@@ -262,6 +272,7 @@ def _handle_update_supplier_packing_list(supplier_packing_list_id: int):
         packing_list = update_supplier_packing_list_transaction(
             packing_list_id=supplier_packing_list_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -409,6 +420,12 @@ def create_supplier_packing_list():
 @jwt_required()
 def list_supplier_packing_lists(args=None):
     return _handle_list_supplier_packing_lists(args)
+@supplier_packing_list_bp.get("/<int:supplier_packing_list_id>")
+@supplier_packing_list_bp.doc(security=[{"BearerAuth": []}])
+@supplier_packing_list_bp.response(200, SupplierPackingListResponseSchema)
+@jwt_required()
+def get_supplier_packing_list(supplier_packing_list_id):
+    return _handle_get_supplier_packing_list(supplier_packing_list_id)
 
 
 

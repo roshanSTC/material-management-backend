@@ -31,6 +31,7 @@ from app.services.bill_of_entry_service import (
     update_bill_of_entry_transaction,
 )
 from app.services.storage.factory import get_storage
+from app.utils.remark_utils import get_step_remarks_for_response
 
 bill_of_entry_bp = Blueprint(
     "bills_of_entry",
@@ -65,7 +66,12 @@ def _bill_of_entry_response(record):
         "sws": record.sws,
         "igst": record.igst,
         "total_duty": record.total_duty,
-        "remark": record.remark,
+        "remarks": get_step_remarks_for_response(
+            project_id=record.project_id,
+            step_number=11,
+            fallback_raw=record.remark,
+            entity_id=record.id,
+        ),
         "created_at": record.created_at,
         "updated_at": record.updated_at,
         "attachments": [
@@ -170,7 +176,10 @@ def _handle_create_bill_of_entry():
 
     storage_keys = []
     try:
-        record = create_bill_of_entry_transaction(data=validated_data)
+        record = create_bill_of_entry_transaction(
+            data=validated_data,
+            user_id=user_id,
+        )
 
         for file in files:
             if not file or not getattr(file, "filename", None):
@@ -301,6 +310,7 @@ def _handle_update_bill_of_entry(bill_of_entry_id: int):
         record = update_bill_of_entry_transaction(
             bill_of_entry_id=bill_of_entry_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -485,6 +495,17 @@ def get_latest_bill_of_entry(args=None):
 
 
 
+@bill_of_entry_bp.get("/<int:bill_of_entry_id>")
+@bill_of_entry_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get bill of entry record by ID",
+)
+@bill_of_entry_bp.response(200, BillOfEntryResponseSchema)
+@jwt_required()
+def get_bill_of_entry(bill_of_entry_id: int):
+    return _handle_get_bill_of_entry(bill_of_entry_id)
+
+
 @bill_of_entry_bp.patch("/<int:bill_of_entry_id>")
 @bill_of_entry_bp.doc(
     security=[{"BearerAuth": []}],
@@ -505,4 +526,26 @@ def update_bill_of_entry(bill_of_entry_id: int):
 @jwt_required()
 def delete_bill_of_entry(bill_of_entry_id: int):
     return _handle_delete_bill_of_entry(bill_of_entry_id)
+
+
+bill_of_entry_singular_bp = Blueprint(
+    "bill_of_entry_singular",
+    __name__,
+    url_prefix="/api/v1/bill-of-entry",
+    description="Bill of Entry Singular Alias APIs",
+)
+
+
+@bill_of_entry_singular_bp.get("/latest")
+@bill_of_entry_singular_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Bill of Entry for Project",
+    description="Retrieve bcd, sws, igst, and duty for the latest bill of entry of a project.",
+)
+@bill_of_entry_singular_bp.arguments(LatestBillOfEntryQuerySchema, location="query")
+@bill_of_entry_singular_bp.response(200, LatestBillOfEntryResponseSchema)
+@jwt_required()
+def get_latest_bill_of_entry_singular(args=None):
+    return _handle_get_latest_bill_of_entry(args)
+
 

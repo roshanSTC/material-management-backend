@@ -18,6 +18,7 @@ from app.services.attachment_service import (
     create_attachment,
 )
 from app.services.storage.factory import get_storage
+from app.utils.remark_utils import get_step_remarks_for_response
 from app.services.warranty_certificate_service import (
     ProjectNotFoundError,
     WarrantyCertificateNotFoundError,
@@ -63,8 +64,12 @@ def _warranty_certificate_response(cert: WarrantyCertificate) -> dict:
         "invoice_no": cert.invoice_no,
         "invoice_number": cert.invoice_no,
         "invoice_date": cert.invoice_date,
-        "remark": cert.remark,
-        "remarks": cert.remark,
+        "remarks": get_step_remarks_for_response(
+            project_id=cert.project_id,
+            step_number=13,
+            fallback_raw=cert.remark,
+            entity_id=cert.id,
+        ),
         "created_at": cert.created_at,
         "updated_at": cert.updated_at,
         "attachments": [
@@ -152,7 +157,10 @@ def _handle_create_warranty_certificate():
 
     storage_keys = []
     try:
-        cert = create_warranty_certificate_transaction(data=validated_data)
+        cert = create_warranty_certificate_transaction(
+            data=validated_data,
+            user_id=user_id,
+        )
 
         for file in files:
             if not file or not getattr(file, "filename", None):
@@ -202,11 +210,27 @@ def _handle_list_warranty_certificates(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    
+    po_no = (
+        args.get("po_no")
+        or request.args.get("po_no")
+        or request.args.get("poNo")
+    )
+    if po_no:
+        po_no = str(po_no).strip()
+
+    invoice_no = (
+        args.get("invoice_no")
+        or request.args.get("invoice_no")
+        or request.args.get("invoiceNo")
+    )
+    if invoice_no:
+        invoice_no = str(invoice_no).strip()
 
     try:
         certs = list_warranty_certificate_records(
             project_id=project_id,
+            po_no=po_no,
+            invoice_no=invoice_no,
         )
         return [_warranty_certificate_response(c) for c in certs], 200
     except Exception:
@@ -251,6 +275,7 @@ def _handle_update_warranty_certificate(warranty_certificate_id: int):
         cert = update_warranty_certificate_transaction(
             warranty_certificate_id=warranty_certificate_id,
             data=validated_data,
+            user_id=user_id,
         )
 
         for file in files:
@@ -405,6 +430,14 @@ def create_warranty_certificate():
 @jwt_required()
 def list_warranty_certificates(args=None):
     return _handle_list_warranty_certificates(args)
+
+
+@warranty_certificate_bp.get("/<int:warranty_certificate_id>")
+@warranty_certificate_bp.doc(security=[{"BearerAuth": []}])
+@warranty_certificate_bp.response(200, WarrantyCertificateResponseSchema)
+@jwt_required()
+def get_warranty_certificate(warranty_certificate_id):
+    return _handle_get_warranty_certificate(warranty_certificate_id)
 
 
 @warranty_certificate_bp.patch("/<int:warranty_certificate_id>")

@@ -35,7 +35,11 @@ class OrderConfirmationAlreadyExistsError(OrderConfirmationError):
     pass
 
 
-def create_supplier_order_confirmation_transaction(*, data: dict) -> SupplierOrderConfirmation:
+def create_supplier_order_confirmation_transaction(
+    *,
+    data: dict,
+    user_id: int | None = None,
+) -> SupplierOrderConfirmation:
     project_id = data.get("project_id")
     if not project_id:
         raise ProjectNotFoundError("Project ID is required.")
@@ -62,6 +66,14 @@ def create_supplier_order_confirmation_transaction(*, data: dict) -> SupplierOrd
 
     confirmation = create_supplier_order_confirmation(data=data)
     db.session.flush()
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=9,
+        remarks_data=data.get("remarks") if "remarks" in data else data.get("remark"),
+        default_user_id=user_id,
+        entity_id=confirmation.id,
+    )
 
     sync_supplier_order_confirmation_step(project_id)
     return confirmation
@@ -102,6 +114,7 @@ def update_supplier_order_confirmation_transaction(
     *,
     confirmation_id: int,
     data: dict,
+    user_id: int | None = None,
 ) -> SupplierOrderConfirmation:
     confirmation = get_supplier_order_confirmation_record(confirmation_id)
     previous_project_id = confirmation.project_id
@@ -128,6 +141,16 @@ def update_supplier_order_confirmation_transaction(
             raise SupplierNotFoundError(f"Supplier with ID {supplier_id} not found.")
 
     confirmation = update_supplier_order_confirmation(confirmation, data=data)
+    if "remarks" in data or "remark" in data:
+        remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=confirmation.project_id,
+            step_number=9,
+            remarks_data=remarks_val,
+            default_user_id=user_id,
+            entity_id=confirmation.id,
+        )
     db.session.flush()
 
     current_project_id = confirmation.project_id
@@ -153,6 +176,14 @@ def delete_supplier_order_confirmation_transaction(confirmation_id: int) -> list
 
     delete_supplier_order_confirmation(confirmation)
     db.session.flush()
+
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=9,
+        remarks_data=None,
+        entity_id=confirmation_id,
+    )
 
     sync_supplier_order_confirmation_step(project_id)
     return keys1 + keys2

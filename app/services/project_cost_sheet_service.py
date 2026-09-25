@@ -15,6 +15,7 @@ from app.repositories.project_cost_sheet_repository import (
 )
 from app.schemas.cost_sheet import format_global_params_for_display
 from app.services.cost_sheet_service import _calculate_item, calculate_cost_sheet
+from app.utils.remark_utils import get_step_remarks_for_response
 
 
 class ProjectCostSheetError(Exception):
@@ -93,6 +94,17 @@ def create_project_cost_sheet(*, project_id: int, data: dict, created_by: int) -
         output=output,
     )
     db.session.flush()
+
+    remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+    if remarks_val is not None:
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=project.id,
+            step_number=4,
+            remarks_data=remarks_val,
+            default_user_id=created_by,
+            entity_id=cost_sheet.id,
+        )
 
     from app.services.project_step_service import sync_cost_sheet_step
 
@@ -278,6 +290,12 @@ def serialize_cost_sheet_metadata(cost_sheet: CostSheet) -> dict:
         "createdAt": cost_sheet.created_at,
         "updatedAt": cost_sheet.updated_at,
         "totalItemCount": len(cost_sheet.items),
+        "remarks": get_step_remarks_for_response(
+            cost_sheet.project_id,
+            4,
+            fallback_raw=None,
+            entity_id=cost_sheet.id,
+        ),
         "hasRateIncrease": any(
             history.new_price_eur > history.old_price_eur
             for history in price_histories
@@ -363,6 +381,12 @@ def serialize_latest_cost_sheet(cost_sheet: CostSheet) -> dict:
         "sellingPriceInclGst": grand_total_incl,
         "gstRate": gst_rate,
         "gst_rate": gst_rate,
+        "remarks": get_step_remarks_for_response(
+            cost_sheet.project_id,
+            4,
+            fallback_raw=None,
+            entity_id=cost_sheet.id,
+        ),
         "items": items_list,
     }
 

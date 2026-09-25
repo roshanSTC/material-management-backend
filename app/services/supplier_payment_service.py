@@ -153,7 +153,9 @@ def _calculate_payment_amounts(
         data["payment_percentage"] = str(pct)
 
 
-def create_supplier_payment_transaction(*, data: dict) -> SupplierPayment:
+def create_supplier_payment_transaction(
+    *, data: dict, user_id: int | None = None
+) -> SupplierPayment:
     project_id = data.get("project_id")
     if not project_id:
         raise ProjectNotFoundError("Project ID is required.")
@@ -174,6 +176,16 @@ def create_supplier_payment_transaction(*, data: dict) -> SupplierPayment:
 
     payment = create_supplier_payment(data=data)
     db.session.flush()
+
+    remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=15,
+        remarks_data=remarks_val,
+        default_user_id=user_id,
+    )
+
     return payment
 
 
@@ -203,6 +215,7 @@ def update_supplier_payment_transaction(
     *,
     payment_id: int,
     data: dict,
+    user_id: int | None = None,
 ) -> SupplierPayment:
     payment = get_supplier_payment(payment_id)
     if payment is None:
@@ -230,6 +243,17 @@ def update_supplier_payment_transaction(
         data=data,
     )
     db.session.flush()
+
+    if "remarks" in data or "remark" in data:
+        remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=updated_payment.project_id,
+            step_number=15,
+            remarks_data=remarks_val,
+            default_user_id=user_id,
+        )
+
     return updated_payment
 
 
@@ -240,6 +264,17 @@ def delete_supplier_payment_transaction(payment_id: int) -> list[str]:
             f"Supplier payment with ID {payment_id} not found."
         )
 
+    project_id = payment.project_id
     storage_keys = delete_supplier_payment(payment_id)
     db.session.flush()
+
+    remaining = SupplierPayment.query.filter_by(project_id=project_id).first()
+    if not remaining:
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=project_id,
+            step_number=15,
+            remarks_data=None,
+        )
+
     return storage_keys

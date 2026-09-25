@@ -27,10 +27,26 @@ class QuotationRequestCreateSchema(Schema):
         allow_none=True,
     )
 
+    remark = fields.Raw(
+        required=False,
+        allow_none=True,
+    )
+
     items = fields.List(
         fields.Nested(QuotationRequestItemSchema),
         required=True,
     )
+
+    @pre_load
+    def normalize_remarks(self, data, **kwargs):
+        if not isinstance(data, (dict, Mapping)):
+            return data
+        normalized = dict(data)
+        if "remarks" in normalized and not normalized.get("remark"):
+            normalized["remark"] = normalized["remarks"]
+        elif "remark" in normalized and not normalized.get("remarks"):
+            normalized["remarks"] = normalized["remark"]
+        return normalized
 
 
 class QuotationRequestResponseSchema(Schema):

@@ -22,7 +22,9 @@ class WarrantyCertificateNotFoundError(WarrantyCertificateError):
     pass
 
 
-def create_warranty_certificate_transaction(*, data: dict) -> WarrantyCertificate:
+def create_warranty_certificate_transaction(
+    *, data: dict, user_id: int | None = None
+) -> WarrantyCertificate:
     project_id = data.get("project_id")
     if not project_id:
         raise ProjectNotFoundError("Project ID is required.")
@@ -33,6 +35,16 @@ def create_warranty_certificate_transaction(*, data: dict) -> WarrantyCertificat
 
     cert = create_warranty_certificate(data=data)
     db.session.flush()
+
+    remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=13,
+        remarks_data=remarks_val,
+        default_user_id=user_id,
+        entity_id=cert.id,
+    )
 
     return cert
 
@@ -63,6 +75,7 @@ def update_warranty_certificate_transaction(
     *,
     warranty_certificate_id: int,
     data: dict,
+    user_id: int | None = None,
 ) -> WarrantyCertificate:
     cert = get_warranty_certificate(warranty_certificate_id)
     if cert is None:
@@ -82,6 +95,17 @@ def update_warranty_certificate_transaction(
     )
     db.session.flush()
 
+    if "remarks" in data or "remark" in data:
+        remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
+        from app.services.step_remark_service import sync_step_remarks
+        sync_step_remarks(
+            project_id=updated_cert.project_id,
+            step_number=13,
+            remarks_data=remarks_val,
+            default_user_id=user_id,
+            entity_id=updated_cert.id,
+        )
+
     return updated_cert
 
 
@@ -92,6 +116,16 @@ def delete_warranty_certificate_transaction(warranty_certificate_id: int) -> lis
             f"Warranty certificate with ID {warranty_certificate_id} not found."
         )
 
+    project_id = cert.project_id
     storage_keys = delete_warranty_certificate(warranty_certificate_id)
     db.session.flush()
+
+    from app.services.step_remark_service import sync_step_remarks
+    sync_step_remarks(
+        project_id=project_id,
+        step_number=13,
+        remarks_data=None,
+        entity_id=warranty_certificate_id,
+    )
+
     return storage_keys

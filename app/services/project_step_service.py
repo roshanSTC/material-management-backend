@@ -938,6 +938,7 @@ def sync_supplier_quotation_step(project_id: int) -> ProjectStep | None:
         "incoterms": supplier_quotation.incoterms,
         "payment_terms": supplier_quotation.payment_terms,
         "delivery_period": supplier_quotation.delivery_period,
+        "warranty_period": supplier_quotation.warranty_period,
         "remark": supplier_quotation.remark,
         "remarks": supplier_quotation.remark,
     }

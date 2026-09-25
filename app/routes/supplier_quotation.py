@@ -64,6 +64,7 @@ def _supplier_quotation_response(supplier_quotation):
         "incoterms": supplier_quotation.incoterms,
         "payment_terms": supplier_quotation.payment_terms,
         "delivery_period": supplier_quotation.delivery_period,
+        "warranty_period": supplier_quotation.warranty_period,
         "remarks": get_step_remarks_for_response(
             supplier_quotation.project_id,
             3,
@@ -135,9 +136,11 @@ def _latest_supplier_quotation_response(sq):
 
     return {
         "items": items_list,
-        "currency_unit" :sq.currency_unit,
+        "currency_unit": sq.currency_unit,
         "incoterms": sq.incoterms,
         "payment_terms": sq.payment_terms,
+        "warranty_period": sq.warranty_period,
+        "delivery_period": sq.delivery_period,
     }
 
 

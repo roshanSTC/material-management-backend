@@ -144,6 +144,11 @@ class SupplierQuotationCreateSchema(Schema):
         allow_none=True,
         validate=validate.Length(max=100),
     )
+    warranty_period = fields.String(
+        required=False,
+        allow_none=True,
+        validate=validate.Length(max=100),
+    )
     remarks = fields.Raw(required=False, allow_none=True)
     remark = fields.Raw(required=False, allow_none=True)
     items = fields.List(
@@ -220,6 +225,10 @@ class SupplierQuotationUpdateSchema(Schema):
     incoterms = fields.String(allow_none=True, validate=validate.Length(max=50))
     payment_terms = fields.String(allow_none=True, validate=validate.Length(max=255))
     delivery_period = fields.String(
+        allow_none=True,
+        validate=validate.Length(max=100),
+    )
+    warranty_period = fields.String(
         allow_none=True,
         validate=validate.Length(max=100),
     )
@@ -308,6 +317,7 @@ class SupplierQuotationResponseSchema(Schema):
     incoterms = fields.String(allow_none=True)
     payment_terms = fields.String(allow_none=True)
     delivery_period = fields.String(allow_none=True)
+    warranty_period = fields.String(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
@@ -410,5 +420,7 @@ class LatestSupplierQuotationResponseSchema(Schema):
     incoterms = fields.String(allow_none=True)
     payment_terms = fields.String(allow_none=True)
     currency_unit = fields.String(allow_none=True)
+    warranty_period = fields.String(allow_none=True)
+    delivery_period = fields.String(allow_none=True)
     
 

@@ -65,6 +65,11 @@ class SupplierQuotation(db.Model):
         nullable=True,
     )
 
+    warranty_period = db.Column(
+        db.String(100),
+        nullable=True,
+    )
+
     remark = db.Column(
         db.Text,
         nullable=True,

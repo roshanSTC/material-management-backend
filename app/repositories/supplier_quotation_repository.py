@@ -25,6 +25,7 @@ def create_supplier_quotation(*, data: dict) -> SupplierQuotation:
         incoterms=_normalize_optional_string(data.get("incoterms")),
         payment_terms=_normalize_optional_string(data.get("payment_terms")),
         delivery_period=_normalize_optional_string(data.get("delivery_period")),
+        warranty_period=_normalize_optional_string(data.get("warranty_period")),
         remark=_normalize_optional_string(data.get("remark")),
     )
     _replace_items(supplier_quotation, data["items"])
@@ -84,6 +85,7 @@ def update_supplier_quotation(
         "incoterms",
         "payment_terms",
         "delivery_period",
+        "warranty_period",
         "remark",
     }
     scalar_fields = {

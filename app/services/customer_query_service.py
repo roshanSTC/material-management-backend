@@ -131,11 +131,11 @@ def create_customer_query_transaction(
 def update_customer_query_transaction(
     *,
     customer_query_id: int,
-    project_id: int,
-    customer_id: int,
-    qo_date,
-    remark,
-    items: list[dict],
+    project_id: int | None = None,
+    customer_id: int | None = None,
+    qo_date=None,
+    remark=None,
+    items: list[dict] | None = None,
     user_id: int | None = None,
     sync_remarks: bool = True,
 ) -> CustomerQuery:
@@ -150,60 +150,74 @@ def update_customer_query_transaction(
             f"{customer_query_id} was not found."
         )
 
-    project = get_project(project_id)
-
-    if project is None:
-        raise ProjectNotFoundError(
-            f"Project with id {project_id} was not found."
-        )
-
-    customer = get_customer(customer_id)
-
-    if customer is None:
-        raise CustomerNotFoundError(
-            f"Customer with id {customer_id} was not found."
-        )
-
-    if project.customer_id != customer.id:
-        raise CustomerProjectMismatchError(
-            "The selected customer does not "
-            "belong to the selected project."
-        )
-
-    if isinstance(qo_date, str):
-        qo_date = date.fromisoformat(qo_date)
-
     previous_project_id = customer_query.project_id
 
-    customer_query.project_id = project_id
-    customer_query.customer_id = customer_id
-    customer_query.qo_date = qo_date
+    final_project_id = (
+        project_id
+        if project_id is not None
+        else customer_query.project_id
+    )
+    final_customer_id = (
+        customer_id
+        if customer_id is not None
+        else customer_query.customer_id
+    )
+
+    if project_id is not None or customer_id is not None:
+        project = get_project(final_project_id)
+
+        if project is None:
+            raise ProjectNotFoundError(
+                f"Project with id {final_project_id} was not found."
+            )
+
+        customer = get_customer(final_customer_id)
+
+        if customer is None:
+            raise CustomerNotFoundError(
+                f"Customer with id {final_customer_id} was not found."
+            )
+
+        if project.customer_id != customer.id:
+            raise CustomerProjectMismatchError(
+                "The selected customer does not "
+                "belong to the selected project."
+            )
+
+        customer_query.project_id = final_project_id
+        customer_query.customer_id = final_customer_id
+
+    if qo_date is not None:
+        if isinstance(qo_date, str):
+            qo_date = date.fromisoformat(qo_date)
+        customer_query.qo_date = qo_date
 
     if sync_remarks:
         customer_query.remark = normalize_remark_for_db(remark)
         from app.services.step_remark_service import sync_step_remarks
         sync_step_remarks(
-            project_id=project_id,
+            project_id=customer_query.project_id,
             step_number=1,
             remarks_data=remark,
             default_user_id=user_id,
             entity_id=customer_query.id,
         )
 
-    customer_query.items.clear()
+    if items is not None:
+        customer_query.items.clear()
 
-    for item_data in items:
-        item = CustomerQueryItem(
-            material_name=item_data["material_name"].strip(),
-            quantity=item_data["quantity"],
-        )
+        for item_data in items:
+            item = CustomerQueryItem(
+                material_name=item_data["material_name"].strip(),
+                quantity=item_data["quantity"],
+            )
 
-        customer_query.items.append(item)
+            customer_query.items.append(item)
 
     db.session.flush()
 
-    sync_customer_query_step(project_id)
-    if previous_project_id != project_id:
+    sync_customer_query_step(customer_query.project_id)
+    if previous_project_id != customer_query.project_id:
         sync_customer_query_step(previous_project_id)
 
     return customer_query

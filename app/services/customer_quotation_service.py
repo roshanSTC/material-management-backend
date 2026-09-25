@@ -5,6 +5,7 @@ from app.repositories.customer_quotation_repository import (
     delete_customer_quotation,
     get_customer,
     get_customer_quotation,
+    get_latest_customer_quotation_for_project,
     get_project,
     list_customer_quotations,
     update_customer_quotation,
@@ -72,6 +73,19 @@ def get_customer_quotation_record(
     if customer_quotation is None:
         raise CustomerQuotationNotFoundError(
             f"Customer quotation with id {customer_quotation_id} was not found."
+        )
+    return customer_quotation
+
+
+def get_latest_customer_quotation_record(project_id: int) -> CustomerQuotation:
+    project = get_project(project_id)
+    if project is None:
+        raise ProjectNotFoundError(f"Project with id {project_id} was not found.")
+
+    customer_quotation = get_latest_customer_quotation_for_project(project_id)
+    if customer_quotation is None:
+        raise CustomerQuotationNotFoundError(
+            f"No customer quotation found for project id {project_id}."
         )
     return customer_quotation
 

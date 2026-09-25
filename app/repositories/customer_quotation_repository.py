@@ -114,6 +114,17 @@ def get_customer_quotation(customer_quotation_id: int) -> CustomerQuotation | No
     ).scalar_one_or_none()
 
 
+def get_latest_customer_quotation_for_project(
+    project_id: int,
+) -> CustomerQuotation | None:
+    return db.session.execute(
+        db.select(CustomerQuotation)
+        .options(selectinload(CustomerQuotation.items))
+        .where(CustomerQuotation.project_id == project_id)
+        .order_by(CustomerQuotation.id.desc())
+    ).scalars().first()
+
+
 def list_customer_quotations(
     *,
     project_id: int | None = None,

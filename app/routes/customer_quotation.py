@@ -12,6 +12,8 @@ from app.schemas.customer_quotation import (
     CustomerQuotationQuerySchema,
     CustomerQuotationResponseSchema,
     CustomerQuotationUpdateSchema,
+    LatestCustomerQuotationQuerySchema,
+    LatestCustomerQuotationResponseSchema,
 )
 from app.services.attachment_service import (
     AttachmentValidationError,
@@ -27,6 +29,7 @@ from app.services.customer_quotation_service import (
     create_customer_quotation_transaction,
     delete_customer_quotation_transaction,
     get_customer_quotation_record,
+    get_latest_customer_quotation_record,
     list_customer_quotation_records,
     update_customer_quotation_transaction,
 )
@@ -236,6 +239,71 @@ def list_customer_quotations(args=None):
     except Exception:
         current_app.logger.exception("Failed to list customer quotations")
         return _error("CUSTOMER_QUOTATION_LIST_FAILED", "Failed to list customer quotations.", 500)
+
+
+@customer_quotation_bp.get("/latest")
+@customer_quotation_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Customer Quotation for Project",
+    description="Retrieve items for the latest customer quotation of a project.",
+)
+@customer_quotation_bp.arguments(LatestCustomerQuotationQuerySchema, location="query")
+@customer_quotation_bp.response(200, LatestCustomerQuotationResponseSchema)
+@jwt_required()
+def get_latest_customer_quotation(args=None):
+    if args is None:
+        args = {}
+
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    if not project_id:
+        return _error("PROJECT_ID_REQUIRED", "project_id query parameter is required.", 422)
+
+    try:
+        project_id = int(project_id)
+        if project_id <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return _error("VALIDATION_ERROR", "project_id must be a positive integer.", 422)
+
+    try:
+        customer_quotation = get_latest_customer_quotation_record(project_id)
+        return {
+            "items": [
+                {
+                    "id": item.id,
+                    "customer_quotation_id": item.customer_quotation_id,
+                    "cost_sheet_item_id": item.cost_sheet_item_id,
+                    "quotation_number": item.quotation_number,
+                    "item_code": item.item_code,
+                    "material_name": item.material_name,
+                    "quantity": item.quantity,
+                    "unit_price": item.unit_price,
+                    "net_amount": item.net_amount,
+                    "customs_duty_rate": (
+                        float(item.customs_duty_rate)
+                        if item.customs_duty_rate is not None
+                        else None
+                    ),
+                    "created_at": item.created_at,
+                }
+                for item in customer_quotation.items
+            ]
+        }, 200
+    except ProjectNotFoundError as exc:
+        return _error("PROJECT_NOT_FOUND", str(exc), 404)
+    except CustomerQuotationNotFoundError as exc:
+        return _error("CUSTOMER_QUOTATION_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get latest customer quotation")
+        return _error(
+            "CUSTOMER_QUOTATION_GET_FAILED",
+            "Failed to get latest customer quotation.",
+            500,
+        )
 
 
 @customer_quotation_bp.get("/<int:customer_quotation_id>")

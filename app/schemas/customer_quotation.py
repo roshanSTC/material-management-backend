@@ -351,3 +351,41 @@ class CustomerQuotationResponseSchema(Schema):
         required=True,
     )
 
+
+class LatestCustomerQuotationQuerySchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    project_id = fields.Integer(
+        required=True,
+        validate=validate.Range(min=1),
+    )
+
+    @pre_load
+    def normalize_keys(self, data, **kwargs):
+        if not isinstance(data, (dict, Mapping)):
+            return data
+        normalized = dict(data)
+        resolved_id = (
+            normalized.get("project_id")
+            if normalized.get("project_id") is not None
+            else normalized.get("product_id")
+            if normalized.get("product_id") is not None
+            else normalized.get("projectId")
+            if normalized.get("projectId") is not None
+            else normalized.get("productId")
+        )
+        if resolved_id is not None and str(resolved_id).strip() != "":
+            normalized["project_id"] = str(resolved_id).strip()
+        return normalized
+
+
+class LatestCustomerQuotationResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    items = fields.List(
+        fields.Nested(CustomerQuotationItemResponseSchema),
+        required=True,
+    )
+

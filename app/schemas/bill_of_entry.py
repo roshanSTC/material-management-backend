@@ -218,6 +218,8 @@ class LatestBillOfEntryResponseSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
+    bill_of_entry_no = fields.String(allow_none=True)
+    date = fields.Date(allow_none=True)
     bcd = fields.Float(allow_none=True)
     sws = fields.Float(allow_none=True)
     igst = fields.Float(allow_none=True)

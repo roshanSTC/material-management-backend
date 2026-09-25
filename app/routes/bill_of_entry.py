@@ -101,6 +101,8 @@ def _latest_bill_of_entry_response(record):
         duty_dec = (bcd_dec or Decimal(0)) + (sws_dec or Decimal(0))
 
     return {
+        "bill_of_entry_no": record.bill_of_entry_no,
+        "date": record.date,
         "bcd": float(bcd_dec) if bcd_dec is not None else None,
         "sws": float(sws_dec) if sws_dec is not None else None,
         "igst": float(igst_dec) if igst_dec is not None else None,
@@ -485,7 +487,7 @@ def list_bills_of_entry(args=None):
 @bill_of_entry_bp.doc(
     security=[{"BearerAuth": []}],
     summary="Get Latest Bill of Entry for Project",
-    description="Retrieve bcd, sws, igst, and duty for the latest bill of entry of a project.",
+    description="Retrieve bill_of_entry_no, date, bcd, sws, igst, and duty for the latest bill of entry of a project.",
 )
 @bill_of_entry_bp.arguments(LatestBillOfEntryQuerySchema, location="query")
 @bill_of_entry_bp.response(200, LatestBillOfEntryResponseSchema)
@@ -540,7 +542,7 @@ bill_of_entry_singular_bp = Blueprint(
 @bill_of_entry_singular_bp.doc(
     security=[{"BearerAuth": []}],
     summary="Get Latest Bill of Entry for Project",
-    description="Retrieve bcd, sws, igst, and duty for the latest bill of entry of a project.",
+    description="Retrieve bill_of_entry_no, date, bcd, sws, igst, and duty for the latest bill of entry of a project.",
 )
 @bill_of_entry_singular_bp.arguments(LatestBillOfEntryQuerySchema, location="query")
 @bill_of_entry_singular_bp.response(200, LatestBillOfEntryResponseSchema)

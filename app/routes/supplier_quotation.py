@@ -135,6 +135,7 @@ def _latest_supplier_quotation_response(sq):
 
     return {
         "items": items_list,
+        "currency_unit" :sq.currency_unit,
         "incoterms": sq.incoterms,
         "payment_terms": sq.payment_terms,
     }

@@ -409,4 +409,6 @@ class LatestSupplierQuotationResponseSchema(Schema):
     )
     incoterms = fields.String(allow_none=True)
     payment_terms = fields.String(allow_none=True)
+    currency_unit = fields.String(allow_none=True)
+    
 

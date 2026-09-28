@@ -46,6 +46,9 @@ def create_customer_payment_transaction(
         entity_id=payment.id,
     )
 
+    from app.services.project_step_service import sync_customer_payment_step
+    sync_customer_payment_step(project_id)
+
     return payment
 
 
@@ -80,6 +83,7 @@ def update_customer_payment_transaction(
         raise CustomerPaymentNotFoundError(
             f"Customer payment with ID {payment_id} not found."
         )
+    previous_project_id = payment.project_id
 
     if "project_id" in data and data["project_id"] is not None:
         project_id = data["project_id"]
@@ -104,6 +108,11 @@ def update_customer_payment_transaction(
             entity_id=updated_payment.id,
         )
 
+    from app.services.project_step_service import sync_customer_payment_step
+    sync_customer_payment_step(updated_payment.project_id)
+    if updated_payment.project_id != previous_project_id:
+        sync_customer_payment_step(previous_project_id)
+
     return updated_payment
 
 
@@ -125,5 +134,8 @@ def delete_customer_payment_transaction(payment_id: int) -> list[str]:
         remarks_data=None,
         entity_id=payment_id,
     )
+
+    from app.services.project_step_service import sync_customer_payment_step
+    sync_customer_payment_step(project_id)
 
     return storage_keys

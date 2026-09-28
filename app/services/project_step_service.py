@@ -300,10 +300,20 @@ STEP_DEFINITIONS = {
             "Customer settles the invoice raised by S.T."
         ),
         "required_fields": {
-            "payment_date",
+            "has_customer_payment",
+            "invoice_no",
+            "invoice_number",
+            "invoice_date",
+            "invoice_value",
+            "payment_amount",
             "amount_received",
+            "payment_date",
             "payment_mode",
+            "tds",
+            "ld",
+            "liquidated_damages",
             "remarks",
+            "remark",
         },
     },
     15: {
@@ -312,10 +322,20 @@ STEP_DEFINITIONS = {
             "S.T. clears the balance payment owed to the supplier."
         ),
         "required_fields": {
-            "payment_date",
+            "has_supplier_payment",
+            "supplier_id",
+            "currency",
+            "payment_percentage",
+            "total_supplier_value",
             "amount_paid",
+            "amount_paid_inr",
+            "amount_paid_currency",
+            "payment_date",
             "payment_mode",
+            "transaction_details",
+            "pending_amount",
             "remarks",
+            "remark",
         },
     },
 }
@@ -527,6 +547,31 @@ def calculate_step_progress(
 
         return round(min(progress, 100.0), 2)
 
+    if step_number == 14:
+        # Step 14 (Customer makes Payment to S.T.):
+        data = data or {}
+        if (
+            data.get("has_customer_payment") is True
+            or _is_field_filled(data.get("payment_amount"))
+            or _is_field_filled(data.get("amount_received"))
+            or _is_field_filled(data.get("invoice_no"))
+            or _is_field_filled(data.get("invoice_number"))
+        ):
+            return 100.0
+        return 0.0
+
+    if step_number == 15:
+        # Step 15 (S.T. makes Payment to Partner / Supplier):
+        data = data or {}
+        if (
+            data.get("has_supplier_payment") is True
+            or _is_field_filled(data.get("amount_paid"))
+            or _is_field_filled(data.get("amount_paid_inr"))
+            or _is_field_filled(data.get("amount_paid_currency"))
+        ):
+            return 100.0
+        return 0.0
+
     definition = _get_step_definition(step_number)
 
     required_fields = definition["required_fields"]
@@ -620,6 +665,8 @@ def list_project_steps(
 
     sync_cost_sheet_step(project_id)
     sync_customer_delivery_step(project_id)
+    sync_customer_payment_step(project_id)
+    sync_supplier_payment_step(project_id)
 
     saved_steps = {
         step.step_number: step
@@ -666,6 +713,10 @@ def get_project_step(
         sync_cost_sheet_step(project_id)
     elif step_number == 13:
         sync_customer_delivery_step(project_id)
+    elif step_number == 14:
+        sync_customer_payment_step(project_id)
+    elif step_number == 15:
+        sync_supplier_payment_step(project_id)
 
     step = ProjectStep.query.filter_by(
         project_id=project_id,
@@ -1962,4 +2013,130 @@ def sync_transport_detail_step(project_id: int):
 
 def sync_warranty_certificate_step(project_id: int):
     return sync_customer_delivery_step(project_id)
+
+
+def sync_customer_payment_step(project_id: int) -> ProjectStep | None:
+    from app.models.customer_payment import CustomerPayment
+
+    project = db.session.get(Project, project_id)
+    if project is None:
+        return None
+
+    payment = (
+        CustomerPayment.query
+        .filter_by(project_id=project_id)
+        .order_by(CustomerPayment.updated_at.desc(), CustomerPayment.id.desc())
+        .first()
+    )
+
+    if payment is None:
+        existing_step = ProjectStep.query.filter_by(
+            project_id=project_id,
+            step_number=14,
+        ).first()
+
+        if existing_step is not None:
+            db.session.delete(existing_step)
+            db.session.flush()
+        return None
+
+    inv_date_str = (
+        payment.invoice_date.isoformat()
+        if hasattr(payment.invoice_date, "isoformat")
+        else str(payment.invoice_date)[:10]
+    ) if payment.invoice_date else None
+
+    pay_date_str = (
+        payment.payment_date.isoformat()
+        if hasattr(payment.payment_date, "isoformat")
+        else str(payment.payment_date)[:10]
+    ) if payment.payment_date else None
+
+    pay_amt_str = (
+        str(payment.payment_amount)
+        if payment.payment_amount is not None
+        else None
+    )
+
+    step_data = {
+        "has_customer_payment": True,
+        "invoice_no": payment.invoice_no,
+        "invoice_number": payment.invoice_no,
+        "invoice_date": inv_date_str,
+        "invoice_value": str(payment.invoice_value) if payment.invoice_value is not None else None,
+        "payment_amount": pay_amt_str,
+        "amount_received": pay_amt_str,
+        "payment_date": pay_date_str,
+        "tds": str(payment.tds) if payment.tds is not None else None,
+        "ld": str(payment.ld) if payment.ld is not None else None,
+        "liquidated_damages": str(payment.ld) if payment.ld is not None else None,
+        "remark": payment.remark,
+        "remarks": payment.remark,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=14,
+        data=step_data,
+    )
+
+
+def sync_supplier_payment_step(project_id: int) -> ProjectStep | None:
+    from app.models.supplier_payment import SupplierPayment
+
+    project = db.session.get(Project, project_id)
+    if project is None:
+        return None
+
+    payment = (
+        SupplierPayment.query
+        .filter_by(project_id=project_id)
+        .order_by(SupplierPayment.updated_at.desc(), SupplierPayment.id.desc())
+        .first()
+    )
+
+    if payment is None:
+        existing_step = ProjectStep.query.filter_by(
+            project_id=project_id,
+            step_number=15,
+        ).first()
+
+        if existing_step is not None:
+            db.session.delete(existing_step)
+            db.session.flush()
+        return None
+
+    pay_date_str = (
+        payment.payment_date.isoformat()
+        if hasattr(payment.payment_date, "isoformat")
+        else str(payment.payment_date)[:10]
+    ) if payment.payment_date else None
+
+    amt_paid_str = (
+        str(payment.amount_paid)
+        if payment.amount_paid is not None
+        else None
+    )
+
+    step_data = {
+        "has_supplier_payment": True,
+        "supplier_id": payment.supplier_id,
+        "currency": payment.currency,
+        "payment_percentage": str(payment.payment_percentage) if payment.payment_percentage is not None else None,
+        "total_supplier_value": str(payment.total_supplier_value) if payment.total_supplier_value is not None else None,
+        "amount_paid": amt_paid_str,
+        "amount_paid_inr": amt_paid_str,
+        "amount_paid_currency": amt_paid_str,
+        "payment_date": pay_date_str,
+        "transaction_details": payment.transaction_details,
+        "pending_amount": str(payment.pending_amount) if payment.pending_amount is not None else None,
+        "remark": payment.remark,
+        "remarks": payment.remark,
+    }
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=15,
+        data=step_data,
+    )
 

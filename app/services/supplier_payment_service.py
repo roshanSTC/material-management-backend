@@ -186,6 +186,9 @@ def create_supplier_payment_transaction(
         default_user_id=user_id,
     )
 
+    from app.services.project_step_service import sync_supplier_payment_step
+    sync_supplier_payment_step(project_id)
+
     return payment
 
 
@@ -222,6 +225,7 @@ def update_supplier_payment_transaction(
         raise SupplierPaymentNotFoundError(
             f"Supplier payment with ID {payment_id} not found."
         )
+    previous_project_id = payment.project_id
 
     if "project_id" in data and data["project_id"] is not None:
         project_id = data["project_id"]
@@ -254,6 +258,11 @@ def update_supplier_payment_transaction(
             default_user_id=user_id,
         )
 
+    from app.services.project_step_service import sync_supplier_payment_step
+    sync_supplier_payment_step(updated_payment.project_id)
+    if updated_payment.project_id != previous_project_id:
+        sync_supplier_payment_step(previous_project_id)
+
     return updated_payment
 
 
@@ -276,5 +285,8 @@ def delete_supplier_payment_transaction(payment_id: int) -> list[str]:
             step_number=15,
             remarks_data=None,
         )
+
+    from app.services.project_step_service import sync_supplier_payment_step
+    sync_supplier_payment_step(project_id)
 
     return storage_keys

@@ -29,6 +29,11 @@ def _parse_date(val):
     s = str(val).strip()
     if not s:
         return None
+    for fmt in ("%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            pass
     try:
         if "T" in s:
             return datetime.fromisoformat(s.replace("Z", "+00:00")).date()

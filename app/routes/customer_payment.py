@@ -17,12 +17,16 @@ from app.services.attachment_service import (
     create_attachment,
     list_attachments,
 )
+from app.repositories.customer_payment_repository import list_customer_payments as repo_list_customer_payments
 from app.services.customer_payment_service import (
     CustomerPaymentNotFoundError,
+    InvoiceValueRequiredError,
+    PaymentExceedsBalanceError,
     ProjectNotFoundError,
     create_customer_payment_transaction,
     delete_customer_payment_transaction,
     get_customer_payment_record,
+    get_customer_payment_summary,
     list_customer_payment_records,
     update_customer_payment_transaction,
 )
@@ -44,23 +48,95 @@ def _error(code: str, message: str, status: int):
     )
 
 
+def _format_decimal(val):
+    if val is None:
+        return None
+    try:
+        from decimal import Decimal
+        return f"{Decimal(str(val)):.2f}"
+    except Exception:
+        return str(val)
+
+
 def _customer_payment_response(payment):
+    from decimal import Decimal
+
     attachments = list_attachments(
         entity_type="customer_payment",
         entity_id=payment.id,
     )
+    iv = Decimal(str(payment.invoice_value or 0)).quantize(Decimal("0.01"))
+    amt = Decimal(str(payment.payment_amount or 0)).quantize(Decimal("0.01"))
+
+    if hasattr(payment, "_cumulative_paid") and hasattr(payment, "_pending_amount"):
+        cum_paid = Decimal(str(payment._cumulative_paid)).quantize(Decimal("0.01"))
+        pend = Decimal(str(payment._pending_amount)).quantize(Decimal("0.01"))
+    else:
+        project_payments = repo_list_customer_payments(
+            project_id=payment.project_id,
+            latest_first=False,
+        )
+        running_paid = Decimal("0.00")
+        for p in project_payments:
+            p_amt = Decimal(str(p.payment_amount or 0)).quantize(Decimal("0.01"))
+            running_paid += p_amt
+            if p.id == payment.id:
+                break
+        cum_paid = running_paid if running_paid > Decimal("0.00") else amt
+        if iv > Decimal("0.00"):
+            pend = max((iv - cum_paid).quantize(Decimal("0.01")), Decimal("0.00"))
+        else:
+            pend = Decimal("0.00")
+
+    if iv > Decimal("0.00"):
+        pay_pct = ((amt / iv) * Decimal("100")).quantize(Decimal("0.01"))
+        cum_pct = min(
+            ((cum_paid / iv) * Decimal("100")).quantize(Decimal("0.01")),
+            Decimal("100.00"),
+        )
+        pend_pct = max((Decimal("100.00") - cum_pct).quantize(Decimal("0.01")), Decimal("0.00"))
+        is_completed = (pend <= Decimal("0.00")) or (cum_pct >= Decimal("100.00"))
+    else:
+        pay_pct = Decimal("100.00") if amt > Decimal("0.00") else Decimal("0.00")
+        cum_pct = Decimal("100.00") if cum_paid > Decimal("0.00") else Decimal("0.00")
+        pend_pct = Decimal("0.00") if cum_paid > Decimal("0.00") else Decimal("100.00")
+        is_completed = cum_paid > Decimal("0.00")
+
+    if is_completed:
+        payment_status = "completed"
+        status_message = "Payment completed"
+    elif cum_paid > Decimal("0.00"):
+        payment_status = "partial"
+        status_message = f"{cum_pct:.2f}% paid, {pend_pct:.2f}% pending"
+    else:
+        payment_status = "pending"
+        status_message = "0.00% paid, 100.00% pending"
+
+    customer_id = payment.project.customer_id if getattr(payment, "project", None) else None
+
     return {
         "id": payment.id,
         "project_id": payment.project_id,
+        "customer_id": customer_id,
         "invoice_no": payment.invoice_no,
         "invoice_number": payment.invoice_no,
         "invoice_date": payment.invoice_date,
-        "invoice_value": payment.invoice_value,
-        "payment_amount": payment.payment_amount,
+        "payment_percentage": _format_decimal(pay_pct),
+        "cumulative_payment_percentage": _format_decimal(cum_pct),
+        "pending_percentage": _format_decimal(pend_pct),
+        "invoice_value": _format_decimal(payment.invoice_value),
+        "payment_amount": _format_decimal(payment.payment_amount),
+        "amount_paid": _format_decimal(payment.payment_amount),
+        "total_paid_amount": _format_decimal(cum_paid),
         "payment_date": payment.payment_date,
-        "tds": payment.tds,
-        "ld": payment.ld,
-        "liquidated_damages": payment.ld,
+        "pending_amount": _format_decimal(pend),
+        "tds": _format_decimal(payment.tds),
+        "ld": _format_decimal(payment.ld),
+        "liquidated_damages": _format_decimal(payment.ld),
+        "is_payment_completed": is_completed,
+        "payment_status": payment_status,
+        "payment_status_message": status_message,
+        "remark": payment.remark,
         "remarks": get_step_remarks_for_response(
             project_id=payment.project_id,
             step_number=14,
@@ -173,6 +249,14 @@ def _handle_create_customer_payment():
 
         db.session.commit()
         return _customer_payment_response(payment), 201
+    except PaymentExceedsBalanceError as exc:
+        db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
+        return _error("PAYMENT_EXCEEDS_OUTSTANDING_BALANCE", str(exc), 400)
+    except InvoiceValueRequiredError as exc:
+        db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
+        return _error("INVOICE_VALUE_REQUIRED", str(exc), 400)
     except ProjectNotFoundError as exc:
         db.session.rollback()
         _cleanup_uploaded_files(storage_keys)
@@ -280,6 +364,14 @@ def _handle_update_customer_payment(payment_id: int):
 
         db.session.commit()
         return _customer_payment_response(payment), 200
+    except PaymentExceedsBalanceError as exc:
+        db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
+        return _error("PAYMENT_EXCEEDS_OUTSTANDING_BALANCE", str(exc), 400)
+    except InvoiceValueRequiredError as exc:
+        db.session.rollback()
+        _cleanup_uploaded_files(storage_keys)
+        return _error("INVOICE_VALUE_REQUIRED", str(exc), 400)
     except CustomerPaymentNotFoundError as exc:
         db.session.rollback()
         _cleanup_uploaded_files(storage_keys)
@@ -353,7 +445,7 @@ _REQUEST_BODY_CREATE_DOC = {
                         "type": "string",
                         "description": "Serialized JSON string matching CustomerPaymentCreateSchema",
                         "example": (
-                            '{"project_id":2,"invoice_no":"INV-EWU5G-54TRE","invoice_date":"2026-09-10","invoice_value":5149,"payment_amount":234.35,"payment_date":"2026-09-22","tds":34,"ld":34,"remark":"Bank UTR & Settlement Remarks"}'
+                            '{"project_id":2,"invoice_no":"INV-EWU5G-54TRE","invoice_date":"2026-09-10","payment_percentage":50,"invoice_value":5149,"payment_amount":2574.50,"payment_date":"2026-09-22","tds":34,"ld":34,"remark":"Bank UTR & Settlement Remarks"}'
                         ),
                     },
                     "file": {
@@ -414,6 +506,33 @@ def list_customer_payments(args=None):
     return _handle_list_customer_payments(args)
 
 
+@customer_payment_bp.get("/summary")
+@customer_payment_bp.doc(security=[{"BearerAuth": []}])
+@jwt_required()
+def get_customer_payment_summary_route():
+    project_id = request.args.get("project_id") or request.args.get("projectId")
+    if not project_id:
+        return _error("PROJECT_ID_REQUIRED", "project_id query parameter is required.", 400)
+    try:
+        project_id = int(project_id)
+        if project_id <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+
+    try:
+        summary = get_customer_payment_summary(project_id)
+        return jsonify(summary), 200
+    except ProjectNotFoundError as exc:
+        return _error("PROJECT_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get customer payment summary")
+        return _error(
+            "CUSTOMER_PAYMENT_SUMMARY_FAILED",
+            "Failed to get customer payment summary.",
+            500,
+        )
+
 
 @customer_payment_bp.get("/<int:customer_payment_id>")
 @customer_payment_bp.doc(security=[{"BearerAuth": []}])
@@ -439,3 +558,4 @@ def update_customer_payment(customer_payment_id):
 @jwt_required()
 def delete_customer_payment(customer_payment_id):
     return _handle_delete_customer_payment(customer_payment_id)
+

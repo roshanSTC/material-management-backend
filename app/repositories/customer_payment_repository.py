@@ -81,10 +81,29 @@ def get_customer_payment(payment_id: int) -> CustomerPayment | None:
     return db.session.get(CustomerPayment, payment_id)
 
 
+def get_total_previously_paid(project_id: int, exclude_id: int | None = None) -> Decimal:
+    query = db.session.query(
+        db.func.coalesce(db.func.sum(CustomerPayment.payment_amount), 0)
+    ).filter(CustomerPayment.project_id == project_id)
+    if exclude_id is not None:
+        query = query.filter(CustomerPayment.id != exclude_id)
+    val = query.scalar()
+    return Decimal(str(val or 0))
+
+
+def get_latest_customer_payment_for_project(project_id: int) -> CustomerPayment | None:
+    return (
+        CustomerPayment.query.filter_by(project_id=project_id)
+        .order_by(CustomerPayment.payment_date.desc(), CustomerPayment.id.desc())
+        .first()
+    )
+
+
 def list_customer_payments(
     *,
     project_id: int | None = None,
     invoice_no: str | None = None,
+    latest_first: bool = False,
 ) -> list[CustomerPayment]:
     query = CustomerPayment.query
     if project_id is not None:
@@ -93,7 +112,12 @@ def list_customer_payments(
         query = query.filter(
             CustomerPayment.invoice_no.ilike(f"%{invoice_no.strip()}%")
         )
-    return query.order_by(CustomerPayment.id.desc()).all()
+    if latest_first:
+        return query.order_by(
+            CustomerPayment.created_at.desc(),
+            CustomerPayment.id.desc(),
+        ).all()
+    return query.order_by(CustomerPayment.payment_date.asc(), CustomerPayment.id.asc()).all()
 
 
 def update_customer_payment(

@@ -9,6 +9,7 @@ from marshmallow import (
     fields,
     pre_load,
     validate,
+    validates_schema,
 )
 
 from app.schemas.attachment import AttachmentResponseSchema
@@ -48,20 +49,32 @@ class CustomerPaymentCreateSchema(Schema):
 
     project_id = fields.Integer(required=True)
     invoice_no = fields.String(
-        required=True,
-        validate=validate.And(
-            validate.Length(min=1, max=100),
-            _not_blank,
-        ),
+        required=False,
+        allow_none=True,
+        validate=validate.Length(max=100),
     )
-    invoice_date = fields.Date(required=True)
+    invoice_date = fields.Date(required=False, allow_none=True)
+    payment_percentage = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
     invoice_value = fields.Decimal(
-        required=True,
+        required=False,
+        allow_none=True,
         as_string=True,
         places=2,
     )
     payment_amount = fields.Decimal(
-        required=True,
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    pending_amount = fields.Decimal(
+        required=False,
+        allow_none=True,
         as_string=True,
         places=2,
     )
@@ -86,6 +99,14 @@ class CustomerPaymentCreateSchema(Schema):
         required=False,
         allow_none=True,
     )
+
+    @validates_schema
+    def validate_amount_or_percentage(self, data, **kwargs):
+        if data.get("payment_amount") is None and data.get("payment_percentage") is None:
+            raise ValidationError(
+                "Either payment_amount or payment_percentage is required.",
+                field_name="payment_amount",
+            )
 
     @pre_load
     def normalize_data(self, data, **kwargs):
@@ -114,7 +135,8 @@ class CustomerPaymentCreateSchema(Schema):
                 else normalized.get("invoiceNumber")
             )
         if inv_no is not None:
-            normalized["invoice_no"] = str(inv_no).strip()
+            s_inv = str(inv_no).strip()
+            normalized["invoice_no"] = s_inv if s_inv else None
 
         # Handle invoice_date
         inv_date = (
@@ -127,12 +149,30 @@ class CustomerPaymentCreateSchema(Schema):
             if parsed is not None:
                 normalized["invoice_date"] = parsed.isoformat()
 
+        # Handle payment_percentage
+        pct = (
+            normalized.get("payment_percentage")
+            if normalized.get("payment_percentage") is not None
+            else normalized.get("paymentPercentage")
+        )
+        if pct is None:
+            pct = normalized.get("percentage")
+        if pct is not None:
+            normalized["payment_percentage"] = pct
+
         # Handle invoice_value
         inv_val = (
             normalized.get("invoice_value")
             if normalized.get("invoice_value") is not None
             else normalized.get("invoiceValue")
         )
+        if inv_val is None:
+            inv_val = (
+                normalized.get("total_customer_value")
+                or normalized.get("totalCustomerValue")
+                or normalized.get("total_invoice_value")
+                or normalized.get("totalInvoiceValue")
+            )
         if inv_val is not None:
             normalized["invoice_value"] = inv_val
 
@@ -143,9 +183,34 @@ class CustomerPaymentCreateSchema(Schema):
             else normalized.get("paymentAmount")
         )
         if pay_amt is None:
-            pay_amt = normalized.get("amount")
+            pay_amt = (
+                normalized.get("amount")
+                if normalized.get("amount") is not None
+                else (
+                    normalized.get("amount_paid")
+                    if normalized.get("amount_paid") is not None
+                    else (
+                        normalized.get("amountPaid")
+                        if normalized.get("amountPaid") is not None
+                        else (
+                            normalized.get("amount_received")
+                            if normalized.get("amount_received") is not None
+                            else normalized.get("amountReceived")
+                        )
+                    )
+                )
+            )
         if pay_amt is not None:
             normalized["payment_amount"] = pay_amt
+
+        # Handle pending_amount
+        pend = (
+            normalized.get("pending_amount")
+            if normalized.get("pending_amount") is not None
+            else normalized.get("pendingAmount")
+        )
+        if pend is not None:
+            normalized["pending_amount"] = pend
 
         # Handle payment_date
         pay_date = (
@@ -169,14 +234,11 @@ class CustomerPaymentCreateSchema(Schema):
         if ld_val is not None:
             normalized["ld"] = ld_val
 
-        # Handle remark
-        rem = (
-            normalized.get("remark")
-            if normalized.get("remark") is not None
-            else normalized.get("remarks")
-        )
-        if rem is not None:
-            normalized["remark"] = rem
+        # Handle remark / remarks
+        if "remarks" in normalized and not normalized.get("remark"):
+            normalized["remark"] = normalized["remarks"]
+        elif "remark" in normalized and not normalized.get("remarks"):
+            normalized["remarks"] = normalized["remark"]
 
         return normalized
 
@@ -188,19 +250,31 @@ class CustomerPaymentUpdateSchema(Schema):
     project_id = fields.Integer(required=False)
     invoice_no = fields.String(
         required=False,
-        validate=validate.And(
-            validate.Length(min=1, max=100),
-            _not_blank,
-        ),
+        allow_none=True,
+        validate=validate.Length(max=100),
     )
-    invoice_date = fields.Date(required=False)
+    invoice_date = fields.Date(required=False, allow_none=True)
+    payment_percentage = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
     invoice_value = fields.Decimal(
         required=False,
+        allow_none=True,
         as_string=True,
         places=2,
     )
     payment_amount = fields.Decimal(
         required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    pending_amount = fields.Decimal(
+        required=False,
+        allow_none=True,
         as_string=True,
         places=2,
     )
@@ -252,15 +326,83 @@ class CustomerPaymentUpdateSchema(Schema):
                 if parsed is not None:
                     normalized["invoice_date"] = parsed.isoformat()
 
-        if "invoice_value" in normalized or "invoiceValue" in normalized:
-            inv_val = normalized.get("invoice_value") or normalized.get("invoiceValue")
+        if "payment_percentage" in normalized or "paymentPercentage" in normalized or "percentage" in normalized:
+            pct = (
+                normalized.get("payment_percentage")
+                if normalized.get("payment_percentage") is not None
+                else (
+                    normalized.get("paymentPercentage")
+                    if normalized.get("paymentPercentage") is not None
+                    else normalized.get("percentage")
+                )
+            )
+            if pct is not None:
+                normalized["payment_percentage"] = pct
+
+        if (
+            "invoice_value" in normalized
+            or "invoiceValue" in normalized
+            or "total_customer_value" in normalized
+            or "totalCustomerValue" in normalized
+            or "total_invoice_value" in normalized
+            or "totalInvoiceValue" in normalized
+        ):
+            inv_val = (
+                normalized.get("invoice_value")
+                or normalized.get("invoiceValue")
+                or normalized.get("total_customer_value")
+                or normalized.get("totalCustomerValue")
+                or normalized.get("total_invoice_value")
+                or normalized.get("totalInvoiceValue")
+            )
             if inv_val is not None:
                 normalized["invoice_value"] = inv_val
 
-        if "payment_amount" in normalized or "paymentAmount" in normalized or "amount" in normalized:
-            pay_amt = normalized.get("payment_amount") or normalized.get("paymentAmount") or normalized.get("amount")
+        if (
+            "payment_amount" in normalized
+            or "paymentAmount" in normalized
+            or "amount" in normalized
+            or "amount_paid" in normalized
+            or "amountPaid" in normalized
+            or "amount_received" in normalized
+            or "amountReceived" in normalized
+        ):
+            pay_amt = (
+                normalized.get("payment_amount")
+                if normalized.get("payment_amount") is not None
+                else (
+                    normalized.get("paymentAmount")
+                    if normalized.get("paymentAmount") is not None
+                    else (
+                        normalized.get("amount")
+                        if normalized.get("amount") is not None
+                        else (
+                            normalized.get("amount_paid")
+                            if normalized.get("amount_paid") is not None
+                            else (
+                                normalized.get("amountPaid")
+                                if normalized.get("amountPaid") is not None
+                                else (
+                                    normalized.get("amount_received")
+                                    if normalized.get("amount_received") is not None
+                                    else normalized.get("amountReceived")
+                                )
+                            )
+                        )
+                    )
+                )
+            )
             if pay_amt is not None:
                 normalized["payment_amount"] = pay_amt
+
+        if "pending_amount" in normalized or "pendingAmount" in normalized:
+            pend = (
+                normalized.get("pending_amount")
+                if normalized.get("pending_amount") is not None
+                else normalized.get("pendingAmount")
+            )
+            if pend is not None:
+                normalized["pending_amount"] = pend
 
         if "payment_date" in normalized or "paymentDate" in normalized:
             pay_date = normalized.get("payment_date") or normalized.get("paymentDate")
@@ -276,10 +418,10 @@ class CustomerPaymentUpdateSchema(Schema):
             if ld_val is not None:
                 normalized["ld"] = ld_val
 
-        if "remark" in normalized or "remarks" in normalized:
-            rem = normalized.get("remark") or normalized.get("remarks")
-            if rem is not None:
-                normalized["remark"] = rem
+        if "remarks" in normalized and not normalized.get("remark"):
+            normalized["remark"] = normalized["remarks"]
+        elif "remark" in normalized and not normalized.get("remarks"):
+            normalized["remarks"] = normalized["remark"]
 
         return normalized
 
@@ -287,15 +429,26 @@ class CustomerPaymentUpdateSchema(Schema):
 class CustomerPaymentResponseSchema(Schema):
     id = fields.Integer(dump_only=True)
     project_id = fields.Integer(dump_only=True)
+    customer_id = fields.Integer(dump_only=True, allow_none=True)
     invoice_no = fields.String(dump_only=True)
     invoice_number = fields.String(dump_only=True)
     invoice_date = fields.Date(dump_only=True)
+    payment_percentage = fields.Decimal(dump_only=True, as_string=True, places=2)
+    cumulative_payment_percentage = fields.Decimal(dump_only=True, as_string=True, places=2)
+    pending_percentage = fields.Decimal(dump_only=True, as_string=True, places=2)
     invoice_value = fields.Decimal(dump_only=True, as_string=True, places=2)
     payment_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
+    amount_paid = fields.Decimal(dump_only=True, as_string=True, places=2)
+    total_paid_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
+    pending_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
     payment_date = fields.Date(dump_only=True)
     tds = fields.Decimal(dump_only=True, as_string=True, places=2, allow_none=True)
     ld = fields.Decimal(dump_only=True, as_string=True, places=2, allow_none=True)
     liquidated_damages = fields.Decimal(dump_only=True, as_string=True, places=2, allow_none=True)
+    is_payment_completed = fields.Boolean(dump_only=True)
+    payment_status = fields.String(dump_only=True)
+    payment_status_message = fields.String(dump_only=True)
+    remark = fields.Raw(dump_only=True)
     remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
@@ -311,3 +464,4 @@ class CustomerPaymentQuerySchema(Schema):
 
     project_id = fields.Integer(required=False)
     invoice_no = fields.String(required=False)
+

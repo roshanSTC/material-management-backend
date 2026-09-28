@@ -301,17 +301,27 @@ STEP_DEFINITIONS = {
         ),
         "required_fields": {
             "has_customer_payment",
+            "customer_id",
             "invoice_no",
             "invoice_number",
             "invoice_date",
+            "payment_percentage",
+            "cumulative_payment_percentage",
+            "pending_percentage",
             "invoice_value",
             "payment_amount",
+            "amount_paid",
+            "total_paid_amount",
             "amount_received",
             "payment_date",
             "payment_mode",
+            "pending_amount",
             "tds",
             "ld",
             "liquidated_damages",
+            "is_payment_completed",
+            "payment_status",
+            "payment_status_message",
             "remarks",
             "remark",
         },
@@ -554,6 +564,32 @@ def calculate_step_progress(
     if step_number == 14:
         # Step 14 (Customer makes Payment to S.T.):
         data = data or {}
+        if data.get("is_payment_completed") is True or data.get("payment_status") == "completed":
+            return 100.0
+        for pct_key in ("cumulative_payment_percentage", "payment_percentage"):
+            raw_pct = data.get(pct_key)
+            if _is_field_filled(raw_pct):
+                try:
+                    pct_val = float(raw_pct)
+                    if pct_val > 0:
+                        return round(min(max(pct_val, 0.0), 100.0), 2)
+                except (ValueError, TypeError):
+                    pass
+        raw_iv = data.get("invoice_value")
+        raw_paid = (
+            data.get("total_paid_amount")
+            or data.get("payment_amount")
+            or data.get("amount_paid")
+            or data.get("amount_received")
+        )
+        if _is_field_filled(raw_iv) and _is_field_filled(raw_paid):
+            try:
+                iv_val = float(raw_iv)
+                paid_val = float(raw_paid)
+                if iv_val > 0 and paid_val > 0:
+                    return round(min((paid_val / iv_val) * 100.0, 100.0), 2)
+            except (ValueError, TypeError):
+                pass
         if (
             data.get("has_customer_payment") is True
             or _is_field_filled(data.get("payment_amount"))
@@ -2039,20 +2075,21 @@ def sync_warranty_certificate_step(project_id: int):
 
 
 def sync_customer_payment_step(project_id: int) -> ProjectStep | None:
+    from decimal import Decimal
     from app.models.customer_payment import CustomerPayment
 
     project = db.session.get(Project, project_id)
     if project is None:
         return None
 
-    payment = (
+    payments = (
         CustomerPayment.query
         .filter_by(project_id=project_id)
-        .order_by(CustomerPayment.updated_at.desc(), CustomerPayment.id.desc())
-        .first()
+        .order_by(CustomerPayment.payment_date.asc(), CustomerPayment.id.asc())
+        .all()
     )
 
-    if payment is None:
+    if not payments:
         existing_step = ProjectStep.query.filter_by(
             project_id=project_id,
             step_number=14,
@@ -2062,6 +2099,37 @@ def sync_customer_payment_step(project_id: int) -> ProjectStep | None:
             db.session.delete(existing_step)
             db.session.flush()
         return None
+
+    payment = payments[-1]
+    total_paid = sum(
+        (Decimal(str(p.payment_amount or 0)) for p in payments),
+        Decimal("0.00"),
+    ).quantize(Decimal("0.01"))
+
+    iv = Decimal("0.00")
+    for p in reversed(payments):
+        if p.invoice_value is not None:
+            try:
+                cand = Decimal(str(p.invoice_value))
+                if cand > Decimal("0.00"):
+                    iv = cand.quantize(Decimal("0.01"))
+                    break
+            except Exception:
+                pass
+
+    if iv > Decimal("0.00"):
+        pending_amt = max((iv - total_paid).quantize(Decimal("0.01")), Decimal("0.00"))
+        cum_pct = min(
+            ((total_paid / iv) * Decimal("100")).quantize(Decimal("0.01")),
+            Decimal("100.00"),
+        )
+        pending_pct = max((Decimal("100.00") - cum_pct).quantize(Decimal("0.01")), Decimal("0.00"))
+        is_completed = (pending_amt <= Decimal("0.00")) or (cum_pct >= Decimal("100.00"))
+    else:
+        pending_amt = Decimal("0.00")
+        cum_pct = Decimal("100.00") if total_paid > Decimal("0.00") else Decimal("0.00")
+        pending_pct = Decimal("0.00") if total_paid > Decimal("0.00") else Decimal("100.00")
+        is_completed = total_paid > Decimal("0.00")
 
     inv_date_str = (
         payment.invoice_date.isoformat()
@@ -2075,24 +2143,36 @@ def sync_customer_payment_step(project_id: int) -> ProjectStep | None:
         else str(payment.payment_date)[:10]
     ) if payment.payment_date else None
 
-    pay_amt_str = (
-        str(payment.payment_amount)
-        if payment.payment_amount is not None
-        else None
+    pay_amt_str = f"{total_paid:.2f}"
+    payment_status = "completed" if is_completed else "partial"
+    status_message = (
+        "Payment completed"
+        if is_completed
+        else f"{cum_pct:.2f}% paid, {pending_pct:.2f}% pending"
     )
 
     step_data = {
         "has_customer_payment": True,
+        "customer_id": project.customer_id,
         "invoice_no": payment.invoice_no,
         "invoice_number": payment.invoice_no,
         "invoice_date": inv_date_str,
-        "invoice_value": str(payment.invoice_value) if payment.invoice_value is not None else None,
+        "payment_percentage": f"{cum_pct:.2f}",
+        "cumulative_payment_percentage": f"{cum_pct:.2f}",
+        "pending_percentage": f"{pending_pct:.2f}",
+        "invoice_value": f"{iv:.2f}" if iv > Decimal("0.00") else None,
         "payment_amount": pay_amt_str,
+        "amount_paid": pay_amt_str,
+        "total_paid_amount": pay_amt_str,
         "amount_received": pay_amt_str,
         "payment_date": pay_date_str,
+        "pending_amount": f"{pending_amt:.2f}",
         "tds": str(payment.tds) if payment.tds is not None else None,
         "ld": str(payment.ld) if payment.ld is not None else None,
         "liquidated_damages": str(payment.ld) if payment.ld is not None else None,
+        "is_payment_completed": is_completed,
+        "payment_status": payment_status,
+        "payment_status_message": status_message,
         "remark": payment.remark,
         "remarks": payment.remark,
     }

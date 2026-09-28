@@ -247,10 +247,21 @@ def _project_summary_response(project):
     customer_payment_status = "pending"
     cust_payments = []
     try:
-        cust_payments = CustomerPayment.query.filter_by(project_id=project.id).all()
+        cust_payments = (
+            CustomerPayment.query.filter_by(project_id=project.id)
+            .order_by(CustomerPayment.payment_date.asc(), CustomerPayment.id.asc())
+            .all()
+        )
         if cust_payments:
             paid_sum = sum(float(p.payment_amount) for p in cust_payments if p.payment_amount is not None)
-            if total_value and paid_sum >= total_value:
+            latest_cust = cust_payments[-1]
+            cust_iv = (
+                float(latest_cust.invoice_value)
+                if latest_cust.invoice_value is not None and float(latest_cust.invoice_value) > 0
+                else float(total_value or 0.0)
+            )
+            latest_pending = max(cust_iv - paid_sum, 0.0) if cust_iv > 0 else 0.0
+            if (cust_iv > 0 and paid_sum >= cust_iv) or (latest_pending <= 0 and paid_sum > 0):
                 customer_payment_status = "completed"
             elif paid_sum > 0:
                 customer_payment_status = "partial"

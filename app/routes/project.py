@@ -249,7 +249,7 @@ def _project_summary_response(project):
     try:
         cust_payments = (
             CustomerPayment.query.filter_by(project_id=project.id)
-            .order_by(CustomerPayment.payment_date.asc(), CustomerPayment.id.asc())
+            .order_by(CustomerPayment.created_at.asc(), CustomerPayment.id.asc())
             .all()
         )
         if cust_payments:
@@ -281,7 +281,7 @@ def _project_summary_response(project):
     try:
         supp_payments = (
             SupplierPayment.query.filter_by(project_id=project.id)
-            .order_by(SupplierPayment.payment_date.asc(), SupplierPayment.id.asc())
+            .order_by(SupplierPayment.created_at.asc(), SupplierPayment.id.asc())
             .all()
         )
         if supp_payments:

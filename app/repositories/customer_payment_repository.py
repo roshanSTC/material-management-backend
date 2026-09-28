@@ -94,7 +94,7 @@ def get_total_previously_paid(project_id: int, exclude_id: int | None = None) ->
 def get_latest_customer_payment_for_project(project_id: int) -> CustomerPayment | None:
     return (
         CustomerPayment.query.filter_by(project_id=project_id)
-        .order_by(CustomerPayment.payment_date.desc(), CustomerPayment.id.desc())
+        .order_by(CustomerPayment.created_at.desc(), CustomerPayment.id.desc())
         .first()
     )
 
@@ -117,7 +117,10 @@ def list_customer_payments(
             CustomerPayment.created_at.desc(),
             CustomerPayment.id.desc(),
         ).all()
-    return query.order_by(CustomerPayment.payment_date.asc(), CustomerPayment.id.asc()).all()
+    return query.order_by(
+        CustomerPayment.created_at.asc(),
+        CustomerPayment.id.asc(),
+    ).all()
 
 
 def update_customer_payment(

@@ -244,10 +244,10 @@ def _calculate_payment_amounts(
 def _recalculate_project_payments(
     project_id: int,
     override_tsv: Decimal | None = None,
-) -> None:
-    payments = list_supplier_payments(project_id=project_id)
+) -> bool:
+    payments = list_supplier_payments(project_id=project_id, latest_first=False)
     if not payments:
-        return
+        return False
 
     tsv = _try_positive_decimal(override_tsv)
     if tsv is None:
@@ -259,18 +259,28 @@ def _recalculate_project_payments(
         try:
             tsv = _resolve_total_supplier_value(project_id)
         except TotalSupplierValueRequiredError:
-            return
+            return False
 
     tsv = tsv.quantize(Decimal("0.01"))
     running_paid = Decimal("0.00")
+    changed = False
     for p in payments:
         amt = Decimal(str(p.amount_paid or 0)).quantize(Decimal("0.01"))
         running_paid += amt
-        p.total_supplier_value = tsv
+        if p.total_supplier_value != tsv:
+            p.total_supplier_value = tsv
+            changed = True
         if tsv > Decimal("0.00"):
-            p.payment_percentage = ((amt / tsv) * Decimal("100")).quantize(Decimal("0.01"))
+            new_pct = ((amt / tsv) * Decimal("100")).quantize(Decimal("0.01"))
             pend = (tsv - running_paid).quantize(Decimal("0.01"))
-            p.pending_amount = pend if pend > Decimal("0.00") else Decimal("0.00")
+            new_pend = pend if pend > Decimal("0.00") else Decimal("0.00")
+            if p.payment_percentage != new_pct:
+                p.payment_percentage = new_pct
+                changed = True
+            if p.pending_amount != new_pend:
+                p.pending_amount = new_pend
+                changed = True
+    return changed
 
 
 def get_supplier_payment_summary(project_id: int) -> dict:
@@ -382,6 +392,8 @@ def get_supplier_payment_record(payment_id: int) -> SupplierPayment:
         raise SupplierPaymentNotFoundError(
             f"Supplier payment with ID {payment_id} not found."
         )
+    if _recalculate_project_payments(payment.project_id):
+        db.session.commit()
     return payment
 
 
@@ -391,12 +403,20 @@ def list_supplier_payment_records(
     supplier_id: int | None = None,
     currency: str | None = None,
 ) -> list[SupplierPayment]:
-    return list_supplier_payments(
+    payments = list_supplier_payments(
         project_id=project_id,
         supplier_id=supplier_id,
         currency=currency,
         latest_first=True,
     )
+    if payments:
+        changed = False
+        for pid in {p.project_id for p in payments}:
+            if _recalculate_project_payments(pid):
+                changed = True
+        if changed:
+            db.session.commit()
+    return payments
 
 
 def update_supplier_payment_transaction(

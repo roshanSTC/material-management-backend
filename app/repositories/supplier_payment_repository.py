@@ -109,7 +109,7 @@ def get_total_previously_paid(project_id: int, exclude_id: int | None = None) ->
 def get_latest_supplier_payment_for_project(project_id: int) -> SupplierPayment | None:
     return (
         SupplierPayment.query.filter_by(project_id=project_id)
-        .order_by(SupplierPayment.payment_date.desc(), SupplierPayment.id.desc())
+        .order_by(SupplierPayment.created_at.desc(), SupplierPayment.id.desc())
         .first()
     )
 
@@ -133,7 +133,10 @@ def list_supplier_payments(
             SupplierPayment.created_at.desc(),
             SupplierPayment.id.desc(),
         ).all()
-    return query.order_by(SupplierPayment.payment_date.asc(), SupplierPayment.id.asc()).all()
+    return query.order_by(
+        SupplierPayment.created_at.asc(),
+        SupplierPayment.id.asc(),
+    ).all()
 
 
 def update_supplier_payment(

@@ -432,7 +432,7 @@ def list_customer_payment_records(
         for pid, proj_payments in by_project.items():
             chronological = sorted(
                 proj_payments,
-                key=lambda x: (x.payment_date, x.id),
+                key=lambda x: (x.created_at, x.id),
             )
             iv = Decimal("0.00")
             for p in reversed(chronological):

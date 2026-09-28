@@ -2085,7 +2085,7 @@ def sync_customer_payment_step(project_id: int) -> ProjectStep | None:
     payments = (
         CustomerPayment.query
         .filter_by(project_id=project_id)
-        .order_by(CustomerPayment.payment_date.asc(), CustomerPayment.id.asc())
+        .order_by(CustomerPayment.created_at.asc(), CustomerPayment.id.asc())
         .all()
     )
 
@@ -2195,7 +2195,7 @@ def sync_supplier_payment_step(project_id: int) -> ProjectStep | None:
     payments = (
         SupplierPayment.query
         .filter_by(project_id=project_id)
-        .order_by(SupplierPayment.payment_date.asc(), SupplierPayment.id.asc())
+        .order_by(SupplierPayment.created_at.asc(), SupplierPayment.id.asc())
         .all()
     )
 

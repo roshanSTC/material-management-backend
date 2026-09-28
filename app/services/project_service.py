@@ -45,6 +45,7 @@ def create_project(
     customer_id: int,
     supplier_id: int,
     project_code: str | None = None,
+    nickname: str | None = None,
 ) -> Project:
     _validate_customer(customer_id)
     _validate_supplier(supplier_id)
@@ -54,6 +55,7 @@ def create_project(
         customer_id=customer_id,
         supplier_id=supplier_id,
         project_code=project_code.strip() if project_code else None,
+        nickname=nickname.strip() if nickname else None,
     )
 
     db.session.commit()
@@ -83,6 +85,7 @@ def update_project(
     customer_id: int | None = None,
     supplier_id: int | None = None,
     project_code: str | None = None,
+    nickname: str | None = None,
 ) -> Project:
     project = get_project(project_id)
 
@@ -91,6 +94,9 @@ def update_project(
 
     if project_code is not None:
         project.project_code = project_code.strip() if project_code else None
+
+    if nickname is not None:
+        project.nickname = nickname.strip() if nickname else None
 
     if customer_id is not None:
         _validate_customer(customer_id)

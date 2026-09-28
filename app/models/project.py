@@ -22,6 +22,11 @@ class Project(db.Model):
         nullable=False,
     )
 
+    nickname = db.Column(
+        db.String(255),
+        nullable=True,
+    )
+
     customer_id = db.Column(
         db.Integer,
         db.ForeignKey("customers.id"),

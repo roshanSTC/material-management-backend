@@ -79,6 +79,7 @@ def _project_response(project):
         "id": project.id,
         "project_code": project.project_code,
         "project_title": project.project_title,
+        "nickname": project.nickname,
         "customer_id": project.customer_id,
         "supplier_id": project.supplier_id,
         "created_at": project.created_at,
@@ -290,6 +291,7 @@ def _project_summary_response(project):
         "id": project.id,
         "project_code": project.project_code,
         "project_title": project.project_title,
+        "nickname": project.nickname,
         "customer_id": project.customer_id,
         "customer_name": project.customer.name if project.customer else "",
         "supplier_id": project.supplier_id,
@@ -323,6 +325,7 @@ def create(data):
             customer_id=data["customer_id"],
             supplier_id=data["supplier_id"],
             project_code=data.get("project_code"),
+            nickname=data.get("nickname"),
         )
 
     except CustomerNotFoundError as exc:
@@ -384,6 +387,7 @@ def get(project_id):
 
 
 @project_bp.put("/<int:project_id>")
+@project_bp.patch("/<int:project_id>")
 @project_bp.doc(security=[{"BearerAuth": []}])
 @project_bp.arguments(ProjectUpdateSchema)
 @project_bp.response(200, ProjectResponseSchema)
@@ -396,6 +400,7 @@ def update(data, project_id):
             customer_id=data.get("customer_id"),
             supplier_id=data.get("supplier_id"),
             project_code=data.get("project_code"),
+            nickname=data.get("nickname"),
         )
 
     except ProjectNotFoundError as exc:

@@ -9,12 +9,14 @@ def create_project(
     customer_id: int,
     supplier_id: int,
     project_code: str | None = None,
+    nickname: str | None = None,
 ) -> Project:
     project = Project(
         project_title=project_title,
         customer_id=customer_id,
         supplier_id=supplier_id,
         project_code=project_code,
+        nickname=nickname,
     )
 
     db.session.add(project)

@@ -134,15 +134,22 @@ def _format_decimal_str(val, places=2):
 
 
 def _latest_order_confirmation_response(confirmation):
+    from decimal import Decimal
+
     items_list = []
+    calculated_total = Decimal("0.00")
     for item in confirmation.items:
         qty = item.quantity
         price = item.unit_price
         net_amt = item.net_amount
         if net_amt is None and qty is not None and price is not None:
             try:
-                from decimal import Decimal
                 net_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
+            except Exception:
+                pass
+        if net_amt is not None:
+            try:
+                calculated_total += Decimal(str(net_amt))
             except Exception:
                 pass
 
@@ -154,11 +161,18 @@ def _latest_order_confirmation_response(confirmation):
             "net_amount": _format_decimal_str(net_amt, places=2),
         })
 
+    total_amt = confirmation.total_amount
+    if total_amt is None:
+        total_amt = confirmation.total_net_amount
+    if total_amt is None and items_list:
+        total_amt = calculated_total
+
     return {
         "payment_terms": confirmation.payment_terms,
         "warranty_period": confirmation.warranty_period,
         "shipping_terms": confirmation.shipping_terms,
         "delivery_period": confirmation.delivery_period,
+        "total_amount": _format_decimal_str(total_amt, places=2),
         "items": items_list,
     }
 

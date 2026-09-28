@@ -710,6 +710,7 @@ class LatestSupplierOrderConfirmationResponseSchema(Schema):
     warranty_period = fields.String(allow_none=True)
     shipping_terms = fields.String(allow_none=True)
     delivery_period = fields.String(allow_none=True)
+    total_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
     items = fields.List(
         fields.Nested(LatestSupplierOrderConfirmationItemResponseSchema),
         required=True,

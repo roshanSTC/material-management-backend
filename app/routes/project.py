@@ -268,11 +268,25 @@ def _project_summary_response(project):
     supplier_payment_status = "pending"
     supp_payments = []
     try:
-        supp_payments = SupplierPayment.query.filter_by(project_id=project.id).all()
+        supp_payments = (
+            SupplierPayment.query.filter_by(project_id=project.id)
+            .order_by(SupplierPayment.payment_date.asc(), SupplierPayment.id.asc())
+            .all()
+        )
         if supp_payments:
-            paid_sum = sum(float(p.amount_paid_inr) for p in supp_payments if p.amount_paid_inr is not None)
-            has_pending = any(p.pending_amount and float(p.pending_amount) > 0 for p in supp_payments)
-            if not has_pending and paid_sum > 0:
+            paid_sum = sum(float(p.amount_paid) for p in supp_payments if p.amount_paid is not None)
+            latest_supp = supp_payments[-1]
+            supp_tsv = (
+                float(latest_supp.total_supplier_value)
+                if latest_supp.total_supplier_value is not None
+                else 0.0
+            )
+            latest_pending = (
+                float(latest_supp.pending_amount)
+                if latest_supp.pending_amount is not None
+                else max(supp_tsv - paid_sum, 0.0)
+            )
+            if (supp_tsv > 0 and paid_sum >= supp_tsv) or (latest_pending <= 0 and paid_sum > 0):
                 supplier_payment_status = "completed"
             elif paid_sum > 0:
                 supplier_payment_status = "partial"

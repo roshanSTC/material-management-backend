@@ -36,9 +36,18 @@ def _parse_date_val(val) -> date | None:
     s = str(val).strip()
     if not s:
         return None
-    if "T" in s:
-        return datetime.fromisoformat(s.replace("Z", "+00:00")).date()
-    return date.fromisoformat(s)
+    try:
+        if "T" in s:
+            return datetime.fromisoformat(s.replace("Z", "+00:00")).date()
+        return date.fromisoformat(s)
+    except Exception:
+        pass
+    for fmt in ("%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    return None
 
 
 def _parse_decimal_val(val) -> Decimal | None:
@@ -57,6 +66,7 @@ def _parse_decimal_val(val) -> Decimal | None:
 
 def create_supplier_payment(*, data: dict) -> SupplierPayment:
     pay_date = _parse_date_val(data.get("payment_date"))
+    bcc = _normalize_optional_string(data.get("bank_charges_currency"))
 
     payment = SupplierPayment(
         project_id=data["project_id"],
@@ -68,6 +78,12 @@ def create_supplier_payment(*, data: dict) -> SupplierPayment:
         payment_date=pay_date,
         transaction_details=_normalize_optional_string(data.get("transaction_details")),
         pending_amount=_parse_decimal_val(data.get("pending_amount")),
+        exchange_rate=_parse_decimal_val(data.get("exchange_rate")),
+        total_with_exchange=_parse_decimal_val(data.get("total_with_exchange")),
+        bank_charges_currency=bcc.upper() if bcc else None,
+        bank_charges=_parse_decimal_val(data.get("bank_charges")),
+        swift_charges=_parse_decimal_val(data.get("swift_charges")),
+        total_outflow=_parse_decimal_val(data.get("total_outflow")),
         remark=_normalize_optional_string(data.get("remark") or data.get("remarks")),
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
@@ -147,6 +163,25 @@ def update_supplier_payment(
 
     if "pending_amount" in data:
         payment.pending_amount = _parse_decimal_val(data.get("pending_amount"))
+
+    if "exchange_rate" in data:
+        payment.exchange_rate = _parse_decimal_val(data.get("exchange_rate"))
+
+    if "total_with_exchange" in data:
+        payment.total_with_exchange = _parse_decimal_val(data.get("total_with_exchange"))
+
+    if "bank_charges_currency" in data:
+        bcc = _normalize_optional_string(data.get("bank_charges_currency"))
+        payment.bank_charges_currency = bcc.upper() if bcc else None
+
+    if "bank_charges" in data:
+        payment.bank_charges = _parse_decimal_val(data.get("bank_charges"))
+
+    if "swift_charges" in data:
+        payment.swift_charges = _parse_decimal_val(data.get("swift_charges"))
+
+    if "total_outflow" in data:
+        payment.total_outflow = _parse_decimal_val(data.get("total_outflow"))
 
     if "remark" in data or "remarks" in data:
         payment.remark = _normalize_optional_string(data.get("remark") or data.get("remarks"))

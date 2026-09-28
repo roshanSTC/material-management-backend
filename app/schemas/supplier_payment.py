@@ -9,6 +9,7 @@ from marshmallow import (
     fields,
     pre_load,
     validate,
+    validates_schema,
 )
 
 from app.schemas.attachment import AttachmentResponseSchema
@@ -34,7 +35,13 @@ def _parse_date(val):
             return datetime.fromisoformat(s.replace("Z", "+00:00")).date()
         return date.fromisoformat(s)
     except Exception:
-        raise ValidationError(f"Invalid date format: {val}")
+        pass
+    for fmt in ("%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    raise ValidationError(f"Invalid date format: {val}")
 
 
 class SupplierPaymentCreateSchema(Schema):
@@ -61,7 +68,8 @@ class SupplierPaymentCreateSchema(Schema):
         places=2,
     )
     amount_paid = fields.Decimal(
-        required=True,
+        required=False,
+        allow_none=True,
         as_string=True,
         places=2,
     )
@@ -76,6 +84,41 @@ class SupplierPaymentCreateSchema(Schema):
         as_string=True,
         places=2,
     )
+    exchange_rate = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    total_with_exchange = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    bank_charges_currency = fields.String(
+        required=False,
+        allow_none=True,
+        validate=validate.Length(max=10),
+    )
+    bank_charges = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    swift_charges = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    total_outflow = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
     remark = fields.Raw(
         required=False,
         allow_none=True,
@@ -84,6 +127,14 @@ class SupplierPaymentCreateSchema(Schema):
         required=False,
         allow_none=True,
     )
+
+    @validates_schema
+    def validate_amount_or_percentage(self, data, **kwargs):
+        if data.get("amount_paid") is None and data.get("payment_percentage") is None:
+            raise ValidationError(
+                "Either amount_paid or payment_percentage is required.",
+                field_name="amount_paid",
+            )
 
     @pre_load
     def normalize_data(self, data, **kwargs):
@@ -140,7 +191,7 @@ class SupplierPaymentCreateSchema(Schema):
             else normalized.get("amountPaid")
         )
         if amt is None:
-            amt = normalized.get("amount") or normalized.get("amount_paid_inr") or normalized.get("amount_paid_currency")
+            amt = normalized.get("amount")
         if amt is not None:
             normalized["amount_paid"] = amt
 
@@ -172,6 +223,60 @@ class SupplierPaymentCreateSchema(Schema):
         )
         if pend is not None:
             normalized["pending_amount"] = pend
+
+        # Handle exchange_rate
+        ex_rate = (
+            normalized.get("exchange_rate")
+            if normalized.get("exchange_rate") is not None
+            else normalized.get("exchangeRate")
+        )
+        if ex_rate is not None:
+            normalized["exchange_rate"] = ex_rate
+
+        # Handle total_with_exchange
+        twe = (
+            normalized.get("total_with_exchange")
+            if normalized.get("total_with_exchange") is not None
+            else normalized.get("totalWithExchange")
+        )
+        if twe is not None:
+            normalized["total_with_exchange"] = twe
+
+        # Handle bank_charges_currency
+        bcc = (
+            normalized.get("bank_charges_currency")
+            if normalized.get("bank_charges_currency") is not None
+            else normalized.get("bankChargesCurrency")
+        )
+        if bcc is not None:
+            normalized["bank_charges_currency"] = str(bcc).strip().upper()
+
+        # Handle bank_charges
+        bc = (
+            normalized.get("bank_charges")
+            if normalized.get("bank_charges") is not None
+            else normalized.get("bankCharges")
+        )
+        if bc is not None:
+            normalized["bank_charges"] = bc
+
+        # Handle swift_charges
+        sc = (
+            normalized.get("swift_charges")
+            if normalized.get("swift_charges") is not None
+            else normalized.get("swiftCharges")
+        )
+        if sc is not None:
+            normalized["swift_charges"] = sc
+
+        # Handle total_outflow
+        to_val = (
+            normalized.get("total_outflow")
+            if normalized.get("total_outflow") is not None
+            else normalized.get("totalOutflow")
+        )
+        if to_val is not None:
+            normalized["total_outflow"] = to_val
 
         # Handle remark / remarks
         if "remarks" in normalized and not normalized.get("remark"):
@@ -215,6 +320,41 @@ class SupplierPaymentUpdateSchema(Schema):
         allow_none=True,
     )
     pending_amount = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    exchange_rate = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    total_with_exchange = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    bank_charges_currency = fields.String(
+        required=False,
+        allow_none=True,
+        validate=validate.Length(max=10),
+    )
+    bank_charges = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    swift_charges = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    total_outflow = fields.Decimal(
         required=False,
         allow_none=True,
         as_string=True,
@@ -264,8 +404,8 @@ class SupplierPaymentUpdateSchema(Schema):
             if tsv is not None:
                 normalized["total_supplier_value"] = tsv
 
-        if "amount_paid" in normalized or "amountPaid" in normalized or "amount" in normalized or "amount_paid_inr" in normalized or "amount_paid_currency" in normalized:
-            amt = normalized.get("amount_paid") or normalized.get("amountPaid") or normalized.get("amount") or normalized.get("amount_paid_inr") or normalized.get("amount_paid_currency")
+        if "amount_paid" in normalized or "amountPaid" in normalized or "amount" in normalized:
+            amt = normalized.get("amount_paid") or normalized.get("amountPaid") or normalized.get("amount")
             if amt is not None:
                 normalized["amount_paid"] = amt
 
@@ -286,6 +426,60 @@ class SupplierPaymentUpdateSchema(Schema):
             if pend is not None:
                 normalized["pending_amount"] = pend
 
+        if "exchange_rate" in normalized or "exchangeRate" in normalized:
+            ex_rate = (
+                normalized.get("exchange_rate")
+                if normalized.get("exchange_rate") is not None
+                else normalized.get("exchangeRate")
+            )
+            if ex_rate is not None:
+                normalized["exchange_rate"] = ex_rate
+
+        if "total_with_exchange" in normalized or "totalWithExchange" in normalized:
+            twe = (
+                normalized.get("total_with_exchange")
+                if normalized.get("total_with_exchange") is not None
+                else normalized.get("totalWithExchange")
+            )
+            if twe is not None:
+                normalized["total_with_exchange"] = twe
+
+        if "bank_charges_currency" in normalized or "bankChargesCurrency" in normalized:
+            bcc = (
+                normalized.get("bank_charges_currency")
+                if normalized.get("bank_charges_currency") is not None
+                else normalized.get("bankChargesCurrency")
+            )
+            if bcc is not None:
+                normalized["bank_charges_currency"] = str(bcc).strip().upper()
+
+        if "bank_charges" in normalized or "bankCharges" in normalized:
+            bc = (
+                normalized.get("bank_charges")
+                if normalized.get("bank_charges") is not None
+                else normalized.get("bankCharges")
+            )
+            if bc is not None:
+                normalized["bank_charges"] = bc
+
+        if "swift_charges" in normalized or "swiftCharges" in normalized:
+            sc = (
+                normalized.get("swift_charges")
+                if normalized.get("swift_charges") is not None
+                else normalized.get("swiftCharges")
+            )
+            if sc is not None:
+                normalized["swift_charges"] = sc
+
+        if "total_outflow" in normalized or "totalOutflow" in normalized:
+            to_val = (
+                normalized.get("total_outflow")
+                if normalized.get("total_outflow") is not None
+                else normalized.get("totalOutflow")
+            )
+            if to_val is not None:
+                normalized["total_outflow"] = to_val
+
         if "remarks" in normalized and not normalized.get("remark"):
             normalized["remark"] = normalized["remarks"]
         elif "remark" in normalized and not normalized.get("remarks"):
@@ -300,13 +494,23 @@ class SupplierPaymentResponseSchema(Schema):
     supplier_id = fields.Integer(dump_only=True)
     currency = fields.String(dump_only=True)
     payment_percentage = fields.Decimal(dump_only=True, as_string=True, places=2)
+    cumulative_payment_percentage = fields.Decimal(dump_only=True, as_string=True, places=2)
+    pending_percentage = fields.Decimal(dump_only=True, as_string=True, places=2)
     total_supplier_value = fields.Decimal(dump_only=True, as_string=True, places=2)
     amount_paid = fields.Decimal(dump_only=True, as_string=True, places=2)
-    amount_paid_inr = fields.Decimal(dump_only=True, as_string=True, places=2)
-    amount_paid_currency = fields.Decimal(dump_only=True, as_string=True, places=2)
+    total_paid_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
     payment_date = fields.Date(dump_only=True)
     transaction_details = fields.String(dump_only=True)
     pending_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
+    exchange_rate = fields.Decimal(dump_only=True, as_string=True, places=2)
+    total_with_exchange = fields.Decimal(dump_only=True, as_string=True, places=2)
+    bank_charges_currency = fields.String(dump_only=True)
+    bank_charges = fields.Decimal(dump_only=True, as_string=True, places=2)
+    swift_charges = fields.Decimal(dump_only=True, as_string=True, places=2)
+    total_outflow = fields.Decimal(dump_only=True, as_string=True, places=2)
+    is_payment_completed = fields.Boolean(dump_only=True)
+    payment_status = fields.String(dump_only=True)
+    payment_status_message = fields.String(dump_only=True)
     remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)

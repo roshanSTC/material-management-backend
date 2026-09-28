@@ -61,6 +61,36 @@ class SupplierPayment(db.Model):
         nullable=True,
     )
 
+    exchange_rate = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    total_with_exchange = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    bank_charges_currency = db.Column(
+        db.String(10),
+        nullable=True,
+    )
+
+    bank_charges = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    swift_charges = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    total_outflow = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
     remark = db.Column(
         db.Text,
         nullable=True,
@@ -88,22 +118,6 @@ class SupplierPayment(db.Model):
         "Supplier",
         back_populates="supplier_payments",
     )
-
-    @property
-    def amount_paid_inr(self):
-        return self.amount_paid
-
-    @amount_paid_inr.setter
-    def amount_paid_inr(self, value):
-        self.amount_paid = value
-
-    @property
-    def amount_paid_currency(self):
-        return self.amount_paid
-
-    @amount_paid_currency.setter
-    def amount_paid_currency(self, value):
-        self.amount_paid = value
 
     @property
     def remarks(self):

@@ -328,12 +328,16 @@ STEP_DEFINITIONS = {
             "payment_percentage",
             "total_supplier_value",
             "amount_paid",
-            "amount_paid_inr",
-            "amount_paid_currency",
             "payment_date",
             "payment_mode",
             "transaction_details",
             "pending_amount",
+            "exchange_rate",
+            "total_with_exchange",
+            "bank_charges_currency",
+            "bank_charges",
+            "swift_charges",
+            "total_outflow",
             "remarks",
             "remark",
         },
@@ -563,11 +567,30 @@ def calculate_step_progress(
     if step_number == 15:
         # Step 15 (S.T. makes Payment to Partner / Supplier):
         data = data or {}
+        if data.get("is_payment_completed") is True or data.get("payment_status") == "completed":
+            return 100.0
+        for pct_key in ("cumulative_payment_percentage", "payment_percentage"):
+            raw_pct = data.get(pct_key)
+            if _is_field_filled(raw_pct):
+                try:
+                    pct_val = float(raw_pct)
+                    if pct_val > 0:
+                        return round(min(max(pct_val, 0.0), 100.0), 2)
+                except (ValueError, TypeError):
+                    pass
+        raw_tsv = data.get("total_supplier_value")
+        raw_paid = data.get("total_paid_amount") or data.get("amount_paid")
+        if _is_field_filled(raw_tsv) and _is_field_filled(raw_paid):
+            try:
+                tsv_val = float(raw_tsv)
+                paid_val = float(raw_paid)
+                if tsv_val > 0 and paid_val > 0:
+                    return round(min((paid_val / tsv_val) * 100.0, 100.0), 2)
+            except (ValueError, TypeError):
+                pass
         if (
             data.get("has_supplier_payment") is True
             or _is_field_filled(data.get("amount_paid"))
-            or _is_field_filled(data.get("amount_paid_inr"))
-            or _is_field_filled(data.get("amount_paid_currency"))
         ):
             return 100.0
         return 0.0
@@ -2082,20 +2105,21 @@ def sync_customer_payment_step(project_id: int) -> ProjectStep | None:
 
 
 def sync_supplier_payment_step(project_id: int) -> ProjectStep | None:
+    from decimal import Decimal
     from app.models.supplier_payment import SupplierPayment
 
     project = db.session.get(Project, project_id)
     if project is None:
         return None
 
-    payment = (
+    payments = (
         SupplierPayment.query
         .filter_by(project_id=project_id)
-        .order_by(SupplierPayment.updated_at.desc(), SupplierPayment.id.desc())
-        .first()
+        .order_by(SupplierPayment.payment_date.asc(), SupplierPayment.id.asc())
+        .all()
     )
 
-    if payment is None:
+    if not payments:
         existing_step = ProjectStep.query.filter_by(
             project_id=project_id,
             step_number=15,
@@ -2106,30 +2130,73 @@ def sync_supplier_payment_step(project_id: int) -> ProjectStep | None:
             db.session.flush()
         return None
 
+    payment = payments[-1]
+    total_paid = sum(
+        (Decimal(str(p.amount_paid or 0)) for p in payments),
+        Decimal("0.00"),
+    ).quantize(Decimal("0.01"))
+
+    tsv = Decimal("0.00")
+    for p in reversed(payments):
+        if p.total_supplier_value is not None:
+            try:
+                cand = Decimal(str(p.total_supplier_value))
+                if cand > Decimal("0.00"):
+                    tsv = cand.quantize(Decimal("0.01"))
+                    break
+            except Exception:
+                pass
+
+    if tsv > Decimal("0.00"):
+        pending_amt = max((tsv - total_paid).quantize(Decimal("0.01")), Decimal("0.00"))
+        cum_pct = min(
+            ((total_paid / tsv) * Decimal("100")).quantize(Decimal("0.01")),
+            Decimal("100.00"),
+        )
+        pending_pct = max((Decimal("100.00") - cum_pct).quantize(Decimal("0.01")), Decimal("0.00"))
+        is_completed = (pending_amt <= Decimal("0.00")) or (cum_pct >= Decimal("100.00"))
+    else:
+        pending_amt = Decimal("0.00")
+        cum_pct = Decimal("100.00") if total_paid > Decimal("0.00") else Decimal("0.00")
+        pending_pct = Decimal("0.00") if total_paid > Decimal("0.00") else Decimal("100.00")
+        is_completed = total_paid > Decimal("0.00")
+
     pay_date_str = (
         payment.payment_date.isoformat()
         if hasattr(payment.payment_date, "isoformat")
         else str(payment.payment_date)[:10]
     ) if payment.payment_date else None
 
-    amt_paid_str = (
-        str(payment.amount_paid)
-        if payment.amount_paid is not None
-        else None
+    amt_paid_str = f"{total_paid:.2f}"
+    payment_status = "completed" if is_completed else "partial"
+    status_message = (
+        "Payment completed"
+        if is_completed
+        else f"{cum_pct:.2f}% paid, {pending_pct:.2f}% pending"
     )
 
     step_data = {
         "has_supplier_payment": True,
         "supplier_id": payment.supplier_id,
         "currency": payment.currency,
-        "payment_percentage": str(payment.payment_percentage) if payment.payment_percentage is not None else None,
-        "total_supplier_value": str(payment.total_supplier_value) if payment.total_supplier_value is not None else None,
+        "payment_percentage": f"{cum_pct:.2f}",
+        "cumulative_payment_percentage": f"{cum_pct:.2f}",
+        "pending_percentage": f"{pending_pct:.2f}",
+        "total_supplier_value": f"{tsv:.2f}" if tsv > Decimal("0.00") else None,
         "amount_paid": amt_paid_str,
-        "amount_paid_inr": amt_paid_str,
-        "amount_paid_currency": amt_paid_str,
+        "total_paid_amount": amt_paid_str,
         "payment_date": pay_date_str,
         "transaction_details": payment.transaction_details,
-        "pending_amount": str(payment.pending_amount) if payment.pending_amount is not None else None,
+        "pending_amount": f"{pending_amt:.2f}",
+        "exchange_rate": str(payment.exchange_rate) if payment.exchange_rate is not None else None,
+        "total_with_exchange": str(payment.total_with_exchange) if payment.total_with_exchange is not None else None,
+        "bank_charges_currency": payment.bank_charges_currency,
+        "bank_charges": str(payment.bank_charges) if payment.bank_charges is not None else None,
+        "swift_charges": str(payment.swift_charges) if payment.swift_charges is not None else None,
+        "total_outflow": str(payment.total_outflow) if payment.total_outflow is not None else None,
+        "is_payment_completed": is_completed,
+        "payment_status": payment_status,
+        "payment_status_message": status_message,
         "remark": payment.remark,
         "remarks": payment.remark,
     }

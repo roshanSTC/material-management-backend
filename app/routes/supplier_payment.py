@@ -26,6 +26,7 @@ from app.services.supplier_payment_service import (
     create_supplier_payment_transaction,
     delete_supplier_payment_transaction,
     get_supplier_payment_record,
+    get_supplier_payment_summary,
     list_supplier_payment_records,
     update_supplier_payment_transaction,
 )
@@ -58,25 +59,64 @@ def _format_decimal(val):
 
 
 def _supplier_payment_response(payment):
+    from decimal import Decimal
+
     attachments = list_attachments(
         entity_type="supplier_payment",
         entity_id=payment.id,
     )
+    tsv = Decimal(str(payment.total_supplier_value or 0)).quantize(Decimal("0.01"))
+    amt = Decimal(str(payment.amount_paid or 0)).quantize(Decimal("0.01"))
+    pend = Decimal(str(payment.pending_amount or 0)).quantize(Decimal("0.01"))
+
+    if tsv > Decimal("0.00"):
+        cum_paid = max((tsv - pend).quantize(Decimal("0.01")), amt)
+        cum_pct = min(
+            ((cum_paid / tsv) * Decimal("100")).quantize(Decimal("0.01")),
+            Decimal("100.00"),
+        )
+        pend_pct = max((Decimal("100.00") - cum_pct).quantize(Decimal("0.01")), Decimal("0.00"))
+        is_completed = (pend <= Decimal("0.00")) or (cum_pct >= Decimal("100.00"))
+    else:
+        cum_paid = amt
+        cum_pct = Decimal("100.00") if amt > Decimal("0.00") else Decimal("0.00")
+        pend_pct = Decimal("0.00") if amt > Decimal("0.00") else Decimal("100.00")
+        is_completed = amt > Decimal("0.00")
+
+    if is_completed:
+        payment_status = "completed"
+        status_message = "Payment completed"
+    elif cum_paid > Decimal("0.00"):
+        payment_status = "partial"
+        status_message = f"{cum_pct:.2f}% paid, {pend_pct:.2f}% pending"
+    else:
+        payment_status = "pending"
+        status_message = "0.00% paid, 100.00% pending"
+
     return {
         "id": payment.id,
         "project_id": payment.project_id,
         "supplier_id": payment.supplier_id,
         "currency": payment.currency,
         "payment_percentage": _format_decimal(payment.payment_percentage),
+        "cumulative_payment_percentage": _format_decimal(cum_pct),
+        "pending_percentage": _format_decimal(pend_pct),
         "total_supplier_value": _format_decimal(payment.total_supplier_value),
         "amount_paid": _format_decimal(payment.amount_paid),
-        "amount_paid_inr": _format_decimal(payment.amount_paid),
-        "amount_paid_currency": _format_decimal(payment.amount_paid),
+        "total_paid_amount": _format_decimal(cum_paid),
         "payment_date": payment.payment_date,
         "transaction_details": payment.transaction_details,
         "pending_amount": _format_decimal(payment.pending_amount),
+        "exchange_rate": _format_decimal(payment.exchange_rate),
+        "total_with_exchange": _format_decimal(payment.total_with_exchange),
+        "bank_charges_currency": payment.bank_charges_currency,
+        "bank_charges": _format_decimal(payment.bank_charges),
+        "swift_charges": _format_decimal(payment.swift_charges),
+        "total_outflow": _format_decimal(payment.total_outflow),
+        "is_payment_completed": is_completed,
+        "payment_status": payment_status,
+        "payment_status_message": status_message,
         "remark": payment.remark,
-        "remarks": payment.remark,
         "remarks": get_step_remarks_for_response(payment.project_id, 15, payment.remark),
         "created_at": payment.created_at,
         "updated_at": payment.updated_at,
@@ -458,6 +498,34 @@ def create_supplier_payment():
 @jwt_required()
 def list_supplier_payments(args=None):
     return _handle_list_supplier_payments(args)
+
+
+@supplier_payment_bp.get("/summary")
+@supplier_payment_bp.doc(security=[{"BearerAuth": []}])
+@jwt_required()
+def get_supplier_payment_summary_route():
+    project_id = request.args.get("project_id") or request.args.get("projectId")
+    if not project_id:
+        return _error("PROJECT_ID_REQUIRED", "project_id query parameter is required.", 400)
+    try:
+        project_id = int(project_id)
+        if project_id <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+
+    try:
+        summary = get_supplier_payment_summary(project_id)
+        return jsonify(summary), 200
+    except ProjectNotFoundError as exc:
+        return _error("PROJECT_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get supplier payment summary")
+        return _error(
+            "SUPPLIER_PAYMENT_SUMMARY_FAILED",
+            "Failed to get supplier payment summary.",
+            500,
+        )
 
 
 @supplier_payment_bp.get("/<int:supplier_payment_id>")

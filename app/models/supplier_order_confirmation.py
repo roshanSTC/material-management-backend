@@ -78,6 +78,11 @@ class SupplierOrderConfirmation(db.Model):
         nullable=True,
     )
 
+    currency_unit = db.Column(
+        db.String(20),
+        nullable=True,
+    )
+
     remark = db.Column(
         db.Text,
         nullable=True,

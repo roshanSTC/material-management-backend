@@ -277,6 +277,11 @@ class SupplierOrderConfirmationCreateSchema(Schema):
         as_string=True,
         places=2,
     )
+    currency_unit = fields.String(
+        required=False,
+        allow_none=True,
+        validate=validate.Length(max=20),
+    )
     remark = fields.Raw(
         required=False,
         allow_none=True,
@@ -424,6 +429,17 @@ class SupplierOrderConfirmationCreateSchema(Schema):
         if resolved_net_total is not None:
             normalized["total_net_amount"] = str(resolved_net_total).strip()
 
+        # currency_unit / currencyUnit / currency
+        resolved_curr = (
+            normalized.get("currency_unit")
+            if normalized.get("currency_unit") is not None
+            else normalized.get("currencyUnit")
+            if normalized.get("currencyUnit") is not None
+            else normalized.get("currency")
+        )
+        if resolved_curr is not None:
+            normalized["currency_unit"] = str(resolved_curr).strip().upper()
+
         # remark / remarks
         if "remarks" in normalized and not normalized.get("remark"):
             normalized["remark"] = normalized["remarks"]
@@ -454,6 +470,7 @@ class SupplierOrderConfirmationUpdateSchema(Schema):
     warranty_period = fields.String(required=False, allow_none=True, validate=validate.Length(max=100))
     total_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
     total_net_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
+    currency_unit = fields.String(required=False, allow_none=True, validate=validate.Length(max=20))
     remark = fields.Raw(required=False, allow_none=True)
     remarks = fields.Raw(required=False, allow_none=True)
     items = fields.List(
@@ -562,6 +579,17 @@ class SupplierOrderConfirmationUpdateSchema(Schema):
         if resolved_net_total is not None:
             normalized["total_net_amount"] = str(resolved_net_total).strip()
 
+        if "currency_unit" in normalized or "currencyUnit" in normalized or "currency" in normalized:
+            resolved_curr = (
+                normalized.get("currency_unit")
+                if normalized.get("currency_unit") is not None
+                else normalized.get("currencyUnit")
+                if normalized.get("currencyUnit") is not None
+                else normalized.get("currency")
+            )
+            if resolved_curr is not None:
+                normalized["currency_unit"] = str(resolved_curr).strip().upper()
+
         if "remarks" in normalized and not normalized.get("remark"):
             normalized["remark"] = normalized["remarks"]
         elif "remark" in normalized and not normalized.get("remarks"):
@@ -652,6 +680,7 @@ class SupplierOrderConfirmationResponseSchema(Schema):
     warranty_period = fields.String(allow_none=True)
     total_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+    currency_unit = fields.String(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
@@ -711,6 +740,7 @@ class LatestSupplierOrderConfirmationResponseSchema(Schema):
     shipping_terms = fields.String(allow_none=True)
     delivery_period = fields.String(allow_none=True)
     total_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+    currency_unit = fields.String(allow_none=True)
     items = fields.List(
         fields.Nested(LatestSupplierOrderConfirmationItemResponseSchema),
         required=True,

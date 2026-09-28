@@ -79,6 +79,7 @@ def _order_confirmation_response(confirmation):
         "payment_term": confirmation.payment_terms,
         "total_amount": confirmation.total_amount,
         "total_net_amount": confirmation.total_net_amount,
+        "currency_unit": confirmation.currency_unit,
         "remarks": get_step_remarks_for_response(
             project_id=confirmation.project_id,
             step_number=9,
@@ -173,6 +174,7 @@ def _latest_order_confirmation_response(confirmation):
         "shipping_terms": confirmation.shipping_terms,
         "delivery_period": confirmation.delivery_period,
         "total_amount": _format_decimal_str(total_amt, places=2),
+        "currency_unit": confirmation.currency_unit,
         "items": items_list,
     }
 

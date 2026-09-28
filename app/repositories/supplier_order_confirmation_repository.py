@@ -123,6 +123,10 @@ def create_supplier_order_confirmation(*, data: dict) -> SupplierOrderConfirmati
         data.get("remark") or data.get("remarks")
     )
 
+    curr_unit = _normalize_optional_string(
+        data.get("currency_unit") or data.get("currency")
+    )
+
     confirmation = SupplierOrderConfirmation(
         project_id=data["project_id"],
         supplier_id=data.get("supplier_id"),
@@ -136,6 +140,7 @@ def create_supplier_order_confirmation(*, data: dict) -> SupplierOrderConfirmati
         payment_terms=pay_terms,
         total_amount=_parse_decimal_val(data.get("total_amount")),
         total_net_amount=_parse_decimal_val(data.get("total_net_amount")),
+        currency_unit=curr_unit.upper() if curr_unit else None,
         remark=remarks,
     )
 
@@ -228,6 +233,11 @@ def update_supplier_order_confirmation(
         confirmation.total_amount = _parse_decimal_val(data["total_amount"])
     if "total_net_amount" in data:
         confirmation.total_net_amount = _parse_decimal_val(data["total_net_amount"])
+    if "currency_unit" in data or "currency" in data:
+        curr_unit = _normalize_optional_string(
+            data.get("currency_unit") or data.get("currency")
+        )
+        confirmation.currency_unit = curr_unit.upper() if curr_unit else None
     if "remark" in data or "remarks" in data:
         confirmation.remark = _normalize_optional_string(
             data.get("remark") or data.get("remarks")

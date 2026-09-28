@@ -119,6 +119,7 @@ def list_supplier_payments(
     project_id: int | None = None,
     supplier_id: int | None = None,
     currency: str | None = None,
+    latest_first: bool = False,
 ) -> list[SupplierPayment]:
     query = SupplierPayment.query
     if project_id is not None:
@@ -127,6 +128,11 @@ def list_supplier_payments(
         query = query.filter(SupplierPayment.supplier_id == supplier_id)
     if currency:
         query = query.filter(SupplierPayment.currency == currency.strip().upper())
+    if latest_first:
+        return query.order_by(
+            SupplierPayment.created_at.desc(),
+            SupplierPayment.id.desc(),
+        ).all()
     return query.order_by(SupplierPayment.payment_date.asc(), SupplierPayment.id.asc()).all()
 
 

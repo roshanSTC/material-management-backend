@@ -395,6 +395,7 @@ def list_supplier_payment_records(
         project_id=project_id,
         supplier_id=supplier_id,
         currency=currency,
+        latest_first=True,
     )
 
 

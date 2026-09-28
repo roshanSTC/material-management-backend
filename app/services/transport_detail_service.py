@@ -46,6 +46,9 @@ def create_transport_detail_transaction(
         entity_id=detail.id,
     )
 
+    from app.services.project_step_service import sync_transport_detail_step
+    sync_transport_detail_step(project_id)
+
     return detail
 
 
@@ -82,6 +85,7 @@ def update_transport_detail_transaction(
         raise TransportDetailNotFoundError(
             f"Transport detail with ID {transport_detail_id} not found."
         )
+    previous_project_id = detail.project_id
 
     if "project_id" in data:
         project_id = data["project_id"]
@@ -106,6 +110,11 @@ def update_transport_detail_transaction(
             entity_id=updated_detail.id,
         )
 
+    from app.services.project_step_service import sync_transport_detail_step
+    sync_transport_detail_step(updated_detail.project_id)
+    if updated_detail.project_id != previous_project_id:
+        sync_transport_detail_step(previous_project_id)
+
     return updated_detail
 
 
@@ -127,5 +136,8 @@ def delete_transport_detail_transaction(transport_detail_id: int) -> list[str]:
         remarks_data=None,
         entity_id=transport_detail_id,
     )
+
+    from app.services.project_step_service import sync_transport_detail_step
+    sync_transport_detail_step(project_id)
 
     return storage_keys

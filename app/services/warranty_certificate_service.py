@@ -46,6 +46,9 @@ def create_warranty_certificate_transaction(
         entity_id=cert.id,
     )
 
+    from app.services.project_step_service import sync_warranty_certificate_step
+    sync_warranty_certificate_step(project_id)
+
     return cert
 
 
@@ -82,6 +85,7 @@ def update_warranty_certificate_transaction(
         raise WarrantyCertificateNotFoundError(
             f"Warranty certificate with ID {warranty_certificate_id} not found."
         )
+    previous_project_id = cert.project_id
 
     if "project_id" in data:
         project_id = data["project_id"]
@@ -106,6 +110,11 @@ def update_warranty_certificate_transaction(
             entity_id=updated_cert.id,
         )
 
+    from app.services.project_step_service import sync_warranty_certificate_step
+    sync_warranty_certificate_step(updated_cert.project_id)
+    if updated_cert.project_id != previous_project_id:
+        sync_warranty_certificate_step(previous_project_id)
+
     return updated_cert
 
 
@@ -127,5 +136,8 @@ def delete_warranty_certificate_transaction(warranty_certificate_id: int) -> lis
         remarks_data=None,
         entity_id=warranty_certificate_id,
     )
+
+    from app.services.project_step_service import sync_warranty_certificate_step
+    sync_warranty_certificate_step(project_id)
 
     return storage_keys

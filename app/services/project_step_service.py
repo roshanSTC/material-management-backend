@@ -237,9 +237,61 @@ STEP_DEFINITIONS = {
             "S.T.'s invoice."
         ),
         "required_fields": {
-            "delivery_date",
+            "has_customer_delivery_invoice",
+            "invoice_no",
+            "invoice_number",
+            "invoice_date",
+            "gst_rate",
+            "gst_amount",
+            "round_off",
+            "net_total",
+            "invoice_remark",
+            "has_customer_delivery_packing_list",
+            "has_packing_list",
+            "packing_list_no",
+            "packing_list_number",
+            "packing_list_date",
+            "total_no_of_packs",
+            "packing_condition",
+            "net_weight",
+            "net_weight_kg",
+            "gross_weight",
+            "gross_weight_kg",
+            "packing_list_remark",
+            "has_delivery_challan",
+            "delivery_challan_no",
             "delivery_challan_number",
+            "delivery_challan_date",
+            "delivery_date",
+            "delivery_challan_gst_rate",
+            "delivery_challan_gst_amount",
+            "delivery_challan_round_off",
+            "delivery_challan_net_total",
+            "delivery_challan_remark",
+            "has_transport_detail",
+            "transport_mode",
+            "transportation_mode",
+            "lr_no",
+            "lr_number",
+            "rr_no",
+            "awb_no",
+            "transport_date",
+            "date",
+            "from_location",
+            "to_location",
+            "transport_charges",
+            "transport_remark",
+            "has_warranty_certificate",
+            "certificate_date",
+            "warranty_period",
+            "po_no",
+            "po_number",
+            "po_date",
+            "warranty_invoice_no",
+            "warranty_invoice_date",
+            "warranty_remark",
             "remarks",
+            "remark",
         },
     },
     14: {
@@ -424,6 +476,57 @@ def calculate_step_progress(
 
         return round(min(progress, 100.0), 2)
 
+    if step_number == 13:
+        # Step 13 (S.T. delivers Material to Customer's Place with S.T. Billing):
+        # 5 forms, each carrying 20%:
+        # 1. Customer Delivery Invoice (20%)
+        # 2. Customer Delivery Packing List (20%)
+        # 3. Delivery Challan (20%)
+        # 4. Transport Detail (20%)
+        # 5. Warranty Certificate (20%)
+        data = data or {}
+
+        has_invoice = (
+            data.get("has_customer_delivery_invoice") is True
+            or _is_field_filled(data.get("invoice_no"))
+            or _is_field_filled(data.get("invoice_number"))
+        )
+        has_packing_list = (
+            data.get("has_customer_delivery_packing_list") is True
+            or data.get("has_packing_list") is True
+            or _is_field_filled(data.get("packing_list_no"))
+            or _is_field_filled(data.get("packing_list_number"))
+        )
+        has_delivery_challan = (
+            data.get("has_delivery_challan") is True
+            or _is_field_filled(data.get("delivery_challan_no"))
+            or _is_field_filled(data.get("delivery_challan_number"))
+        )
+        has_transport_detail = (
+            data.get("has_transport_detail") is True
+            or _is_field_filled(data.get("transport_mode"))
+            or _is_field_filled(data.get("transportation_mode"))
+        )
+        has_warranty_certificate = (
+            data.get("has_warranty_certificate") is True
+            or _is_field_filled(data.get("certificate_date"))
+            or _is_field_filled(data.get("warranty_period"))
+        )
+
+        progress = 0.0
+        if has_invoice:
+            progress += 20.0
+        if has_packing_list:
+            progress += 20.0
+        if has_delivery_challan:
+            progress += 20.0
+        if has_transport_detail:
+            progress += 20.0
+        if has_warranty_certificate:
+            progress += 20.0
+
+        return round(min(progress, 100.0), 2)
+
     definition = _get_step_definition(step_number)
 
     required_fields = definition["required_fields"]
@@ -516,6 +619,7 @@ def list_project_steps(
         )
 
     sync_cost_sheet_step(project_id)
+    sync_customer_delivery_step(project_id)
 
     saved_steps = {
         step.step_number: step
@@ -560,6 +664,8 @@ def get_project_step(
 
     if step_number == 4:
         sync_cost_sheet_step(project_id)
+    elif step_number == 13:
+        sync_customer_delivery_step(project_id)
 
     step = ProjectStep.query.filter_by(
         project_id=project_id,
@@ -1643,4 +1749,217 @@ def sync_customs_clearance_step(project_id: int):
         step_number=12,
         data=step_data,
     )
+
+
+def sync_customer_delivery_step(project_id: int):
+    from app.models import (
+        CustomerDeliveryInvoice,
+        CustomerDeliveryPackingList,
+        DeliveryChallan,
+        TransportDetail,
+        WarrantyCertificate,
+    )
+
+    project = db.session.get(Project, project_id)
+    if project is None:
+        return None
+
+    invoice = (
+        CustomerDeliveryInvoice.query.filter_by(project_id=project_id)
+        .order_by(CustomerDeliveryInvoice.id.desc())
+        .first()
+    )
+    packing_list = (
+        CustomerDeliveryPackingList.query.filter_by(project_id=project_id)
+        .order_by(CustomerDeliveryPackingList.id.desc())
+        .first()
+    )
+    delivery_challan = (
+        DeliveryChallan.query.filter_by(project_id=project_id)
+        .order_by(DeliveryChallan.id.desc())
+        .first()
+    )
+    transport_detail = (
+        TransportDetail.query.filter_by(project_id=project_id)
+        .order_by(TransportDetail.id.desc())
+        .first()
+    )
+    warranty_certificate = (
+        WarrantyCertificate.query.filter_by(project_id=project_id)
+        .order_by(WarrantyCertificate.id.desc())
+        .first()
+    )
+
+    if (
+        invoice is None
+        and packing_list is None
+        and delivery_challan is None
+        and transport_detail is None
+        and warranty_certificate is None
+    ):
+        step = (
+            ProjectStep.query.filter_by(
+                project_id=project_id,
+                step_number=13,
+            ).first()
+        )
+        if step is not None:
+            db.session.delete(step)
+            db.session.flush()
+        return None
+
+    step_data = {}
+
+    if invoice is not None:
+        inv_date_str = (
+            invoice.invoice_date.isoformat()
+            if hasattr(invoice.invoice_date, "isoformat")
+            else str(invoice.invoice_date)[:10]
+        ) if invoice.invoice_date else None
+
+        step_data.update({
+            "has_customer_delivery_invoice": True,
+            "invoice_no": invoice.invoice_no,
+            "invoice_number": invoice.invoice_no,
+            "invoice_date": inv_date_str,
+            "gst_rate": str(invoice.gst_rate) if invoice.gst_rate is not None else None,
+            "gst_amount": str(invoice.gst_amount) if invoice.gst_amount is not None else None,
+            "round_off": str(invoice.round_off) if invoice.round_off is not None else None,
+            "net_total": str(invoice.net_total) if invoice.net_total is not None else None,
+            "invoice_remark": invoice.remark,
+            "remarks": invoice.remark or step_data.get("remarks"),
+            "remark": invoice.remark or step_data.get("remark"),
+        })
+
+    if packing_list is not None:
+        pl_date_str = (
+            packing_list.packing_list_date.isoformat()
+            if hasattr(packing_list.packing_list_date, "isoformat")
+            else str(packing_list.packing_list_date)[:10]
+        ) if packing_list.packing_list_date else None
+
+        step_data.update({
+            "has_customer_delivery_packing_list": True,
+            "has_packing_list": True,
+            "packing_list_no": packing_list.packing_list_no,
+            "packing_list_number": packing_list.packing_list_no,
+            "packing_list_date": pl_date_str,
+            "total_no_of_packs": packing_list.total_no_of_packs,
+            "packing_condition": packing_list.packing_condition,
+            "net_weight": packing_list.net_weight,
+            "net_weight_kg": packing_list.net_weight,
+            "gross_weight": packing_list.gross_weight,
+            "gross_weight_kg": packing_list.gross_weight,
+            "packing_list_remark": packing_list.remark,
+            "remarks": packing_list.remark or step_data.get("remarks"),
+            "remark": packing_list.remark or step_data.get("remark"),
+        })
+
+    if delivery_challan is not None:
+        dc_date_str = (
+            delivery_challan.delivery_challan_date.isoformat()
+            if hasattr(delivery_challan.delivery_challan_date, "isoformat")
+            else str(delivery_challan.delivery_challan_date)[:10]
+        ) if delivery_challan.delivery_challan_date else None
+
+        step_data.update({
+            "has_delivery_challan": True,
+            "delivery_challan_no": delivery_challan.delivery_challan_no,
+            "delivery_challan_number": delivery_challan.delivery_challan_no,
+            "delivery_challan_date": dc_date_str,
+            "delivery_date": dc_date_str,
+            "delivery_challan_gst_rate": str(delivery_challan.gst_rate) if delivery_challan.gst_rate is not None else None,
+            "delivery_challan_gst_amount": str(delivery_challan.gst_amount) if delivery_challan.gst_amount is not None else None,
+            "delivery_challan_round_off": str(delivery_challan.round_off) if delivery_challan.round_off is not None else None,
+            "delivery_challan_net_total": str(delivery_challan.net_total) if delivery_challan.net_total is not None else None,
+            "delivery_challan_remark": delivery_challan.remark,
+            "remarks": delivery_challan.remark or step_data.get("remarks"),
+            "remark": delivery_challan.remark or step_data.get("remark"),
+        })
+
+    if transport_detail is not None:
+        td_date_str = (
+            transport_detail.date.isoformat()
+            if hasattr(transport_detail.date, "isoformat")
+            else str(transport_detail.date)[:10]
+        ) if transport_detail.date else None
+
+        step_data.update({
+            "has_transport_detail": True,
+            "transport_mode": transport_detail.transport_mode,
+            "transportation_mode": transport_detail.transport_mode,
+            "lr_no": transport_detail.lr_no,
+            "lr_number": transport_detail.lr_no,
+            "rr_no": transport_detail.rr_no,
+            "awb_no": transport_detail.awb_no,
+            "transport_date": td_date_str,
+            "date": td_date_str,
+            "from_location": transport_detail.from_location,
+            "to_location": transport_detail.to_location,
+            "transport_charges": str(transport_detail.transport_charges) if transport_detail.transport_charges is not None else None,
+            "transport_remark": transport_detail.remark,
+            "remarks": transport_detail.remark or step_data.get("remarks"),
+            "remark": transport_detail.remark or step_data.get("remark"),
+        })
+        if "delivery_date" not in step_data or not step_data["delivery_date"]:
+            step_data["delivery_date"] = td_date_str
+
+    if warranty_certificate is not None:
+        cert_date_str = (
+            warranty_certificate.certificate_date.isoformat()
+            if hasattr(warranty_certificate.certificate_date, "isoformat")
+            else str(warranty_certificate.certificate_date)[:10]
+        ) if warranty_certificate.certificate_date else None
+
+        po_date_str = (
+            warranty_certificate.po_date.isoformat()
+            if hasattr(warranty_certificate.po_date, "isoformat")
+            else str(warranty_certificate.po_date)[:10]
+        ) if warranty_certificate.po_date else None
+
+        w_inv_date_str = (
+            warranty_certificate.invoice_date.isoformat()
+            if hasattr(warranty_certificate.invoice_date, "isoformat")
+            else str(warranty_certificate.invoice_date)[:10]
+        ) if warranty_certificate.invoice_date else None
+
+        step_data.update({
+            "has_warranty_certificate": True,
+            "certificate_date": cert_date_str,
+            "warranty_period": warranty_certificate.warranty_period,
+            "po_no": warranty_certificate.po_no,
+            "po_number": warranty_certificate.po_no,
+            "po_date": po_date_str,
+            "warranty_invoice_no": warranty_certificate.invoice_no,
+            "warranty_invoice_date": w_inv_date_str,
+            "warranty_remark": warranty_certificate.remark,
+            "remarks": warranty_certificate.remark or step_data.get("remarks"),
+            "remark": warranty_certificate.remark or step_data.get("remark"),
+        })
+
+    return upsert_project_step_record(
+        project_id=project_id,
+        step_number=13,
+        data=step_data,
+    )
+
+
+def sync_customer_delivery_invoice_step(project_id: int):
+    return sync_customer_delivery_step(project_id)
+
+
+def sync_customer_delivery_packing_list_step(project_id: int):
+    return sync_customer_delivery_step(project_id)
+
+
+def sync_delivery_challan_step(project_id: int):
+    return sync_customer_delivery_step(project_id)
+
+
+def sync_transport_detail_step(project_id: int):
+    return sync_customer_delivery_step(project_id)
+
+
+def sync_warranty_certificate_step(project_id: int):
+    return sync_customer_delivery_step(project_id)
 

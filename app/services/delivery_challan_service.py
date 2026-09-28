@@ -97,6 +97,9 @@ def create_delivery_challan_transaction(
         entity_id=delivery_challan.id,
     )
 
+    from app.services.project_step_service import sync_delivery_challan_step
+    sync_delivery_challan_step(project_id)
+
     return delivery_challan
 
 
@@ -131,6 +134,7 @@ def update_delivery_challan_transaction(
         raise DeliveryChallanNotFoundError(
             f"Delivery challan with ID {delivery_challan_id} not found."
         )
+    previous_project_id = delivery_challan.project_id
 
     if "project_id" in data:
         project_id = data["project_id"]
@@ -158,6 +162,11 @@ def update_delivery_challan_transaction(
             entity_id=updated_delivery_challan.id,
         )
 
+    from app.services.project_step_service import sync_delivery_challan_step
+    sync_delivery_challan_step(updated_delivery_challan.project_id)
+    if updated_delivery_challan.project_id != previous_project_id:
+        sync_delivery_challan_step(previous_project_id)
+
     return updated_delivery_challan
 
 
@@ -179,6 +188,9 @@ def delete_delivery_challan_transaction(delivery_challan_id: int) -> list[str]:
         remarks_data=None,
         entity_id=delivery_challan_id,
     )
+
+    from app.services.project_step_service import sync_delivery_challan_step
+    sync_delivery_challan_step(project_id)
 
     return storage_keys
 

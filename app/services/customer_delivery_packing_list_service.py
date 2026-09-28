@@ -46,6 +46,9 @@ def create_customer_delivery_packing_list_transaction(
         entity_id=packing_list.id,
     )
 
+    from app.services.project_step_service import sync_customer_delivery_packing_list_step
+    sync_customer_delivery_packing_list_step(project_id)
+
     return packing_list
 
 
@@ -80,6 +83,7 @@ def update_customer_delivery_packing_list_transaction(
         raise CustomerDeliveryPackingListNotFoundError(
             f"Customer delivery packing list with ID {packing_list_id} not found."
         )
+    previous_project_id = packing_list.project_id
 
     if "project_id" in data:
         project_id = data["project_id"]
@@ -104,6 +108,11 @@ def update_customer_delivery_packing_list_transaction(
             entity_id=updated_packing_list.id,
         )
 
+    from app.services.project_step_service import sync_customer_delivery_packing_list_step
+    sync_customer_delivery_packing_list_step(updated_packing_list.project_id)
+    if updated_packing_list.project_id != previous_project_id:
+        sync_customer_delivery_packing_list_step(previous_project_id)
+
     return updated_packing_list
 
 
@@ -125,6 +134,9 @@ def delete_customer_delivery_packing_list_transaction(packing_list_id: int) -> l
         remarks_data=None,
         entity_id=packing_list_id,
     )
+
+    from app.services.project_step_service import sync_customer_delivery_packing_list_step
+    sync_customer_delivery_packing_list_step(project_id)
 
     return storage_keys
 

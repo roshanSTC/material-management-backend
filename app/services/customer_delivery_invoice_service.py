@@ -98,6 +98,9 @@ def create_customer_delivery_invoice_transaction(
         entity_id=invoice.id,
     )
 
+    from app.services.project_step_service import sync_customer_delivery_invoice_step
+    sync_customer_delivery_invoice_step(project_id)
+
     return invoice
 
 
@@ -132,6 +135,7 @@ def update_customer_delivery_invoice_transaction(
         raise CustomerDeliveryInvoiceNotFoundError(
             f"Customer delivery invoice with ID {invoice_id} not found."
         )
+    previous_project_id = invoice.project_id
 
     if "project_id" in data:
         project_id = data["project_id"]
@@ -159,6 +163,11 @@ def update_customer_delivery_invoice_transaction(
             entity_id=updated_invoice.id,
         )
 
+    from app.services.project_step_service import sync_customer_delivery_invoice_step
+    sync_customer_delivery_invoice_step(updated_invoice.project_id)
+    if updated_invoice.project_id != previous_project_id:
+        sync_customer_delivery_invoice_step(previous_project_id)
+
     return updated_invoice
 
 
@@ -180,6 +189,9 @@ def delete_customer_delivery_invoice_transaction(invoice_id: int) -> list[str]:
         remarks_data=None,
         entity_id=invoice_id,
     )
+
+    from app.services.project_step_service import sync_customer_delivery_invoice_step
+    sync_customer_delivery_invoice_step(project_id)
 
     return storage_keys
 

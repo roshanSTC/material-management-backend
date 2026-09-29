@@ -444,21 +444,10 @@ def delete_bid_submission(bid_submission_id):
         return _error("BID_SUBMISSION_DELETE_FAILED", "Failed to delete bid submission.", 500)
 
 
-bid_submission_singular_bp = Blueprint(
-    "bid_submission_singular",
-    __name__,
-    url_prefix="/api/v1/bid-submission",
-    description="Bid Submission Singular Alias APIs",
-)
 
 
-@bid_submission_singular_bp.get("/latest")
-@bid_submission_singular_bp.doc(security=[{"BearerAuth": []}])
-@bid_submission_singular_bp.arguments(LatestBidSubmissionQuerySchema, location="query")
-@bid_submission_singular_bp.response(200, LatestBidSubmissionResponseSchema)
-@jwt_required()
-def get_latest_bid_submission_singular(args=None):
-    return _handle_get_latest_bid_submission(args)
+
+
 
 
 

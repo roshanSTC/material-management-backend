@@ -526,7 +526,6 @@ def get_latest_supplier_quotation_v1(args=None):
     return _handle_get_latest_supplier_quotation(args)
 
 
-@supplier_quotation_bp.post("/upload-excel")
 @supplier_quotation_bp.post("/parse-excel")
 @supplier_quotation_bp.doc(
     security=[{"BearerAuth": []}],

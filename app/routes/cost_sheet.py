@@ -152,21 +152,6 @@ def get_latest_cost_sheet(args=None):
     return _handle_get_latest_cost_sheet(args)
 
 
-cost_sheet_v1_bp = Blueprint(
-    "cost_sheet_v1",
-    __name__,
-    url_prefix="/api/v1/cost-sheet",
-    description="Cost Sheet v1 alias",
-)
-
-
-@cost_sheet_v1_bp.get("/latest")
-@cost_sheet_v1_bp.doc(security=[{"BearerAuth": []}])
-@cost_sheet_v1_bp.arguments(LatestCostSheetQuerySchema, location="query")
-@cost_sheet_v1_bp.response(200, LatestCostSheetResponseSchema)
-@jwt_required()
-def get_latest_cost_sheet_v1(args=None):
-    return _handle_get_latest_cost_sheet(args)
 
 
 # 2. GET /api/cost-sheet/<int:cost_sheet_id> - Get particular cost sheet data
@@ -206,21 +191,6 @@ def export_cost_sheet(cost_sheet_id):
     return _handle_export_cost_sheet(cost_sheet_id)
 
 
-cost_sheet_v1_bp = Blueprint(
-    "cost_sheet_v1",
-    __name__,
-    url_prefix="/api/v1/cost-sheet",
-    description="Cost Sheet Management APIs (v1 alias)",
-)
-
-
-@cost_sheet_v1_bp.get("/latest")
-@cost_sheet_v1_bp.doc(security=[{"BearerAuth": []}])
-@cost_sheet_v1_bp.arguments(LatestCostSheetQuerySchema, location="query")
-@cost_sheet_v1_bp.response(200, LatestCostSheetResponseSchema)
-@jwt_required()
-def get_latest_cost_sheet_v1(args=None):
-    return _handle_get_latest_cost_sheet(args)
 
 
 

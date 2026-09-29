@@ -530,24 +530,5 @@ def delete_bill_of_entry(bill_of_entry_id: int):
     return _handle_delete_bill_of_entry(bill_of_entry_id)
 
 
-bill_of_entry_singular_bp = Blueprint(
-    "bill_of_entry_singular",
-    __name__,
-    url_prefix="/api/v1/bill-of-entry",
-    description="Bill of Entry Singular Alias APIs",
-)
-
-
-@bill_of_entry_singular_bp.get("/latest")
-@bill_of_entry_singular_bp.doc(
-    security=[{"BearerAuth": []}],
-    summary="Get Latest Bill of Entry for Project",
-    description="Retrieve bill_of_entry_no, date, bcd, sws, igst, and duty for the latest bill of entry of a project.",
-)
-@bill_of_entry_singular_bp.arguments(LatestBillOfEntryQuerySchema, location="query")
-@bill_of_entry_singular_bp.response(200, LatestBillOfEntryResponseSchema)
-@jwt_required()
-def get_latest_bill_of_entry_singular(args=None):
-    return _handle_get_latest_bill_of_entry(args)
 
 

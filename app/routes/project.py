@@ -38,21 +38,21 @@ project_bp = Blueprint(
 )
 
 STEP_NAMES = {
-    1: "Customer Query to ST",
-    2: "Request Quotation from Supplier",
-    3: "Supplier's Quotation",
-    4: "Cost Sheet Preparation",
+    1: "Customer Query",
+    2: "Request Supplier Quotation",
+    3: "Supplier Quotation",
+    4: "Cost Sheet",
     5: "Quotation to Customer",
-    6: "Customer issues Tender",
-    7: "S.T. submits Bid Documents",
-    8: "Customer issues Purchase Order (PO)",
-    9: "S.T. places Order Confirmation with Supplier",
-    10: "Supplier raises Bill / Invoice",
-    11: "Material delivered to India",
+    6: "Customer Tender",
+    7: "Bid Submission",
+    8: "Purchase Order (PO)",
+    9: "Order Confirmation to Supplier",
+    10: "Supplier Invoice",
+    11: "Material Delivery",
     12: "Customs Clearance",
-    13: "Customer Delivery with S.T. Billing",
-    14: "Customer makes Payment to S.T.",
-    15: "S.T. makes Payment to Partner / Supplier",
+    13: "Customer Invoice",
+    14: "Customer Payment",
+    15: "Payment to Supplier",
 }
 
 STEP_NEXT_ACTIONS = {

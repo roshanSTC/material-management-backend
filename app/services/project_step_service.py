@@ -12,31 +12,22 @@ from app.models import (
 
 STEP_DEFINITIONS = {
     1: {
-        "name": "Customer Query to ST",
-        "description": (
-            "Customer shares the material or equipment requirement "
-            "with S.T."
-        ),
+        "name": "Customer Query",
+        "description": "Query received from customer (to ST)",
         "required_fields": {
             "qo_date",  
         },
     },
     2: {
-        "name": "Request Quotation from Supplier",
-        "description": (
-            "S.T. forwards the requirement to the overseas partner "
-            "or supplier for pricing."
-        ),
+        "name": "Request Supplier Quotation",
+        "description": "Send RFQ to supplier",
         "required_fields": {
             "quotation_requested_date",
         },
     },
     3: {
-        "name": "Supplier's Quotation",
-        "description": (
-            "The supplier returns pricing, lead time, and terms "
-            "for the requested material."
-        ),
+        "name": "Supplier Quotation",
+        "description": "Receive quotation from supplier",
         "required_fields": {
             "quotation_number",
             "quotation_value",
@@ -49,11 +40,8 @@ STEP_DEFINITIONS = {
         },
     },
     4: {
-        "name": "Cost Sheet Preparation",
-        "description": (
-            "Landed cost, duties, margin, and freight are worked "
-            "into an internal cost sheet."
-        ),
+        "name": "Cost Sheet",
+        "description": "Prepare cost sheet",
         "required_fields": {
             "cost_amount",
             "margin_percent",
@@ -68,10 +56,7 @@ STEP_DEFINITIONS = {
     },
     5: {
         "name": "Quotation to Customer",
-        "description": (
-            "A formal quotation is issued to the customer based "
-            "on the cost sheet."
-        ),
+        "description": "Send quotation to customer",
         "required_fields": {
             "quotation_number",
             "quotation_date",
@@ -79,10 +64,8 @@ STEP_DEFINITIONS = {
         },
     },
     6: {
-        "name": "Customer issues Tender",
-        "description": (
-            "The customer floats a tender based on the quoted scope."
-        ),
+        "name": "Customer Tender",
+        "description": "Customer issues tender",
         "required_fields": {
             "tender_number",
             "tender_date",
@@ -90,10 +73,8 @@ STEP_DEFINITIONS = {
         },
     },
     7: {
-        "name": "S.T. submits Bid Documents",
-        "description": (
-            "S.T. prepares and submits the technical and commercial bid."
-        ),
+        "name": "Bid Submission",
+        "description": "Submit bid document to customer",
         "required_fields": {
             "tender_title",
             "submission_date",
@@ -101,11 +82,8 @@ STEP_DEFINITIONS = {
         },
     },
     8: {
-        "name": "Customer issues Purchase Order (PO)",
-        "description": (
-            "On winning the bid, the customer issues an official "
-            "PO to S.T."
-        ),
+        "name": "Purchase Order (PO)",
+        "description": "Customer issues purchase order",
         "required_fields": {
             "po_number",
             "po_title",
@@ -119,13 +97,8 @@ STEP_DEFINITIONS = {
         },
     },
     9: {
-        "name": (
-            "S.T. places Order Confirmation with Supplier"
-        ),
-        "description": (
-            "S.T. confirms the order with the foreign partner "
-            "or supplier."
-        ),
+        "name": "Order Confirmation to Supplier",
+        "description": "Send order confirmation to supplier",
         "required_fields": {
             "order_confirmation_date",
             "delivery_period",
@@ -137,11 +110,8 @@ STEP_DEFINITIONS = {
         },
     },
     10: {
-        "name": "Supplier raises Bill / Invoice",
-        "description": (
-            "The supplier issues billing, proforma invoice, commercial "
-            "invoice, and packing list."
-        ),
+        "name": "Supplier Invoice",
+        "description": "Receive bill / invoice from supplier",
         "required_fields": {
             "invoice_number",
             "invoice_no",
@@ -175,11 +145,8 @@ STEP_DEFINITIONS = {
         },
     },
     11: {
-        "name": "Material delivered to India",
-        "description": (
-            "Goods arrive at the Indian port or airport with import logistics "
-            "and bill of entry documentation."
-        ),
+        "name": "Material Delivery",
+        "description": "Material delivered to India",
         "required_fields": {
             "logistic_type",
             "shipping_mode",
@@ -216,10 +183,7 @@ STEP_DEFINITIONS = {
     },
     12: {
         "name": "Customs Clearance",
-        "description": (
-            "Import documentation, duties, and customs formalities "
-            "are completed."
-        ),
+        "description": "Clear goods from customs",
         "required_fields": {
             "clearance_date",
             "duties_paid",
@@ -228,14 +192,8 @@ STEP_DEFINITIONS = {
         },
     },
     13: {
-        "name": (
-            "S.T. delivers Material to Customer's Place "
-            "with S.T. Billing"
-        ),
-        "description": (
-            "Material reaches the customer's site along with "
-            "S.T.'s invoice."
-        ),
+        "name": "Customer Invoice",
+        "description": "Send bill / invoice to customer",
         "required_fields": {
             "has_customer_delivery_invoice",
             "invoice_no",
@@ -295,10 +253,8 @@ STEP_DEFINITIONS = {
         },
     },
     14: {
-        "name": "Customer makes Payment to S.T.",
-        "description": (
-            "Customer settles the invoice raised by S.T."
-        ),
+        "name": "Customer Payment",
+        "description": "Receive payment from customer",
         "required_fields": {
             "has_customer_payment",
             "customer_id",
@@ -327,10 +283,8 @@ STEP_DEFINITIONS = {
         },
     },
     15: {
-        "name": "S.T. makes Payment to Partner / Supplier",
-        "description": (
-            "S.T. clears the balance payment owed to the supplier."
-        ),
+        "name": "Payment to Supplier",
+        "description": "Make payment to supplier",
         "required_fields": {
             "has_supplier_payment",
             "supplier_id",
@@ -963,12 +917,14 @@ def serialize_project_step(step: ProjectStep) -> dict:
             raw = data.get("remarks") if data.get("remarks") is not None else data.get("remark")
         remarks = normalize_remark_for_response(raw)
 
+    definition = STEP_DEFINITIONS.get(step.step_number, {})
+
     return {
         "id": step.id,
         "project_id": step.project_id,
         "step_number": step.step_number,
-        "step_name": step.step_name,
-        "description": step.description,
+        "step_name": definition.get("name", step.step_name),
+        "description": definition.get("description", step.description),
         "status": status,
         "progress_percentage": progress_percentage,
         "completed_at": step.completed_at,
@@ -1011,6 +967,8 @@ def upsert_project_step_record(
         )
         db.session.add(step)
     else:
+        step.step_name = definition["name"]
+        step.description = definition["description"]
         step.status = status
         step.data = data
         step.completed_at = (

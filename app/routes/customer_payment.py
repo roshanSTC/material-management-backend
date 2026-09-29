@@ -129,7 +129,6 @@ def _customer_payment_response(payment):
         "project_id": payment.project_id,
         "customer_id": customer_id,
         "invoice_no": payment.invoice_no,
-        "invoice_number": payment.invoice_no,
         "invoice_date": payment.invoice_date,
         "payment_percentage": _format_decimal(pay_pct),
         "cumulative_payment_percentage": _format_decimal(cum_pct),

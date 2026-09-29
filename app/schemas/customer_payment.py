@@ -431,7 +431,6 @@ class CustomerPaymentResponseSchema(Schema):
     project_id = fields.Integer(dump_only=True)
     customer_id = fields.Integer(dump_only=True, allow_none=True)
     invoice_no = fields.String(dump_only=True)
-    invoice_number = fields.String(dump_only=True)
     invoice_date = fields.Date(dump_only=True)
     payment_percentage = fields.Decimal(dump_only=True, as_string=True, places=2)
     cumulative_payment_percentage = fields.Decimal(dump_only=True, as_string=True, places=2)

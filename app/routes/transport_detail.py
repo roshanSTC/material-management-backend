@@ -445,14 +445,6 @@ def list_transport_details(args=None):
     return _handle_list_transport_details(args)
 
 
-@transport_detail_bp.get("/<int:transport_detail_id>")
-@transport_detail_bp.doc(security=[{"BearerAuth": []}])
-@transport_detail_bp.response(200, TransportDetailResponseSchema)
-@jwt_required()
-def get_transport_detail(transport_detail_id):
-    return _handle_get_transport_detail(transport_detail_id)
-
-
 @transport_detail_bp.patch("/<int:transport_detail_id>")
 @transport_detail_bp.doc(
     security=[{"BearerAuth": []}],

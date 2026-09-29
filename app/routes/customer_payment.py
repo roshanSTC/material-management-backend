@@ -534,14 +534,6 @@ def get_customer_payment_summary_route():
         )
 
 
-@customer_payment_bp.get("/<int:customer_payment_id>")
-@customer_payment_bp.doc(security=[{"BearerAuth": []}])
-@customer_payment_bp.response(200, CustomerPaymentResponseSchema)
-@jwt_required()
-def get_customer_payment(customer_payment_id):
-    return _handle_get_customer_payment(customer_payment_id)
-
-
 @customer_payment_bp.patch("/<int:customer_payment_id>")
 @customer_payment_bp.doc(
     security=[{"BearerAuth": []}],

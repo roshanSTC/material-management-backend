@@ -476,17 +476,6 @@ def list_import_logistics(args=None):
     return _handle_list_import_logistics(args)
 
 
-@import_logistics_bp.get("/<int:logistics_id>")
-@import_logistics_bp.doc(
-    security=[{"BearerAuth": []}],
-    summary="Get import logistics record by ID",
-)
-@import_logistics_bp.response(200, ImportLogisticsResponseSchema)
-@jwt_required()
-def get_import_logistics(logistics_id: int):
-    return _handle_get_import_logistics(logistics_id)
-
-
 @import_logistics_bp.patch("/<int:logistics_id>")
 @import_logistics_bp.doc(
     security=[{"BearerAuth": []}],

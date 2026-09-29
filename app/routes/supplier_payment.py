@@ -528,13 +528,6 @@ def get_supplier_payment_summary_route():
         )
 
 
-@supplier_payment_bp.get("/<int:supplier_payment_id>")
-@supplier_payment_bp.doc(security=[{"BearerAuth": []}])
-@supplier_payment_bp.response(200, SupplierPaymentResponseSchema)
-@jwt_required()
-def get_supplier_payment(supplier_payment_id):
-    return _handle_get_supplier_payment(supplier_payment_id)
-
 
 @supplier_payment_bp.patch("/<int:supplier_payment_id>")
 @supplier_payment_bp.doc(

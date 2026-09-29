@@ -517,14 +517,6 @@ def get_latest_customer_delivery_invoice(args=None):
         )
 
 
-@customer_delivery_invoice_bp.get("/<int:customer_delivery_invoice_id>")
-@customer_delivery_invoice_bp.doc(security=[{"BearerAuth": []}])
-@customer_delivery_invoice_bp.response(200, CustomerDeliveryInvoiceResponseSchema)
-@jwt_required()
-def get_customer_delivery_invoice(customer_delivery_invoice_id):
-    return _handle_get_customer_delivery_invoice(customer_delivery_invoice_id)
-
-
 @customer_delivery_invoice_bp.patch("/<int:customer_delivery_invoice_id>")
 @customer_delivery_invoice_bp.doc(
     security=[{"BearerAuth": []}],

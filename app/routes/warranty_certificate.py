@@ -432,14 +432,6 @@ def list_warranty_certificates(args=None):
     return _handle_list_warranty_certificates(args)
 
 
-@warranty_certificate_bp.get("/<int:warranty_certificate_id>")
-@warranty_certificate_bp.doc(security=[{"BearerAuth": []}])
-@warranty_certificate_bp.response(200, WarrantyCertificateResponseSchema)
-@jwt_required()
-def get_warranty_certificate(warranty_certificate_id):
-    return _handle_get_warranty_certificate(warranty_certificate_id)
-
-
 @warranty_certificate_bp.patch("/<int:warranty_certificate_id>")
 @warranty_certificate_bp.doc(
     security=[{"BearerAuth": []}],

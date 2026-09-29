@@ -514,14 +514,6 @@ def get_latest_supplier_packing_list(args=None):
     return _handle_get_latest_supplier_packing_list(args)
 
 
-@supplier_packing_list_bp.get("/<int:supplier_packing_list_id>")
-@supplier_packing_list_bp.doc(security=[{"BearerAuth": []}])
-@supplier_packing_list_bp.response(200, SupplierPackingListResponseSchema)
-@jwt_required()
-def get_supplier_packing_list(supplier_packing_list_id):
-    return _handle_get_supplier_packing_list(supplier_packing_list_id)
-
-
 
 @supplier_packing_list_bp.patch("/<int:supplier_packing_list_id>")
 @supplier_packing_list_bp.doc(

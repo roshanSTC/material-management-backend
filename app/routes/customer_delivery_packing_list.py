@@ -448,16 +448,6 @@ def list_customer_delivery_packing_lists(args=None):
 
 
 
-@customer_delivery_packing_list_bp.get("/<int:packing_list_id>")
-@customer_delivery_packing_list_bp.doc(security=[{"BearerAuth": []}])
-@customer_delivery_packing_list_bp.response(
-    200, CustomerDeliveryPackingListResponseSchema
-)
-@jwt_required()
-def get_customer_delivery_packing_list(packing_list_id):
-    return _handle_get_customer_delivery_packing_list(packing_list_id)
-
-
 @customer_delivery_packing_list_bp.patch("/<int:packing_list_id>")
 @customer_delivery_packing_list_bp.doc(
     security=[{"BearerAuth": []}],

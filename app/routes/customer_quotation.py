@@ -306,20 +306,6 @@ def get_latest_customer_quotation(args=None):
         )
 
 
-@customer_quotation_bp.get("/<int:customer_quotation_id>")
-@customer_quotation_bp.doc(security=[{"BearerAuth": []}])
-@customer_quotation_bp.response(200, CustomerQuotationResponseSchema)
-@jwt_required()
-def get_customer_quotation(customer_quotation_id):
-    try:
-        quotation = get_customer_quotation_record(customer_quotation_id)
-        return _customer_quotation_response(quotation), 200
-    except CustomerQuotationNotFoundError as exc:
-        return _error("CUSTOMER_QUOTATION_NOT_FOUND", str(exc), 404)
-    except Exception:
-        current_app.logger.exception("Failed to get customer quotation")
-        return _error("CUSTOMER_QUOTATION_GET_FAILED", "Failed to get customer quotation.", 500)
-
 
 @customer_quotation_bp.patch("/<int:customer_quotation_id>")
 @customer_quotation_bp.doc(

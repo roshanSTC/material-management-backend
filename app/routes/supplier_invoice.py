@@ -421,13 +421,6 @@ def list_supplier_invoices(args=None):
     return _handle_list_supplier_invoices(args)
 
 
-@supplier_invoice_bp.get("/<int:supplier_invoice_id>")
-@supplier_invoice_bp.doc(security=[{"BearerAuth": []}])
-@supplier_invoice_bp.response(200, SupplierInvoiceResponseSchema)
-@jwt_required()
-def get_supplier_invoice(supplier_invoice_id):
-    return _handle_get_supplier_invoice(supplier_invoice_id)
-
 
 @supplier_invoice_bp.patch("/<int:supplier_invoice_id>")
 @supplier_invoice_bp.doc(

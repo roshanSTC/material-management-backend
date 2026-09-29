@@ -492,13 +492,6 @@ def get_latest_supplier_proforma_invoice(args=None):
     return _handle_get_latest_supplier_proforma_invoice(args)
 
 
-@supplier_proforma_invoice_bp.get("/<int:proforma_invoice_id>")
-@supplier_proforma_invoice_bp.doc(security=[{"BearerAuth": []}])
-@supplier_proforma_invoice_bp.response(200, SupplierProformaInvoiceResponseSchema)
-@jwt_required()
-def get_supplier_proforma_invoice(proforma_invoice_id):
-    return _handle_get_supplier_proforma_invoice(proforma_invoice_id)
-
 
 @supplier_proforma_invoice_bp.patch("/<int:proforma_invoice_id>")
 @supplier_proforma_invoice_bp.doc(

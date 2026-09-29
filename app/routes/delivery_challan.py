@@ -444,17 +444,6 @@ def list_delivery_challans(args=None):
     return _handle_list_delivery_challans(args)
 
 
-
-@delivery_challan_bp.get("/<int:delivery_challan_id>")
-@delivery_challan_bp.doc(security=[{"BearerAuth": []}])
-@delivery_challan_bp.response(
-    200, DeliveryChallanResponseSchema
-)
-@jwt_required()
-def get_delivery_challan(delivery_challan_id):
-    return _handle_get_delivery_challan(delivery_challan_id)
-
-
 @delivery_challan_bp.patch("/<int:delivery_challan_id>")
 @delivery_challan_bp.doc(
     security=[{"BearerAuth": []}],

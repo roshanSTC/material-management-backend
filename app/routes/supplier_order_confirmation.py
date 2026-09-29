@@ -499,20 +499,6 @@ def get_latest_order_confirmation(args=None):
     return _handle_get_latest_order_confirmation(args)
 
 
-@order_confirmation_bp.get("/<int:order_confirmation_id>")
-@order_confirmation_bp.doc(security=[{"BearerAuth": []}])
-@order_confirmation_bp.response(200, SupplierOrderConfirmationResponseSchema)
-@jwt_required()
-def get_order_confirmation(order_confirmation_id):
-    try:
-        confirmation = get_supplier_order_confirmation_record(order_confirmation_id)
-        return _order_confirmation_response(confirmation), 200
-    except OrderConfirmationNotFoundError as exc:
-        return _error("ORDER_CONFIRMATION_NOT_FOUND", str(exc), 404)
-    except Exception:
-        current_app.logger.exception("Failed to get order confirmation")
-        return _error("ORDER_CONFIRMATION_GET_FAILED", "Failed to get order confirmation.", 500)
-
 
 @order_confirmation_bp.patch("/<int:order_confirmation_id>")
 @order_confirmation_bp.doc(

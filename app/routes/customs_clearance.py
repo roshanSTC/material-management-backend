@@ -465,16 +465,6 @@ def list_customs_clearances_route(args=None):
     return _handle_list_customs_clearances(args)
 
 
-@customs_clearance_bp.route("/<int:clearance_id>", methods=["GET"])
-@customs_clearance_bp.doc(
-    summary="Get Customs Clearance by ID",
-    security=[{"BearerAuth": []}],
-)
-@customs_clearance_bp.response(200, CustomsClearanceResponseSchema)
-@jwt_required()
-def get_customs_clearance_route(clearance_id: int):
-    return _handle_get_customs_clearance(clearance_id)
-
 
 @customs_clearance_bp.route("/<int:clearance_id>", methods=["PATCH"])
 @customs_clearance_bp.doc(

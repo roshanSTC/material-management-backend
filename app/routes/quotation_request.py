@@ -348,31 +348,6 @@ def list_all(args=None):
     ], 200
 
 
-@quotation_request_bp.get("/<int:quotation_request_id>")
-@quotation_request_bp.doc(security=[{"BearerAuth": []}])
-@quotation_request_bp.response(200, QuotationRequestResponseSchema)
-@jwt_required()
-def get_by_id(quotation_request_id):
-    try:
-        quotation_request = get_quotation_request_record(quotation_request_id)
-        if not quotation_request:
-            return {
-                "success": False,
-                "error": {
-                    "code": "QUOTATION_REQUEST_NOT_FOUND",
-                    "message": f"Quotation request {quotation_request_id} not found.",
-                },
-            }, 404
-        return _quotation_request_response(quotation_request), 200
-    except QuotationRequestNotFoundError as exc:
-        return {
-            "success": False,
-            "error": {
-                "code": "QUOTATION_REQUEST_NOT_FOUND",
-                "message": str(exc),
-            },
-        }, 404
-
 
 @quotation_request_bp.patch(
     "/<int:quotation_request_id>"
@@ -679,38 +654,3 @@ def delete(quotation_request_id):
         }, 500
 
 
-# @quotation_request_bp.get(
-#     "/<int:quotation_request_id>"
-# )
-# @quotation_request_bp.doc(
-#     security=[{"BearerAuth": []}]
-# )
-# @jwt_required()
-# def get(
-#     quotation_request_id,
-# ):
-
-#     try:
-
-#         quotation_request = (
-#             get_quotation_request_record(
-#                 quotation_request_id
-#             )
-#         )
-
-#     except QuotationRequestNotFoundError as exc:
-
-#         return {
-#             "success": False,
-#             "error": {
-#                 "code": "QUOTATION_REQUEST_NOT_FOUND",
-#                 "message": str(exc),
-#             },
-#         }, 404
-
-#     return (
-#         _quotation_request_response(
-#             quotation_request
-#         ),
-#         200,
-#     )

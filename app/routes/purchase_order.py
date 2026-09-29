@@ -385,21 +385,6 @@ def get_latest_purchase_order(args=None):
         return _error("PURCHASE_ORDER_GET_FAILED", "Failed to get latest purchase order.", 500)
 
 
-@purchase_order_bp.get("/<int:purchase_order_id>")
-@purchase_order_bp.doc(security=[{"BearerAuth": []}])
-@purchase_order_bp.response(200, PurchaseOrderResponseSchema)
-@jwt_required()
-def get_purchase_order(purchase_order_id):
-    try:
-        po = get_purchase_order_record(purchase_order_id)
-        return _purchase_order_response(po), 200
-    except PurchaseOrderNotFoundError as exc:
-        return _error("PURCHASE_ORDER_NOT_FOUND", str(exc), 404)
-    except Exception:
-        current_app.logger.exception("Failed to get purchase order")
-        return _error("PURCHASE_ORDER_GET_FAILED", "Failed to get purchase order.", 500)
-
-
 @purchase_order_bp.patch("/<int:purchase_order_id>")
 @purchase_order_bp.doc(
     security=[{"BearerAuth": []}],

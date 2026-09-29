@@ -496,18 +496,6 @@ def get_latest_bill_of_entry(args=None):
     return _handle_get_latest_bill_of_entry(args)
 
 
-
-@bill_of_entry_bp.get("/<int:bill_of_entry_id>")
-@bill_of_entry_bp.doc(
-    security=[{"BearerAuth": []}],
-    summary="Get bill of entry record by ID",
-)
-@bill_of_entry_bp.response(200, BillOfEntryResponseSchema)
-@jwt_required()
-def get_bill_of_entry(bill_of_entry_id: int):
-    return _handle_get_bill_of_entry(bill_of_entry_id)
-
-
 @bill_of_entry_bp.patch("/<int:bill_of_entry_id>")
 @bill_of_entry_bp.doc(
     security=[{"BearerAuth": []}],

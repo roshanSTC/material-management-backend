@@ -317,21 +317,6 @@ def get_latest_bid_submission(args=None):
     return _handle_get_latest_bid_submission(args)
 
 
-@bid_submission_bp.get("/<int:bid_submission_id>")
-@bid_submission_bp.doc(security=[{"BearerAuth": []}])
-@bid_submission_bp.response(200, BidSubmissionResponseSchema)
-@jwt_required()
-def get_bid_submission(bid_submission_id):
-    try:
-        submission = get_bid_submission_record(bid_submission_id)
-        return _bid_submission_response(submission), 200
-    except BidSubmissionNotFoundError as exc:
-        return _error("BID_SUBMISSION_NOT_FOUND", str(exc), 404)
-    except Exception:
-        current_app.logger.exception("Failed to get bid submission")
-        return _error("BID_SUBMISSION_GET_FAILED", "Failed to get bid submission.", 500)
-
-
 @bid_submission_bp.patch("/<int:bid_submission_id>")
 @bid_submission_bp.doc(
     security=[{"BearerAuth": []}],

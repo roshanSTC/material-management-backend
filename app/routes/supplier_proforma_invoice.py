@@ -134,29 +134,46 @@ def _format_decimal_str(val, places=2):
 
 
 def _latest_supplier_proforma_invoice_response(invoice):
+    from decimal import Decimal
+
     items_list = []
+    calculated_total = Decimal("0.00")
     for item in invoice.items:
         qty = item.quantity
         price = item.unit_price
         net_amt = item.net_amount
         if net_amt is None and qty is not None and price is not None:
             try:
-                from decimal import Decimal
                 net_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
+            except Exception:
+                pass
+        if net_amt is not None:
+            try:
+                calculated_total += Decimal(str(net_amt))
             except Exception:
                 pass
 
         items_list.append({
-            "material_name": item.material_name or item.description,
-            "description": item.description or item.material_name,
             "hsn_code": item.hsn_code,
+            "material_name": item.material_name or item.description,
+            "net_amount": _format_decimal_str(net_amt, places=2),
             "quantity": _format_decimal_str(qty, places=3) or "0.000",
             "unit_price": _format_decimal_str(price, places=2),
-            "net_amount": _format_decimal_str(net_amt, places=2),
         })
 
+    total_amt = invoice.total_amount
+    if total_amt is None:
+        total_amt = invoice.total_net_amount
+    if total_amt is None and items_list:
+        total_amt = calculated_total
+
     return {
+        "delivery_period": invoice.delivery_period,
+        "delivery_terms": invoice.delivery_terms,
         "items": items_list,
+        "payment_terms": invoice.payment_terms,
+        "total_amount": _format_decimal_str(total_amt, places=2),
+        "warranty_period": invoice.warranty_period,
     }
 
 

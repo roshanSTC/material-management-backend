@@ -651,7 +651,6 @@ class LatestSupplierProformaInvoiceItemResponseSchema(Schema):
         unknown = EXCLUDE
 
     material_name = fields.String(allow_none=True)
-    description = fields.String(allow_none=True)
     hsn_code = fields.String(allow_none=True)
     quantity = fields.Decimal(as_string=True, places=3, required=True)
     unit_price = fields.Decimal(as_string=True, places=2, allow_none=True)
@@ -662,6 +661,11 @@ class LatestSupplierProformaInvoiceResponseSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
+    delivery_period = fields.String(allow_none=True)
+    delivery_terms = fields.String(allow_none=True)
+    payment_terms = fields.String(allow_none=True)
+    total_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+    warranty_period = fields.String(allow_none=True)
     items = fields.List(
         fields.Nested(LatestSupplierProformaInvoiceItemResponseSchema),
         required=True,

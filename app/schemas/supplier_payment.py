@@ -499,6 +499,7 @@ class SupplierPaymentResponseSchema(Schema):
     total_supplier_value = fields.Decimal(dump_only=True, as_string=True, places=2)
     amount_paid = fields.Decimal(dump_only=True, as_string=True, places=2)
     total_paid_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
+    remaining_amount_before_transaction = fields.Decimal(dump_only=True, as_string=True, places=2)
     payment_date = fields.Date(dump_only=True)
     transaction_details = fields.String(dump_only=True)
     pending_amount = fields.Decimal(dump_only=True, as_string=True, places=2)

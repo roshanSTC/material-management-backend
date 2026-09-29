@@ -253,7 +253,10 @@ def _project_summary_response(project):
             .all()
         )
         if cust_payments:
-            paid_sum = sum(float(p.payment_amount) for p in cust_payments if p.payment_amount is not None)
+            paid_sum = sum(
+                float(p.payment_amount or 0) + float(p.tds or 0) + float(p.ld or 0)
+                for p in cust_payments
+            )
             latest_cust = cust_payments[-1]
             cust_iv = (
                 float(latest_cust.invoice_value)

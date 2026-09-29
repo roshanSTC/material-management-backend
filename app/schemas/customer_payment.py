@@ -440,6 +440,7 @@ class CustomerPaymentResponseSchema(Schema):
     payment_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
     amount_paid = fields.Decimal(dump_only=True, as_string=True, places=2)
     total_paid_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
+    remaining_amount_before_transaction = fields.Decimal(dump_only=True, as_string=True, places=2)
     pending_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
     payment_date = fields.Date(dump_only=True)
     tds = fields.Decimal(dump_only=True, as_string=True, places=2, allow_none=True)

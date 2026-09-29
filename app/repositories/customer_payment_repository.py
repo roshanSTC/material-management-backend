@@ -83,7 +83,14 @@ def get_customer_payment(payment_id: int) -> CustomerPayment | None:
 
 def get_total_previously_paid(project_id: int, exclude_id: int | None = None) -> Decimal:
     query = db.session.query(
-        db.func.coalesce(db.func.sum(CustomerPayment.payment_amount), 0)
+        db.func.coalesce(
+            db.func.sum(
+                db.func.coalesce(CustomerPayment.payment_amount, 0)
+                + db.func.coalesce(CustomerPayment.tds, 0)
+                + db.func.coalesce(CustomerPayment.ld, 0)
+            ),
+            0,
+        )
     ).filter(CustomerPayment.project_id == project_id)
     if exclude_id is not None:
         query = query.filter(CustomerPayment.id != exclude_id)

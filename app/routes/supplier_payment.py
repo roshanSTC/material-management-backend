@@ -71,6 +71,8 @@ def _supplier_payment_response(payment):
 
     if tsv > Decimal("0.00"):
         cum_paid = max((tsv - pend).quantize(Decimal("0.01")), amt)
+        prev_paid = max((cum_paid - amt).quantize(Decimal("0.01")), Decimal("0.00"))
+        remaining_before = max((tsv - prev_paid).quantize(Decimal("0.01")), Decimal("0.00"))
         cum_pct = min(
             ((cum_paid / tsv) * Decimal("100")).quantize(Decimal("0.01")),
             Decimal("100.00"),
@@ -79,6 +81,7 @@ def _supplier_payment_response(payment):
         is_completed = (pend <= Decimal("0.00")) or (cum_pct >= Decimal("100.00"))
     else:
         cum_paid = amt
+        remaining_before = Decimal("0.00")
         cum_pct = Decimal("100.00") if amt > Decimal("0.00") else Decimal("0.00")
         pend_pct = Decimal("0.00") if amt > Decimal("0.00") else Decimal("100.00")
         is_completed = amt > Decimal("0.00")
@@ -104,6 +107,7 @@ def _supplier_payment_response(payment):
         "total_supplier_value": _format_decimal(payment.total_supplier_value),
         "amount_paid": _format_decimal(payment.amount_paid),
         "total_paid_amount": _format_decimal(cum_paid),
+        "remaining_amount_before_transaction": _format_decimal(remaining_before),
         "payment_date": payment.payment_date,
         "transaction_details": payment.transaction_details,
         "pending_amount": _format_decimal(payment.pending_amount),

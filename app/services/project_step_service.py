@@ -2102,7 +2102,12 @@ def sync_customer_payment_step(project_id: int) -> ProjectStep | None:
 
     payment = payments[-1]
     total_paid = sum(
-        (Decimal(str(p.payment_amount or 0)) for p in payments),
+        (
+            Decimal(str(p.payment_amount or 0))
+            + Decimal(str(p.tds or 0))
+            + Decimal(str(p.ld or 0))
+            for p in payments
+        ),
         Decimal("0.00"),
     ).quantize(Decimal("0.01"))
 

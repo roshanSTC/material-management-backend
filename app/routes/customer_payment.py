@@ -66,7 +66,10 @@ def _customer_payment_response(payment):
         entity_id=payment.id,
     )
     iv = Decimal(str(payment.invoice_value or 0)).quantize(Decimal("0.01"))
-    amt = Decimal(str(payment.payment_amount or 0)).quantize(Decimal("0.01"))
+    raw_pay_amt = Decimal(str(payment.payment_amount or 0)).quantize(Decimal("0.01"))
+    tds_amt = Decimal(str(payment.tds or 0)).quantize(Decimal("0.01"))
+    ld_amt = Decimal(str(payment.ld or 0)).quantize(Decimal("0.01"))
+    amt = (raw_pay_amt + tds_amt + ld_amt).quantize(Decimal("0.01"))
 
     if hasattr(payment, "_cumulative_paid") and hasattr(payment, "_pending_amount"):
         cum_paid = Decimal(str(payment._cumulative_paid)).quantize(Decimal("0.01"))
@@ -78,7 +81,11 @@ def _customer_payment_response(payment):
         )
         running_paid = Decimal("0.00")
         for p in project_payments:
-            p_amt = Decimal(str(p.payment_amount or 0)).quantize(Decimal("0.01"))
+            p_amt = (
+                Decimal(str(p.payment_amount or 0))
+                + Decimal(str(p.tds or 0))
+                + Decimal(str(p.ld or 0))
+            ).quantize(Decimal("0.01"))
             running_paid += p_amt
             if p.id == payment.id:
                 break
@@ -89,6 +96,8 @@ def _customer_payment_response(payment):
             pend = Decimal("0.00")
 
     if iv > Decimal("0.00"):
+        prev_paid = max((cum_paid - amt).quantize(Decimal("0.01")), Decimal("0.00"))
+        remaining_before = max((iv - prev_paid).quantize(Decimal("0.01")), Decimal("0.00"))
         pay_pct = ((amt / iv) * Decimal("100")).quantize(Decimal("0.01"))
         cum_pct = min(
             ((cum_paid / iv) * Decimal("100")).quantize(Decimal("0.01")),
@@ -97,6 +106,7 @@ def _customer_payment_response(payment):
         pend_pct = max((Decimal("100.00") - cum_pct).quantize(Decimal("0.01")), Decimal("0.00"))
         is_completed = (pend <= Decimal("0.00")) or (cum_pct >= Decimal("100.00"))
     else:
+        remaining_before = Decimal("0.00")
         pay_pct = Decimal("100.00") if amt > Decimal("0.00") else Decimal("0.00")
         cum_pct = Decimal("100.00") if cum_paid > Decimal("0.00") else Decimal("0.00")
         pend_pct = Decimal("0.00") if cum_paid > Decimal("0.00") else Decimal("100.00")
@@ -126,8 +136,9 @@ def _customer_payment_response(payment):
         "pending_percentage": _format_decimal(pend_pct),
         "invoice_value": _format_decimal(payment.invoice_value),
         "payment_amount": _format_decimal(payment.payment_amount),
-        "amount_paid": _format_decimal(payment.payment_amount),
+        "amount_paid": _format_decimal(amt),
         "total_paid_amount": _format_decimal(cum_paid),
+        "remaining_amount_before_transaction": _format_decimal(remaining_before),
         "payment_date": payment.payment_date,
         "pending_amount": _format_decimal(pend),
         "tds": _format_decimal(payment.tds),

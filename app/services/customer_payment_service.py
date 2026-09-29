@@ -191,6 +191,13 @@ def _resolve_invoice_metadata(
         data["invoice_date"] = inv_date
 
 
+def _get_record_settled_amount(p: CustomerPayment) -> Decimal:
+    amt = Decimal(str(p.payment_amount or 0))
+    tds = Decimal(str(p.tds or 0))
+    ld = Decimal(str(p.ld or 0))
+    return (amt + tds + ld).quantize(Decimal("0.01"))
+
+
 def _calculate_payment_amounts(
     data: dict,
     is_update: bool = False,
@@ -207,6 +214,26 @@ def _calculate_payment_amounts(
     invoice_value = _resolve_invoice_value(project_id, provided_iv)
     data["invoice_value"] = str(invoice_value.quantize(Decimal("0.01")))
 
+    raw_tds = data.get("tds")
+    if raw_tds is None and existing_payment is not None:
+        raw_tds = existing_payment.tds
+    try:
+        tds_val = Decimal(str(raw_tds or 0)).quantize(Decimal("0.01"))
+    except Exception:
+        tds_val = Decimal("0.00")
+
+    raw_ld = (
+        data.get("ld")
+        if data.get("ld") is not None
+        else data.get("liquidated_damages")
+    )
+    if raw_ld is None and existing_payment is not None:
+        raw_ld = existing_payment.ld
+    try:
+        ld_val = Decimal(str(raw_ld or 0)).quantize(Decimal("0.01"))
+    except Exception:
+        ld_val = Decimal("0.00")
+
     raw_payment_amount = data.get("payment_amount")
     raw_pct = data.get("payment_percentage")
 
@@ -219,8 +246,12 @@ def _calculate_payment_amounts(
     elif raw_pct is not None and invoice_value > Decimal("0.00"):
         try:
             pct_dec = Decimal(str(raw_pct))
-            payment_amount = ((pct_dec / Decimal("100")) * invoice_value).quantize(
+            target_settled = ((pct_dec / Decimal("100")) * invoice_value).quantize(
                 Decimal("0.01")
+            )
+            payment_amount = max(
+                (target_settled - tds_val - ld_val).quantize(Decimal("0.01")),
+                Decimal("0.00"),
             )
         except Exception:
             payment_amount = None
@@ -234,12 +265,13 @@ def _calculate_payment_amounts(
         return
 
     data["payment_amount"] = str(payment_amount.quantize(Decimal("0.01")))
+    settled_amount = (payment_amount + tds_val + ld_val).quantize(Decimal("0.01"))
 
     exclude_id = existing_payment.id if existing_payment is not None else None
     total_previously_paid = get_total_previously_paid(project_id, exclude_id=exclude_id)
     remaining_before = (invoice_value - total_previously_paid).quantize(Decimal("0.01"))
 
-    if payment_amount > remaining_before:
+    if settled_amount > remaining_before:
         symbol = "₹"
         if remaining_before <= Decimal("0.00"):
             raise PaymentExceedsBalanceError(
@@ -249,14 +281,14 @@ def _calculate_payment_amounts(
             f"Payment exceeds outstanding balance of {symbol}{remaining_before:.2f}"
         )
 
-    cumulative_paid = total_previously_paid + payment_amount
+    cumulative_paid = total_previously_paid + settled_amount
     pending_amount = (invoice_value - cumulative_paid).quantize(Decimal("0.01"))
     if pending_amount < Decimal("0.00"):
         pending_amount = Decimal("0.00")
     data["pending_amount"] = str(pending_amount)
 
     if invoice_value > Decimal("0.00"):
-        pct = ((payment_amount / invoice_value) * Decimal("100")).quantize(Decimal("0.01"))
+        pct = ((settled_amount / invoice_value) * Decimal("100")).quantize(Decimal("0.01"))
         data["payment_percentage"] = str(pct)
 
 
@@ -283,11 +315,12 @@ def _recalculate_project_payments(
     iv = iv.quantize(Decimal("0.01"))
     running_paid = Decimal("0.00")
     for p in payments:
-        amt = Decimal(str(p.payment_amount or 0)).quantize(Decimal("0.01"))
-        running_paid += amt
+        settled = _get_record_settled_amount(p)
+        running_paid += settled
         p.invoice_value = iv
+        p._amount_paid = settled
         if iv > Decimal("0.00"):
-            p._payment_percentage = ((amt / iv) * Decimal("100")).quantize(Decimal("0.01"))
+            p._payment_percentage = ((settled / iv) * Decimal("100")).quantize(Decimal("0.01"))
             pend = (iv - running_paid).quantize(Decimal("0.01"))
             p._pending_amount = pend if pend > Decimal("0.00") else Decimal("0.00")
             p._cumulative_paid = running_paid
@@ -306,7 +339,7 @@ def get_customer_payment_summary(project_id: int) -> dict:
         iv = Decimal("0.00")
 
     total_paid = sum(
-        (Decimal(str(p.payment_amount or 0)) for p in payments),
+        (_get_record_settled_amount(p) for p in payments),
         Decimal("0.00"),
     ).quantize(Decimal("0.01"))
 
@@ -442,15 +475,16 @@ def list_customer_payment_records(
                     break
             running_paid = Decimal("0.00")
             for p in chronological:
-                amt = Decimal(str(p.payment_amount or 0)).quantize(Decimal("0.01"))
-                running_paid += amt
+                settled = _get_record_settled_amount(p)
+                running_paid += settled
+                p._amount_paid = settled
                 p._cumulative_paid = running_paid
                 if iv > Decimal("0.00"):
-                    p._payment_percentage = ((amt / iv) * Decimal("100")).quantize(Decimal("0.01"))
+                    p._payment_percentage = ((settled / iv) * Decimal("100")).quantize(Decimal("0.01"))
                     pend = (iv - running_paid).quantize(Decimal("0.01"))
                     p._pending_amount = pend if pend > Decimal("0.00") else Decimal("0.00")
                 else:
-                    p._payment_percentage = Decimal("100.00") if amt > Decimal("0.00") else Decimal("0.00")
+                    p._payment_percentage = Decimal("100.00") if settled > Decimal("0.00") else Decimal("0.00")
                     p._pending_amount = Decimal("0.00")
     return payments
 
@@ -481,6 +515,9 @@ def update_customer_payment_transaction(
             "invoice_value",
             "payment_percentage",
             "pending_amount",
+            "tds",
+            "ld",
+            "liquidated_damages",
         )
     ):
         _calculate_payment_amounts(data, is_update=True, existing_payment=payment)

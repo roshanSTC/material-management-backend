@@ -88,6 +88,65 @@ def _detect_currency(text: str) -> Tuple[Optional[str], Optional[str]]:
     return None, None
 
 
+VALID_INCOTERMS = {
+    "EXW",
+    "FOB",
+    "CIF",
+    "FOR",
+    "CPT",
+    "CIP",
+    "FCA",
+    "FAS",
+    "CFR",
+    "DAP",
+    "DPU",
+    "DDP",
+}
+
+INCOTERM_PHRASES = [
+    ("delivered at place unloaded", "DPU"),
+    ("delivered at place", "DAP"),
+    ("delivered duty paid", "DDP"),
+    ("carriage and insurance paid", "CIP"),
+    ("carriage paid to", "CPT"),
+    ("cost, insurance and freight", "CIF"),
+    ("cost insurance and freight", "CIF"),
+    ("cost and freight", "CFR"),
+    ("free alongside ship", "FAS"),
+    ("free on board", "FOB"),
+    ("free carrier", "FCA"),
+    ("ex works", "EXW"),
+    ("ex-works", "EXW"),
+    ("free on rail", "FOR"),
+    ("free on road", "FOR"),
+]
+
+
+def _normalize_incoterms(val: Any) -> str:
+    if not val:
+        return ""
+    s = str(val).strip()
+    if not s:
+        return ""
+
+    tokens = re.findall(r"[A-Za-z]+", s)
+    if tokens:
+        first_token = tokens[0].upper()
+        if first_token in VALID_INCOTERMS:
+            return first_token
+        for token in tokens[1:]:
+            t_up = token.upper()
+            if t_up in VALID_INCOTERMS and t_up != "FOR":
+                return t_up
+
+    s_lower = s.lower()
+    for phrase, code in INCOTERM_PHRASES:
+        if phrase in s_lower:
+            return code
+
+    return s
+
+
 def _find_target_sheet(wb: openpyxl.Workbook) -> openpyxl.worksheet.worksheet.Worksheet:
     # 1. First priority: Check cell A1/A2/A3 of all sheets for 'Partner Quote'
     for name in wb.sheetnames:
@@ -395,12 +454,13 @@ def parse_supplier_quotation_excel(
     validity = str(meta.get("validity") or meta.get("price validity") or "").strip()
 
     # Incoterms
-    incoterms = str(
+    raw_incoterms = str(
         meta.get("inco terms")
         or meta.get("incoterms")
         or meta.get("inco term")
         or ""
     ).strip()
+    incoterms = _normalize_incoterms(raw_incoterms)
 
     # Payment Terms
     payment_terms = str(

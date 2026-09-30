@@ -56,21 +56,21 @@ STEP_NAMES = {
 }
 
 STEP_NEXT_ACTIONS = {
-    1: "Review Customer Query & Requirements",
-    2: "Request Quotation from Overseas Supplier",
-    3: "Evaluate Supplier Quotation & Terms",
-    4: "Prepare Landed Cost Sheet",
-    5: "Send Formal Quotation to Customer",
-    6: "Review Customer Tender Requirements",
-    7: "Prepare & Submit Bid Documents",
-    8: "Verify Customer PO document",
-    9: "Place Order Confirmation with Supplier",
-    10: "Verify Supplier Commercial Invoice",
-    11: "Track Material Shipment to India",
-    12: "Complete Customs Clearance Formalities",
-    13: "Confirm Material Delivery Receipt",
-    14: "Follow up for Customer Payment",
-    15: "Settle Balance Payment to Supplier",
+    1: "Request Supplier Quotation",
+    2: "Supplier Quotation",
+    3: "Cost Sheet",
+    4: "Quotation to Customer",
+    5: "Customer Tender",
+    6: "Bid Submission",
+    7: "Purchase Order (PO)",
+    8: "Order Confirmation to Supplier",
+    9: "Supplier Invoice",
+    10: "Material Delivery",
+    11: "Customs Clearance",
+    12: "Customer Invoice",
+    13: "Customer Payment",
+    14: "Payment to Supplier",
+    
 }
 
 

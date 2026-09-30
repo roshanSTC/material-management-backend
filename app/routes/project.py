@@ -92,22 +92,34 @@ def _project_summary_response(project):
 
     # Current step number
     in_progress_steps = [s for s in steps if s.status == "in_progress"]
+    active_or_completed_steps = [
+        s for s in steps if s.status in ("in_progress", "completed")
+    ]
     if in_progress_steps:
         current_step_number = min(s.step_number for s in in_progress_steps)
+    elif active_or_completed_steps:
+        current_step_number = max(s.step_number for s in active_or_completed_steps)
     elif steps:
         current_step_number = max(s.step_number for s in steps)
     else:
         current_step_number = 1
 
-    current_step_number = max(1, min(15, current_step_number))
     total_steps = 15
+    current_step_number = max(1, min(total_steps, current_step_number))
     current_step_name = STEP_NAMES.get(current_step_number, f"Step {current_step_number}")
-    progress_percentage = round((current_step_number / 15) * 100) if (steps or current_step_number > 1) else 0
+
+    completed_step_numbers = {
+        s.step_number
+        for s in steps
+        if s.status == "completed" and 1 <= s.step_number <= total_steps
+    }
+    completed_steps_count = len(completed_step_numbers)
+    progress_percentage = round((completed_steps_count / total_steps) * 100)
 
     # Project overall status
-    if current_step_number == 15 and any(s.step_number == 15 and s.status == "completed" for s in steps):
+    if completed_steps_count == total_steps:
         status = "completed"
-    elif steps:
+    elif active_or_completed_steps:
         status = "in_progress"
     else:
         status = "pending"

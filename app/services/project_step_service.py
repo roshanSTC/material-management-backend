@@ -917,6 +917,10 @@ def serialize_project_step(step: ProjectStep) -> dict:
             raw = data.get("remarks") if data.get("remarks") is not None else data.get("remark")
         remarks = normalize_remark_for_response(raw)
 
+    if data is not None:
+        data.pop("remark", None)
+        data.pop("remarks", None)
+
     definition = STEP_DEFINITIONS.get(step.step_number, {})
 
     return {

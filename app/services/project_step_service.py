@@ -911,6 +911,8 @@ def serialize_project_step(step: ProjectStep) -> dict:
 
     if db_remarks:
         remarks = db_remarks
+    elif step.step_number == 4:
+        remarks = []
     else:
         raw = None
         if data:
@@ -1181,8 +1183,8 @@ def sync_cost_sheet_step(project_id: int) -> ProjectStep | None:
         "cost_amount": cost_amount_str,
         "margin_percent": margin_percent_str,
         "prepared_date": prep_date,
-        "remarks": latest_cost_sheet.title,
-        "remark": latest_cost_sheet.title,
+        "remarks": None,
+        "remark": None,
         "version_number": latest_cost_sheet.version_number,
         "title": latest_cost_sheet.title,
         "total_cost_sheets": len(cost_sheets),

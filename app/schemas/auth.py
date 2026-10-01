@@ -55,6 +55,25 @@ class RegisterResponseSchema(Schema):
     message = fields.String(required=True)
 
 
+class UpdateProfileRequestSchema(Schema):
+    email = fields.Email(required=False)
+    first_name = fields.String(
+        required=False,
+        validate=validate.Length(min=1, max=100),
+    )
+    last_name = fields.String(
+        required=False,
+        validate=validate.Length(min=1, max=100),
+    )
+
+
+class ProfileResponseSchema(Schema):
+    success = fields.Boolean(required=True)
+    data = fields.Nested(UserResponseSchema, required=False, allow_none=True)
+    message = fields.String(required=False, allow_none=True)
+    error = fields.Dict(required=False, allow_none=True)
+
+
 class ErrorResponseSchema(Schema):
     success = fields.Boolean(required=True)
     error = fields.Dict(required=True)

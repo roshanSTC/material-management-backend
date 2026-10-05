@@ -93,7 +93,6 @@ class ProjectSummaryItemSchema(Schema):
     current_step_name = fields.String(required=True)
     progress_percentage = fields.Integer(required=True)
     status = fields.String(required=True)
-    health_status = fields.String(required=True)
     next_action = fields.String(allow_none=True)
     target_delivery_date = fields.String(allow_none=True)
     total_value = fields.Raw(allow_none=True)

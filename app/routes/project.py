@@ -173,24 +173,6 @@ def _project_summary_response(project):
                     target_delivery_date = str(d)[:10]
                     break
 
-    # Health status based on target delivery date
-    health_status = "on_track"
-    if status == "completed":
-        health_status = "completed"
-    elif target_delivery_date:
-        try:
-            del_d = date.fromisoformat(str(target_delivery_date)[:10])
-            today = date.today()
-            diff = (del_d - today).days
-            if diff < 0:
-                health_status = "delayed"
-            elif diff <= 7:
-                health_status = "at_risk"
-            else:
-                health_status = "on_track"
-        except Exception:
-            health_status = "on_track"
-
     # Total value and currency resolution
     total_value = None
     currency = "INR"
@@ -341,7 +323,6 @@ def _project_summary_response(project):
         "current_step_name": current_step_name,
         "progress_percentage": progress_percentage,
         "status": status,
-        "health_status": health_status,
         "next_action": next_action,
         "target_delivery_date": target_delivery_date,
         "total_value": total_value,

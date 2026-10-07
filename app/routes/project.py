@@ -237,6 +237,32 @@ def _project_summary_response(project):
     else:
         total_value = 0
 
+    # Total margin resolution from Cost Sheet
+    total_margin = None
+    try:
+        cost_sheet = (
+            CostSheet.query.filter_by(project_id=project.id)
+            .order_by(CostSheet.version_number.desc(), CostSheet.id.desc())
+            .first()
+        )
+        if cost_sheet:
+            output = cost_sheet.output
+            if not output:
+                from app.services.cost_sheet_service import calculate_cost_sheet
+                from app.services.project_cost_sheet_service import _calculation_item
+                output = calculate_cost_sheet(
+                    global_params=cost_sheet.global_params or {},
+                    items=[_calculation_item(item) for item in cost_sheet.items],
+                )
+            if isinstance(output, dict):
+                col_totals = output.get("columnTotals", {})
+                if isinstance(col_totals, dict) and col_totals.get("marginInr") is not None:
+                    total_margin = col_totals["marginInr"]
+                elif output.get("marginInr") is not None:
+                    total_margin = output["marginInr"]
+    except Exception:
+        pass
+
     # Payment statuses
     customer_payment_status = "pending"
     cust_payments = []
@@ -326,6 +352,7 @@ def _project_summary_response(project):
         "next_action": next_action,
         "target_delivery_date": target_delivery_date,
         "total_value": total_value,
+        "total_margin": total_margin,
         "currency": currency,
         "customer_payment_status": customer_payment_status,
         "supplier_payment_status": supplier_payment_status,

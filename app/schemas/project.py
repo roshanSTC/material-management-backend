@@ -96,6 +96,7 @@ class ProjectSummaryItemSchema(Schema):
     next_action = fields.String(allow_none=True)
     target_delivery_date = fields.String(allow_none=True)
     total_value = fields.Raw(allow_none=True)
+    total_margin = fields.Raw(allow_none=True)
     currency = fields.String(required=True)
     customer_payment_status = fields.String(required=True)
     supplier_payment_status = fields.String(required=True)

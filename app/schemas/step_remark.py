@@ -23,6 +23,8 @@ class StepRemarkItemSchema(Schema):
     user_id = fields.Raw(allow_none=True, dump_default=None)
     created_at = fields.Raw(allow_none=True, dump_default=None)
     updated_at = fields.Raw(allow_none=True, dump_default=None)
+    entity_id = fields.Raw(allow_none=True, dump_default=None)
+    version_label = fields.Raw(allow_none=True, dump_default=None)
 
 
 class StepRemarksByStepSchema(Schema):

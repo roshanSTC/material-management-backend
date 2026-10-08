@@ -885,6 +885,199 @@ def update_project_step_transaction(
     )
 
 
+def _resolve_active_entity_id_for_step(project_id: int, step_number: int) -> int | None:
+    try:
+        if step_number == 1:
+            from app.models.customer_query import CustomerQuery
+            entity = (
+                CustomerQuery.query.filter_by(project_id=project_id)
+                .order_by(CustomerQuery.id.desc())
+                .first()
+            )
+            return entity.id if entity else None
+
+        elif step_number == 2:
+            from app.models.quotation_request import QuotationRequest
+            entity = (
+                QuotationRequest.query.filter_by(project_id=project_id)
+                .order_by(QuotationRequest.id.desc())
+                .first()
+            )
+            return entity.id if entity else None
+
+        elif step_number == 3:
+            from app.models.supplier_quotation import SupplierQuotation
+            entity = (
+                SupplierQuotation.query.filter_by(project_id=project_id)
+                .order_by(SupplierQuotation.id.desc())
+                .first()
+            )
+            return entity.id if entity else None
+
+        elif step_number == 5:
+            from app.models.customer_quotation import CustomerQuotation
+            entity = (
+                CustomerQuotation.query.filter_by(project_id=project_id)
+                .order_by(CustomerQuotation.id.desc())
+                .first()
+            )
+            return entity.id if entity else None
+
+        elif step_number == 6:
+            from app.models.customer_tender import CustomerTender
+            entity = (
+                CustomerTender.query.filter_by(project_id=project_id)
+                .order_by(CustomerTender.id.desc())
+                .first()
+            )
+            return entity.id if entity else None
+
+        elif step_number == 7:
+            from app.models.bid_submission import BidSubmission
+            entity = (
+                BidSubmission.query.filter_by(project_id=project_id)
+                .order_by(BidSubmission.id.desc())
+                .first()
+            )
+            return entity.id if entity else None
+
+        elif step_number == 8:
+            from app.models.purchase_order import PurchaseOrder
+            entity = (
+                PurchaseOrder.query.filter_by(project_id=project_id)
+                .order_by(PurchaseOrder.id.desc())
+                .first()
+            )
+            return entity.id if entity else None
+
+        elif step_number == 9:
+            from app.models.supplier_order_confirmation import SupplierOrderConfirmation
+            entity = (
+                SupplierOrderConfirmation.query.filter_by(project_id=project_id)
+                .order_by(SupplierOrderConfirmation.id.desc())
+                .first()
+            )
+            return entity.id if entity else None
+
+        elif step_number == 10:
+            from app.models import SupplierInvoice, SupplierPackingList, SupplierProformaInvoice
+            inv = SupplierInvoice.query.filter_by(project_id=project_id).order_by(SupplierInvoice.id.desc()).first()
+            if inv:
+                return inv.id
+            pkg = SupplierPackingList.query.filter_by(project_id=project_id).order_by(SupplierPackingList.id.desc()).first()
+            if pkg:
+                return pkg.id
+            pi = SupplierProformaInvoice.query.filter_by(project_id=project_id).order_by(SupplierProformaInvoice.id.desc()).first()
+            return pi.id if pi else None
+
+        elif step_number == 11:
+            from app.models import BillOfEntry, ImportLogistics
+            boe = BillOfEntry.query.filter_by(project_id=project_id).order_by(BillOfEntry.id.desc()).first()
+            if boe:
+                return boe.id
+            log = ImportLogistics.query.filter_by(project_id=project_id).order_by(ImportLogistics.id.desc()).first()
+            return log.id if log else None
+
+        elif step_number == 12:
+            from app.models import CustomsClearance
+            entity = CustomsClearance.query.filter_by(project_id=project_id).order_by(CustomsClearance.id.desc()).first()
+            return entity.id if entity else None
+
+        elif step_number == 13:
+            from app.models import CustomerDeliveryInvoice
+            entity = CustomerDeliveryInvoice.query.filter_by(project_id=project_id).order_by(CustomerDeliveryInvoice.id.desc()).first()
+            return entity.id if entity else None
+
+        elif step_number == 14:
+            from app.models.customer_payment import CustomerPayment
+            entity = (
+                CustomerPayment.query.filter_by(project_id=project_id)
+                .order_by(CustomerPayment.id.desc())
+                .first()
+            )
+            return entity.id if entity else None
+
+        elif step_number == 15:
+            from app.models.supplier_payment import SupplierPayment
+            entity = (
+                SupplierPayment.query.filter_by(project_id=project_id)
+                .order_by(SupplierPayment.id.desc())
+                .first()
+            )
+            return entity.id if entity else None
+
+    except Exception:
+        pass
+    return None
+
+
+def _get_step_entity_version_map(project_id: int, step_number: int) -> dict[int, str]:
+    """
+    Returns a mapping of entity_id -> version_label (e.g. {9: 'v1', 10: 'v2'}).
+    Entities are ordered chronologically by id.asc().
+    """
+    version_map = {}
+    if not project_id:
+        return version_map
+    try:
+        entities = []
+        if step_number == 1:
+            from app.models.customer_query import CustomerQuery
+            entities = CustomerQuery.query.filter_by(project_id=project_id).order_by(CustomerQuery.id.asc()).all()
+        elif step_number == 2:
+            from app.models.quotation_request import QuotationRequest
+            entities = QuotationRequest.query.filter_by(project_id=project_id).order_by(QuotationRequest.id.asc()).all()
+        elif step_number == 3:
+            from app.models.supplier_quotation import SupplierQuotation
+            entities = SupplierQuotation.query.filter_by(project_id=project_id).order_by(SupplierQuotation.id.asc()).all()
+        elif step_number == 4:
+            from app.models.cost_sheet import CostSheet
+            entities = CostSheet.query.filter_by(project_id=project_id).order_by(CostSheet.version_number.asc(), CostSheet.id.asc()).all()
+            for cs in entities:
+                v_num = cs.version_number if cs.version_number else 1
+                version_map[cs.id] = f"v{v_num}"
+            return version_map
+        elif step_number == 5:
+            from app.models.customer_quotation import CustomerQuotation
+            entities = CustomerQuotation.query.filter_by(project_id=project_id).order_by(CustomerQuotation.id.asc()).all()
+        elif step_number == 6:
+            from app.models.customer_tender import CustomerTender
+            entities = CustomerTender.query.filter_by(project_id=project_id).order_by(CustomerTender.id.asc()).all()
+        elif step_number == 7:
+            from app.models.bid_submission import BidSubmission
+            entities = BidSubmission.query.filter_by(project_id=project_id).order_by(BidSubmission.id.asc()).all()
+        elif step_number == 8:
+            from app.models.purchase_order import PurchaseOrder
+            entities = PurchaseOrder.query.filter_by(project_id=project_id).order_by(PurchaseOrder.id.asc()).all()
+        elif step_number == 9:
+            from app.models.supplier_order_confirmation import SupplierOrderConfirmation
+            entities = SupplierOrderConfirmation.query.filter_by(project_id=project_id).order_by(SupplierOrderConfirmation.id.asc()).all()
+        elif step_number == 10:
+            from app.models.supplier_invoice import SupplierInvoice
+            entities = SupplierInvoice.query.filter_by(project_id=project_id).order_by(SupplierInvoice.id.asc()).all()
+        elif step_number == 11:
+            from app.models.bill_of_entry import BillOfEntry
+            entities = BillOfEntry.query.filter_by(project_id=project_id).order_by(BillOfEntry.id.asc()).all()
+        elif step_number == 12:
+            from app.models.customs_clearance import CustomsClearance
+            entities = CustomsClearance.query.filter_by(project_id=project_id).order_by(CustomsClearance.id.asc()).all()
+        elif step_number == 13:
+            from app.models.customer_delivery_invoice import CustomerDeliveryInvoice
+            entities = CustomerDeliveryInvoice.query.filter_by(project_id=project_id).order_by(CustomerDeliveryInvoice.id.asc()).all()
+        elif step_number == 14:
+            from app.models.customer_payment import CustomerPayment
+            entities = CustomerPayment.query.filter_by(project_id=project_id).order_by(CustomerPayment.id.asc()).all()
+        elif step_number == 15:
+            from app.models.supplier_payment import SupplierPayment
+            entities = SupplierPayment.query.filter_by(project_id=project_id).order_by(SupplierPayment.id.asc()).all()
+
+        for idx, entity in enumerate(entities, start=1):
+            version_map[entity.id] = f"v{idx}"
+    except Exception:
+        pass
+    return version_map
+
+
 def serialize_project_step(step: ProjectStep) -> dict:
     status, progress_percentage = _calculate_step_state(
         step.step_number,
@@ -895,10 +1088,19 @@ def serialize_project_step(step: ProjectStep) -> dict:
     from app.services.step_remark_service import serialize_remark
     from app.utils.remark_utils import deserialize_remark_for_entity, normalize_remark_for_response
 
-    db_remarks = [
-        serialize_remark(r)
-        for r in list_remarks_for_step(step.project_id, step.step_number)
-    ]
+    raw_db_remarks = list_remarks_for_step(step.project_id, step.step_number)
+    version_map = _get_step_entity_version_map(step.project_id, step.step_number)
+
+    def _get_version_num(r_item):
+        lbl = r_item.get("version_label") or "v1"
+        return int(lbl[1:]) if (isinstance(lbl, str) and lbl.startswith("v") and lbl[1:].isdigit()) else 1
+
+    db_remarks = []
+    for r in raw_db_remarks:
+        r_dict = serialize_remark(r)
+        v_label = version_map.get(r.entity_id, "v1") if r.entity_id is not None else "v1"
+        r_dict["version_label"] = v_label
+        db_remarks.append(r_dict)
 
     if step.data is None:
         data = None
@@ -910,6 +1112,8 @@ def serialize_project_step(step: ProjectStep) -> dict:
             data["remarks"] = deserialize_remark_for_entity(data["remarks"])
 
     if db_remarks:
+        # Latest first: highest version first, and within same version, newest remark (highest id) first
+        db_remarks.sort(key=lambda r: (_get_version_num(r), r.get("id", 0) or 0), reverse=True)
         remarks = db_remarks
     elif step.step_number == 4:
         remarks = []
@@ -917,7 +1121,16 @@ def serialize_project_step(step: ProjectStep) -> dict:
         raw = None
         if data:
             raw = data.get("remarks") if data.get("remarks") is not None else data.get("remark")
-        remarks = normalize_remark_for_response(raw)
+        raw_remarks = normalize_remark_for_response(raw)
+        # Filter out ghost remarks with 'id' that were deleted from step_remarks
+        remarks = [
+            item for item in raw_remarks
+            if not (isinstance(item, dict) and item.get("id") is not None)
+        ]
+        for item in remarks:
+            if isinstance(item, dict):
+                item.setdefault("version_label", "v1")
+                item.pop("version", None)
 
     if data is not None:
         data.pop("remark", None)
@@ -997,7 +1210,7 @@ def sync_customer_query_step(project_id: int) -> ProjectStep | None:
     customer_query = (
         CustomerQuery.query
         .filter_by(project_id=project_id)
-        .order_by(CustomerQuery.updated_at.desc(), CustomerQuery.id.desc())
+        .order_by(CustomerQuery.id.desc())
         .first()
     )
 
@@ -1039,7 +1252,7 @@ def sync_quotation_request_step(project_id: int) -> ProjectStep | None:
     quotation_request = (
         QuotationRequest.query
         .filter_by(project_id=project_id)
-        .order_by(QuotationRequest.updated_at.desc(), QuotationRequest.id.desc())
+        .order_by(QuotationRequest.id.desc())
         .first()
     )
 
@@ -1081,7 +1294,7 @@ def sync_supplier_quotation_step(project_id: int) -> ProjectStep | None:
     supplier_quotation = (
         SupplierQuotation.query
         .filter_by(project_id=project_id)
-        .order_by(SupplierQuotation.updated_at.desc(), SupplierQuotation.id.desc())
+        .order_by(SupplierQuotation.id.desc())
         .first()
     )
 
@@ -1208,7 +1421,7 @@ def sync_customer_quotation_step(project_id: int) -> ProjectStep | None:
     customer_quotation = (
         CustomerQuotation.query
         .filter_by(project_id=project_id)
-        .order_by(CustomerQuotation.updated_at.desc(), CustomerQuotation.id.desc())
+        .order_by(CustomerQuotation.id.desc())
         .first()
     )
 

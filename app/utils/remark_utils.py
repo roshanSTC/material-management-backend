@@ -12,10 +12,14 @@ def normalize_remark_for_db(remark):
     if remark is None:
         return None
     if isinstance(remark, (list, dict)):
+        if not remark:
+            return None
         return json.dumps(remark)
     if isinstance(remark, str):
         s = remark.strip()
-        return s if s else None
+        if not s or s in ("[]", "{}"):
+            return None
+        return s
     return str(remark)
 
 
@@ -102,17 +106,39 @@ def get_step_remarks_for_response(
         for r in list_remarks_for_step(project_id, step_number, entity_id=entity_id)
     ]
     if db_remarks:
+        try:
+            from app.services.project_step_service import _get_step_entity_version_map
+            v_map = _get_step_entity_version_map(project_id, step_number)
+            def _get_version_num(r_item):
+                lbl = r_item.get("version_label") or "v1"
+                return int(lbl[1:]) if (isinstance(lbl, str) and lbl.startswith("v") and lbl[1:].isdigit()) else 1
+
+            for item in db_remarks:
+                eid = item.get("entity_id") or entity_id
+                v_label = v_map.get(eid, "v1") if eid is not None else "v1"
+                item["version_label"] = v_label
+                item.pop("version", None)
+            db_remarks.sort(key=lambda r: (_get_version_num(r), r.get("id", 0) or 0), reverse=True)
+        except Exception:
+            pass
         return db_remarks
 
-    # If entity_id was provided but no entity-scoped remarks exist, check for legacy un-scoped remarks
+    # If entity_id was provided, check if any remarks exist in step_remarks for this step
     if entity_id is not None:
-        legacy_remarks = [
-            serialize_remark(r)
-            for r in list_remarks_for_step(project_id, step_number)
-            if r.entity_id is None
-        ]
-        if legacy_remarks:
-            return legacy_remarks
+        all_step_remarks = list_remarks_for_step(project_id, step_number)
+        if all_step_remarks:
+            legacy_unscoped = [
+                serialize_remark(r) for r in all_step_remarks if r.entity_id is None
+            ]
+            if legacy_unscoped:
+                return legacy_unscoped
+            return []
 
-    return normalize_remark_for_response(deserialize_remark_for_entity(fallback_raw))
+    fallback = normalize_remark_for_response(deserialize_remark_for_entity(fallback_raw))
+    # If fallback items have 'id' keys, they were step_remarks rows that are now deleted; do not return them!
+    valid_fallback = [
+        item for item in fallback
+        if not (isinstance(item, dict) and item.get("id") is not None)
+    ]
+    return valid_fallback
 

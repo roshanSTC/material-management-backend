@@ -124,8 +124,8 @@ def create_purchase_order(*, data: dict) -> PurchaseOrder:
         gst_amount=_parse_decimal_val(data.get("gst_amount")),
         total_net_amount=_parse_decimal_val(data.get("total_net_amount")),
         total_gross_amount=_parse_decimal_val(data.get("total_gross_amount")),
-        remark=_normalize_optional_string(
-            data.get("remark") or data.get("remarks")
+        remark=normalize_remark_for_db(
+            data.get("remark") if data.get("remark") is not None else data.get("remarks")
         ),
     )
 
@@ -222,8 +222,8 @@ def update_purchase_order(
     if "total_gross_amount" in data:
         purchase_order.total_gross_amount = _parse_decimal_val(data["total_gross_amount"])
     if "remark" in data or "remarks" in data:
-        purchase_order.remark = _normalize_optional_string(
-            data.get("remark") or data.get("remarks")
+        purchase_order.remark = normalize_remark_for_db(
+            data.get("remark") if "remark" in data else data.get("remarks")
         )
 
     if "items" in data and data["items"] is not None:

@@ -1383,7 +1383,19 @@ def sync_cost_sheet_step(project_id: int) -> ProjectStep | None:
     cost_amount_str = str(cost_val) if cost_val is not None else None
 
     gp = latest_cost_sheet.global_params or {}
-    margin_val = gp.get("marginPercent") if isinstance(gp, dict) else None
+    margin_val = None
+    if isinstance(gp, dict):
+        margin_raw = gp.get("marginPercent") or gp.get("marginRate") or gp.get("margin_rate")
+        if margin_raw is not None:
+            try:
+                m_f = float(margin_raw)
+                if 0 < m_f < 1.0:
+                    pct = round(m_f * 100.0, 4)
+                    margin_val = int(pct) if pct == int(pct) else pct
+                else:
+                    margin_val = int(m_f) if m_f == int(m_f) else m_f
+            except (ValueError, TypeError):
+                pass
     margin_percent_str = str(margin_val) if margin_val is not None else None
 
     prep_date = (

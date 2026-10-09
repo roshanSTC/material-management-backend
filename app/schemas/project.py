@@ -72,6 +72,8 @@ class ProjectResponseSchema(Schema):
     nickname = fields.String(allow_none=True)
     customer_id = fields.Integer(allow_none=True)
     supplier_id = fields.Integer(allow_none=True)
+    total_margin = fields.Raw(allow_none=True)
+    margin_percentage = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
 
@@ -97,6 +99,7 @@ class ProjectSummaryItemSchema(Schema):
     target_delivery_date = fields.String(allow_none=True)
     total_value = fields.Raw(allow_none=True)
     total_margin = fields.Raw(allow_none=True)
+    margin_percentage = fields.Raw(allow_none=True)
     currency = fields.String(required=True)
     customer_payment_status = fields.String(required=True)
     supplier_payment_status = fields.String(required=True)

@@ -74,7 +74,82 @@ STEP_NEXT_ACTIONS = {
 }
 
 
+def _get_project_margin_info(project_id):
+    total_margin = None
+    margin_percentage = None
+    try:
+        cost_sheet = (
+            CostSheet.query.filter_by(project_id=project_id)
+            .order_by(CostSheet.version_number.desc(), CostSheet.id.desc())
+            .first()
+        )
+        if cost_sheet:
+            output = cost_sheet.output
+            if not output:
+                from app.services.cost_sheet_service import calculate_cost_sheet
+                from app.services.project_cost_sheet_service import _calculation_item
+                output = calculate_cost_sheet(
+                    global_params=cost_sheet.global_params or {},
+                    items=[_calculation_item(item) for item in cost_sheet.items],
+                )
+            if isinstance(output, dict):
+                col_totals = output.get("columnTotals", {})
+                if isinstance(col_totals, dict) and col_totals.get("marginInr") is not None:
+                    total_margin = col_totals["marginInr"]
+                elif output.get("marginInr") is not None:
+                    total_margin = output["marginInr"]
+
+            # Margin percentage resolution
+            margin_rate_raw = None
+            gp = cost_sheet.global_params
+            if isinstance(gp, dict):
+                margin_rate_raw = (
+                    gp.get("marginRate")
+                    or gp.get("margin_rate")
+                    or gp.get("marginPercent")
+                    or gp.get("margin_percent")
+                )
+            if margin_rate_raw is None and isinstance(output, dict):
+                out_gp = output.get("globalParams")
+                if isinstance(out_gp, dict):
+                    margin_rate_raw = (
+                        out_gp.get("marginRate")
+                        or out_gp.get("margin_rate")
+                        or out_gp.get("marginPercent")
+                        or out_gp.get("margin_percent")
+                    )
+
+            if margin_rate_raw is not None:
+                try:
+                    val = float(margin_rate_raw)
+                    if 0 < val < 1.0:
+                        pct = round(val * 100.0, 4)
+                        margin_percentage = int(pct) if pct == int(pct) else pct
+                    else:
+                        margin_percentage = int(val) if val == int(val) else val
+                except (ValueError, TypeError):
+                    pass
+
+            if margin_percentage is None and isinstance(output, dict):
+                col_totals = output.get("columnTotals", {})
+                if isinstance(col_totals, dict):
+                    m_inr = col_totals.get("marginInr")
+                    base_inr = col_totals.get("lessIgstInr") or col_totals.get("totalCostInr")
+                    if m_inr is not None and base_inr:
+                        try:
+                            base_val = float(base_inr)
+                            if base_val > 0:
+                                pct = round((float(m_inr) / base_val) * 100.0, 2)
+                                margin_percentage = int(pct) if pct == int(pct) else pct
+                        except (ValueError, TypeError):
+                            pass
+    except Exception:
+        pass
+    return total_margin, margin_percentage
+
+
 def _project_response(project):
+    total_margin, margin_percentage = _get_project_margin_info(project.id)
     return {
         "id": project.id,
         "project_code": project.project_code,
@@ -82,6 +157,8 @@ def _project_response(project):
         "nickname": project.nickname,
         "customer_id": project.customer_id,
         "supplier_id": project.supplier_id,
+        "total_margin": total_margin,
+        "margin_percentage": margin_percentage,
         "created_at": project.created_at,
         "updated_at": project.updated_at,
     }
@@ -237,31 +314,8 @@ def _project_summary_response(project):
     else:
         total_value = 0
 
-    # Total margin resolution from Cost Sheet
-    total_margin = None
-    try:
-        cost_sheet = (
-            CostSheet.query.filter_by(project_id=project.id)
-            .order_by(CostSheet.version_number.desc(), CostSheet.id.desc())
-            .first()
-        )
-        if cost_sheet:
-            output = cost_sheet.output
-            if not output:
-                from app.services.cost_sheet_service import calculate_cost_sheet
-                from app.services.project_cost_sheet_service import _calculation_item
-                output = calculate_cost_sheet(
-                    global_params=cost_sheet.global_params or {},
-                    items=[_calculation_item(item) for item in cost_sheet.items],
-                )
-            if isinstance(output, dict):
-                col_totals = output.get("columnTotals", {})
-                if isinstance(col_totals, dict) and col_totals.get("marginInr") is not None:
-                    total_margin = col_totals["marginInr"]
-                elif output.get("marginInr") is not None:
-                    total_margin = output["marginInr"]
-    except Exception:
-        pass
+    # Total margin and margin percentage resolution from Cost Sheet
+    total_margin, margin_percentage = _get_project_margin_info(project.id)
 
     # Payment statuses
     customer_payment_status = "pending"
@@ -353,6 +407,7 @@ def _project_summary_response(project):
         "target_delivery_date": target_delivery_date,
         "total_value": total_value,
         "total_margin": total_margin,
+        "margin_percentage": margin_percentage,
         "currency": currency,
         "customer_payment_status": customer_payment_status,
         "supplier_payment_status": supplier_payment_status,

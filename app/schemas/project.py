@@ -114,3 +114,38 @@ class ProjectListResponseSchema(Schema):
     success = fields.Boolean(required=True)
     message = fields.String(required=True)
     data = fields.List(fields.Nested(ProjectSummaryItemSchema), required=True)
+
+
+class ProjectSearchQuerySchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    q = fields.String(required=False, allow_none=True)
+
+
+class MatchedItemSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    id = fields.Integer(required=True)
+    material_name = fields.String(allow_none=True)
+    quantity = fields.Raw(allow_none=True)
+    unit_price = fields.Raw(allow_none=True)
+    net_amount = fields.Raw(allow_none=True)
+    hsn_code = fields.String(allow_none=True)
+    step_number = fields.Integer(allow_none=True)
+    step_name = fields.String(allow_none=True)
+
+
+class ProjectSearchItemSchema(ProjectSummaryItemSchema):
+    matched_items = fields.List(fields.Nested(MatchedItemSchema), required=False)
+
+
+class ProjectSearchResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    success = fields.Boolean(required=True)
+    message = fields.String(required=True)
+    data = fields.List(fields.Nested(ProjectSearchItemSchema), required=True)
+

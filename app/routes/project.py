@@ -5,18 +5,28 @@ from flask_smorest import Blueprint
 from app.models import (
     BidSubmission,
     CostSheet,
+    CustomerDeliveryInvoice,
+    CustomerDeliveryPackingList,
     CustomerPayment,
+    CustomerQuery,
     CustomerQuotation,
     CustomerTender,
+    DeliveryChallan,
     PurchaseOrder,
+    QuotationRequest,
     SupplierInvoice,
     SupplierOrderConfirmation,
+    SupplierPackingList,
     SupplierPayment,
+    SupplierProformaInvoice,
+    SupplierQuotation,
 )
 from app.schemas.project import (
     ProjectCreateSchema,
     ProjectListResponseSchema,
     ProjectResponseSchema,
+    ProjectSearchQuerySchema,
+    ProjectSearchResponseSchema,
     ProjectUpdateSchema,
 )
 from app.services.project_service import (
@@ -146,6 +156,374 @@ def _get_project_margin_info(project_id):
     except Exception:
         pass
     return total_margin, margin_percentage
+
+
+def _get_project_latest_items(project_id):
+    """
+    Returns (step_number, step_name, items_list) for the latest step of the project that contains items.
+    Items list contains standardized dictionaries with:
+      id, material_name, quantity, unit_price, net_amount, hsn_code, step_number, step_name
+    """
+    # Step 13: Customer Delivery Invoice / Challan / Packing List
+    try:
+        cdis = (
+            CustomerDeliveryInvoice.query.filter_by(project_id=project_id)
+            .order_by(CustomerDeliveryInvoice.id.desc())
+            .all()
+        )
+        for cdi in cdis:
+            if cdi.items:
+                return 13, "Customer Invoice", [
+                    {
+                        "id": item.id,
+                        "material_name": item.material_name,
+                        "quantity": float(item.quantity) if item.quantity is not None else None,
+                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
+                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
+                        "hsn_code": getattr(item, "hsn_code", None),
+                        "step_number": 13,
+                        "step_name": "Customer Invoice",
+                    }
+                    for item in cdi.items
+                ]
+
+        dcs = (
+            DeliveryChallan.query.filter_by(project_id=project_id)
+            .order_by(DeliveryChallan.id.desc())
+            .all()
+        )
+        for dc in dcs:
+            if dc.items:
+                return 13, "Customer Invoice", [
+                    {
+                        "id": item.id,
+                        "material_name": item.material_name,
+                        "quantity": float(item.quantity) if item.quantity is not None else None,
+                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
+                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
+                        "hsn_code": getattr(item, "hsn_code", None),
+                        "step_number": 13,
+                        "step_name": "Customer Invoice",
+                    }
+                    for item in dc.items
+                ]
+
+        cdpls = (
+            CustomerDeliveryPackingList.query.filter_by(project_id=project_id)
+            .order_by(CustomerDeliveryPackingList.id.desc())
+            .all()
+        )
+        for cdpl in cdpls:
+            if cdpl.items:
+                return 13, "Customer Invoice", [
+                    {
+                        "id": item.id,
+                        "material_name": item.material_name,
+                        "quantity": float(item.quantity) if item.quantity is not None else None,
+                        "unit_price": None,
+                        "net_amount": None,
+                        "hsn_code": getattr(item, "hsn_code", None),
+                        "step_number": 13,
+                        "step_name": "Customer Invoice",
+                    }
+                    for item in cdpl.items
+                ]
+    except Exception:
+        pass
+
+    # Step 10: Supplier Invoice / Packing List / Proforma
+    try:
+        sis = (
+            SupplierInvoice.query.filter_by(project_id=project_id)
+            .order_by(SupplierInvoice.id.desc())
+            .all()
+        )
+        for si in sis:
+            if si.items:
+                return 10, "Supplier Invoice", [
+                    {
+                        "id": item.id,
+                        "material_name": item.material_name,
+                        "quantity": float(item.quantity) if item.quantity is not None else None,
+                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
+                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
+                        "hsn_code": getattr(item, "hsn_code", None),
+                        "step_number": 10,
+                        "step_name": "Supplier Invoice",
+                    }
+                    for item in si.items
+                ]
+
+        spls = (
+            SupplierPackingList.query.filter_by(project_id=project_id)
+            .order_by(SupplierPackingList.id.desc())
+            .all()
+        )
+        for spl in spls:
+            if spl.items:
+                return 10, "Supplier Invoice", [
+                    {
+                        "id": item.id,
+                        "material_name": item.material_name,
+                        "quantity": float(item.quantity) if item.quantity is not None else None,
+                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
+                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
+                        "hsn_code": getattr(item, "hsn_code", None),
+                        "step_number": 10,
+                        "step_name": "Supplier Invoice",
+                    }
+                    for item in spl.items
+                ]
+
+        spis = (
+            SupplierProformaInvoice.query.filter_by(project_id=project_id)
+            .order_by(SupplierProformaInvoice.id.desc())
+            .all()
+        )
+        for spi in spis:
+            if spi.items:
+                return 10, "Supplier Invoice", [
+                    {
+                        "id": item.id,
+                        "material_name": item.material_name,
+                        "quantity": float(item.quantity) if item.quantity is not None else None,
+                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
+                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
+                        "hsn_code": getattr(item, "hsn_code", None),
+                        "step_number": 10,
+                        "step_name": "Supplier Invoice",
+                    }
+                    for item in spi.items
+                ]
+    except Exception:
+        pass
+
+    # Step 9: Order Confirmation to Supplier
+    try:
+        socs = (
+            SupplierOrderConfirmation.query.filter_by(project_id=project_id)
+            .order_by(SupplierOrderConfirmation.id.desc())
+            .all()
+        )
+        for soc in socs:
+            if soc.items:
+                return 9, "Order Confirmation to Supplier", [
+                    {
+                        "id": item.id,
+                        "material_name": item.material_name,
+                        "quantity": float(item.quantity) if item.quantity is not None else None,
+                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
+                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
+                        "hsn_code": getattr(item, "hsn_code", None),
+                        "step_number": 9,
+                        "step_name": "Order Confirmation to Supplier",
+                    }
+                    for item in soc.items
+                ]
+    except Exception:
+        pass
+
+    # Step 8: Purchase Order (PO)
+    try:
+        pos = (
+            PurchaseOrder.query.filter_by(project_id=project_id)
+            .order_by(PurchaseOrder.id.desc())
+            .all()
+        )
+        for po in pos:
+            if po.items:
+                return 8, "Purchase Order (PO)", [
+                    {
+                        "id": item.id,
+                        "material_name": item.material_name,
+                        "quantity": float(item.quantity) if item.quantity is not None else None,
+                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
+                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
+                        "hsn_code": getattr(item, "hsn_code", None),
+                        "step_number": 8,
+                        "step_name": "Purchase Order (PO)",
+                    }
+                    for item in po.items
+                ]
+    except Exception:
+        pass
+
+    # Step 7: Bid Submission
+    try:
+        bss = (
+            BidSubmission.query.filter_by(project_id=project_id)
+            .order_by(BidSubmission.id.desc())
+            .all()
+        )
+        for bs in bss:
+            if bs.items:
+                return 7, "Bid Submission", [
+                    {
+                        "id": item.id,
+                        "material_name": item.material_name or getattr(item, "description", None),
+                        "quantity": float(item.quantity) if item.quantity is not None else None,
+                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
+                        "net_amount": float(item.net_total) if getattr(item, "net_total", None) is not None else None,
+                        "hsn_code": getattr(item, "hsn_sac", None),
+                        "step_number": 7,
+                        "step_name": "Bid Submission",
+                    }
+                    for item in bs.items
+                ]
+    except Exception:
+        pass
+
+    # Step 6: Customer Tender
+    try:
+        cts = (
+            CustomerTender.query.filter_by(project_id=project_id)
+            .order_by(CustomerTender.id.desc())
+            .all()
+        )
+        for ct in cts:
+            if ct.items:
+                return 6, "Customer Tender", [
+                    {
+                        "id": item.id,
+                        "material_name": item.material_name or getattr(item, "description", None),
+                        "quantity": float(item.quantity) if item.quantity is not None else None,
+                        "unit_price": None,
+                        "net_amount": None,
+                        "hsn_code": None,
+                        "step_number": 6,
+                        "step_name": "Customer Tender",
+                    }
+                    for item in ct.items
+                ]
+    except Exception:
+        pass
+
+    # Step 5: Customer Quotation
+    try:
+        cqs = (
+            CustomerQuotation.query.filter_by(project_id=project_id)
+            .order_by(CustomerQuotation.id.desc())
+            .all()
+        )
+        for cq in cqs:
+            if cq.items:
+                return 5, "Quotation to Customer", [
+                    {
+                        "id": item.id,
+                        "material_name": item.material_name,
+                        "quantity": float(item.quantity) if item.quantity is not None else None,
+                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
+                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
+                        "hsn_code": None,
+                        "step_number": 5,
+                        "step_name": "Quotation to Customer",
+                    }
+                    for item in cq.items
+                ]
+    except Exception:
+        pass
+
+    # Step 4: Cost Sheet
+    try:
+        css = (
+            CostSheet.query.filter_by(project_id=project_id)
+            .order_by(CostSheet.version_number.desc(), CostSheet.id.desc())
+            .all()
+        )
+        for cs in css:
+            if cs.items:
+                return 4, "Cost Sheet", [
+                    {
+                        "id": item.id,
+                        "material_name": getattr(item, "item_description", None),
+                        "quantity": float(item.quantity) if item.quantity is not None else None,
+                        "unit_price": float(item.price_per_unit_eur) if getattr(item, "price_per_unit_eur", None) is not None else None,
+                        "net_amount": None,
+                        "hsn_code": None,
+                        "step_number": 4,
+                        "step_name": "Cost Sheet",
+                    }
+                    for item in cs.items
+                ]
+    except Exception:
+        pass
+
+    # Step 3: Supplier Quotation
+    try:
+        sqs = (
+            SupplierQuotation.query.filter_by(project_id=project_id)
+            .order_by(SupplierQuotation.id.desc())
+            .all()
+        )
+        for sq in sqs:
+            if sq.items:
+                return 3, "Supplier Quotation", [
+                    {
+                        "id": item.id,
+                        "material_name": item.material_name,
+                        "quantity": float(item.quantity) if item.quantity is not None else None,
+                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
+                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
+                        "hsn_code": getattr(item, "hsn_code", None),
+                        "step_number": 3,
+                        "step_name": "Supplier Quotation",
+                    }
+                    for item in sq.items
+                ]
+    except Exception:
+        pass
+
+    # Step 2: Request Supplier Quotation (RFQ)
+    try:
+        qrs = (
+            QuotationRequest.query.filter_by(project_id=project_id)
+            .order_by(QuotationRequest.id.desc())
+            .all()
+        )
+        for qr in qrs:
+            if qr.items:
+                return 2, "Request Supplier Quotation", [
+                    {
+                        "id": item.id,
+                        "material_name": item.material_name,
+                        "quantity": float(item.quantity) if item.quantity is not None else None,
+                        "unit_price": None,
+                        "net_amount": None,
+                        "hsn_code": None,
+                        "step_number": 2,
+                        "step_name": "Request Supplier Quotation",
+                    }
+                    for item in qr.items
+                ]
+    except Exception:
+        pass
+
+    # Step 1: Customer Query
+    try:
+        c_queries = (
+            CustomerQuery.query.filter_by(project_id=project_id)
+            .order_by(CustomerQuery.id.desc())
+            .all()
+        )
+        for c_query in c_queries:
+            if c_query.items:
+                return 1, "Customer Query", [
+                    {
+                        "id": item.id,
+                        "material_name": item.material_name,
+                        "quantity": float(item.quantity) if item.quantity is not None else None,
+                        "unit_price": None,
+                        "net_amount": None,
+                        "hsn_code": None,
+                        "step_number": 1,
+                        "step_name": "Customer Query",
+                    }
+                    for item in c_query.items
+                ]
+    except Exception:
+        pass
+
+    return None, None, []
 
 
 def _project_response(project):
@@ -408,6 +786,7 @@ def _project_summary_response(project):
         "total_value": total_value,
         "total_margin": total_margin,
         "margin_percentage": margin_percentage,
+        "margin_percent": margin_percentage,
         "currency": currency,
         "customer_payment_status": customer_payment_status,
         "supplier_payment_status": supplier_payment_status,
@@ -466,6 +845,46 @@ def list_all():
             _project_summary_response(project)
             for project in projects
         ],
+    }, 200
+
+
+@project_bp.get("/search")
+@project_bp.doc(security=[{"BearerAuth": []}])
+@project_bp.arguments(ProjectSearchQuerySchema, location="query")
+@project_bp.response(200, ProjectSearchResponseSchema)
+@jwt_required()
+def search(args):
+    query_str = (args.get("q") or "").strip().lower() if args else ""
+    projects = list_projects()
+
+    matched_projects = []
+    for project in projects:
+        step_num, step_name, latest_items = _get_project_latest_items(project.id)
+
+        if not query_str:
+            summary = _project_summary_response(project)
+            summary["matched_items"] = []
+            matched_projects.append(summary)
+            continue
+
+        title_match = bool(project.project_title and query_str in project.project_title.lower())
+        code_match = bool(project.project_code and query_str in project.project_code.lower())
+
+        item_matches = [
+            it
+            for it in latest_items
+            if it.get("material_name") and query_str in it["material_name"].lower()
+        ]
+
+        if title_match or code_match or item_matches:
+            summary = _project_summary_response(project)
+            summary["matched_items"] = item_matches
+            matched_projects.append(summary)
+
+    return {
+        "success": True,
+        "message": "Projects searched successfully",
+        "data": matched_projects,
     }, 200
 
 

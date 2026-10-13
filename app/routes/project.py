@@ -786,7 +786,6 @@ def _project_summary_response(project):
         "total_value": total_value,
         "total_margin": total_margin,
         "margin_percentage": margin_percentage,
-        "margin_percent": margin_percentage,
         "currency": currency,
         "customer_payment_status": customer_payment_status,
         "supplier_payment_status": supplier_payment_status,

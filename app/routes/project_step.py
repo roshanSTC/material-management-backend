@@ -162,6 +162,14 @@ def handle_add_project_step(*args, **kwargs):
     )
     next_order = max_order + 1
 
+    status = payload.get("status") or "in_progress"
+    progress_percentage = (
+        payload.get("progress_percentage")
+        if payload.get("progress_percentage") is not None
+        else (100 if status == "completed" else 0)
+    )
+    completed_at = datetime.utcnow() if status == "completed" else None
+
     new_step = ProjectStep(
         project_id=project_id,
         step_order=next_order,
@@ -169,14 +177,29 @@ def handle_add_project_step(*args, **kwargs):
         form_code=form_code,
         step_name=step_name,
         description=description,
-        status="in_progress",
-        progress_percentage=0,
+        status=status,
+        progress_percentage=progress_percentage,
+        completed_at=completed_at,
         data=initial_data,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
     db.session.add(new_step)
     db.session.flush()
+
+    if payload.get("remark"):
+        user_id, default_user_name = _get_current_user_info()
+        r_author = payload.get("user_name") or default_user_name
+        r_obj = ProjectStepRemark(
+            project_id=project_id,
+            step_id=new_step.id,
+            step_number=next_order,
+            user_id=user_id,
+            user_name=r_author,
+            remark=str(payload["remark"]).strip(),
+            created_at=datetime.utcnow(),
+        )
+        db.session.add(r_obj)
 
     # Recalculate project overall progress
     total_steps = ProjectStep.query.filter_by(project_id=project_id).count()

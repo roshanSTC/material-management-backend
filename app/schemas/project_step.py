@@ -1,4 +1,4 @@
-from marshmallow import Schema, fields, validate
+from marshmallow import EXCLUDE, Schema, fields, validate
 
 
 class FormDefinitionResponseSchema(Schema):
@@ -13,25 +13,44 @@ class FormDefinitionResponseSchema(Schema):
 
 
 class ProjectStepAttachSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     form_code = fields.String(required=True)
     step_name = fields.String(required=False, allow_none=True)
     description = fields.String(required=False, allow_none=True)
+    status = fields.String(
+        required=False,
+        allow_none=True,
+        validate=validate.OneOf(["pending", "in_progress", "completed", "skipped"]),
+    )
+    progress_percentage = fields.Integer(required=False, allow_none=True)
+    remark = fields.String(required=False, allow_none=True)
+    user_name = fields.String(required=False, allow_none=True)
     data = fields.Dict(required=False, allow_none=True)
 
 
 class ProjectStepUpdateSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     data = fields.Dict(required=False, allow_none=True)
     status = fields.String(
         required=False,
+        allow_none=True,
         validate=validate.OneOf(["pending", "in_progress", "completed", "skipped"]),
     )
     progress_percentage = fields.Integer(required=False, allow_none=True)
     step_name = fields.String(required=False, allow_none=True)
     description = fields.String(required=False, allow_none=True)
     remark = fields.String(required=False, allow_none=True)
+    user_name = fields.String(required=False, allow_none=True)
 
 
 class ProjectStepRemarkCreateSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     remark = fields.String(required=True)
     user_name = fields.String(required=False, allow_none=True)
 

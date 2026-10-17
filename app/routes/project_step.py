@@ -1,47 +1,579 @@
-from flask_jwt_extended import jwt_required
+from datetime import datetime
+
+from flask import request, jsonify
+from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_smorest import Blueprint
 
-from app.schemas.project_step import ProjectStepResponseSchema
+from app.extensions.database import db
+from app.models import (
+    FormDefinition,
+    Project,
+    ProjectStep,
+    ProjectStepAttachment,
+    ProjectStepRemark,
+    User,
+)
+from app.schemas.project_step import (
+    FormDefinitionResponseSchema,
+    ProjectStepAttachSchema,
+    ProjectStepAttachmentResponseSchema,
+    ProjectStepRemarkCreateSchema,
+    ProjectStepResponseSchema,
+    ProjectStepUpdateSchema,
+)
+from app.services.attachment_service import (
+    AttachmentValidationError,
+    create_attachment,
+)
 from app.services.project_step_service import (
     ProjectNotFoundError,
-    list_project_steps,
-    serialize_project_step,
+    ProjectStepNotFoundError,
 )
 
 
 project_step_bp = Blueprint(
     "project_steps",
     __name__,
-    url_prefix="/api/v1/projects",
-    description="Project Step APIs",
+    url_prefix="/api/v1",
+    description="Dynamic 28-Form Workflow System APIs",
+)
+
+project_step_v2_bp = Blueprint(
+    "project_steps_v2",
+    __name__,
+    url_prefix="/api/v2",
+    description="Dynamic 28-Form Workflow System APIs (v2)",
 )
 
 
-@project_step_bp.get(
-    "/<int:project_id>/steps"
-)
-@project_step_bp.doc(
-    security=[{"BearerAuth": []}]
-)
-@project_step_bp.response(
-    200,
-    ProjectStepResponseSchema(many=True),
-)
-@jwt_required()
-def list_all_steps(project_id):
+def _get_current_user_info():
     try:
-        steps = list_project_steps(project_id)
+        jwt_identity = get_jwt_identity()
+        if jwt_identity and str(jwt_identity).isdigit():
+            user = db.session.get(User, int(jwt_identity))
+            if user:
+                name = user.full_name or user.username or "User"
+                return int(jwt_identity), name
+        return None, "User"
+    except Exception:
+        return None, "User"
 
-        return [
-            serialize_project_step(step)
-            for step in steps
-        ], 200
 
-    except ProjectNotFoundError as exc:
+# =========================================================================
+# 1. GET ALL 28 FORM DEFINITIONS (CATALOG)
+# =========================================================================
+def handle_get_forms():
+    forms = (
+        FormDefinition.query.filter_by(is_active=True)
+        .order_by(FormDefinition.id.asc())
+        .all()
+    )
+    return [f.to_dict() for f in forms], 200
+
+
+def handle_get_form_by_code(form_code: str):
+    form_def = FormDefinition.query.filter_by(
+        form_code=form_code, is_active=True
+    ).first()
+    if not form_def:
+        return {
+            "success": False,
+            "error": {
+                "code": "FORM_NOT_FOUND",
+                "message": f"Form with code '{form_code}' not found.",
+            },
+        }, 404
+    return form_def.to_dict(), 200
+
+
+# =========================================================================
+# 2. GET CURRENT STEPS FOR A PROJECT
+# =========================================================================
+def handle_get_project_steps(project_id: int):
+    project = db.session.get(Project, project_id)
+    if not project:
         return {
             "success": False,
             "error": {
                 "code": "PROJECT_NOT_FOUND",
-                "message": str(exc),
+                "message": f"Project with id {project_id} was not found.",
             },
         }, 404
+
+    steps = (
+        ProjectStep.query.filter_by(project_id=project_id)
+        .order_by(ProjectStep.step_order.asc(), ProjectStep.id.asc())
+        .all()
+    )
+    return [s.to_dict() for s in steps], 200
+
+
+# =========================================================================
+# 3. ATTACH A NEW FORM AS A STEP (ON DEMAND)
+# =========================================================================
+def handle_add_project_step(*args, **kwargs):
+    project_id = kwargs.get("project_id")
+    payload = args[0] if (args and isinstance(args[0], dict)) else (kwargs.get("data") or request.get_json(silent=True) or {})
+
+    project = db.session.get(Project, project_id)
+    if not project:
+        return {
+            "success": False,
+            "error": {
+                "code": "PROJECT_NOT_FOUND",
+                "message": f"Project with id {project_id} was not found.",
+            },
+        }, 404
+
+    form_code = payload.get("form_code")
+    if not form_code:
+        return {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "form_code is required.",
+            },
+        }, 400
+
+    form_def = FormDefinition.query.filter_by(form_code=form_code).first()
+    if not form_def:
+        return {
+            "success": False,
+            "error": {
+                "code": "INVALID_FORM_CODE",
+                "message": f"Form definition '{form_code}' does not exist.",
+            },
+        }, 400
+
+    step_name = payload.get("step_name") or form_def.name
+    description = (
+        payload.get("description")
+        if payload.get("description") is not None
+        else (form_def.description or "")
+    )
+    initial_data = payload.get("data") or {}
+
+    # Compute next step_order
+    max_order = (
+        db.session.query(db.func.max(ProjectStep.step_order))
+        .filter_by(project_id=project_id)
+        .scalar()
+        or 0
+    )
+    next_order = max_order + 1
+
+    new_step = ProjectStep(
+        project_id=project_id,
+        step_order=next_order,
+        step_number=next_order,
+        form_code=form_code,
+        step_name=step_name,
+        description=description,
+        status="in_progress",
+        progress_percentage=0,
+        data=initial_data,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db.session.add(new_step)
+    db.session.flush()
+
+    # Recalculate project overall progress
+    total_steps = ProjectStep.query.filter_by(project_id=project_id).count()
+    completed = ProjectStep.query.filter_by(
+        project_id=project_id, status="completed"
+    ).count()
+    project.updated_at = datetime.utcnow()
+
+    db.session.commit()
+    return new_step.to_dict(), 201
+
+
+# =========================================================================
+# 4. GET A SINGLE STEP BY ID
+# =========================================================================
+def handle_get_single_step(project_id: int, step_id: int):
+    step = ProjectStep.query.filter_by(
+        project_id=project_id, id=step_id
+    ).first()
+    if not step:
+        return {
+            "success": False,
+            "error": {
+                "code": "STEP_NOT_FOUND",
+                "message": f"Step with id {step_id} was not found for project {project_id}.",
+            },
+        }, 404
+
+    return step.to_dict(), 200
+
+
+# =========================================================================
+# 5. UPDATE STEP (SAVE DRAFT OR COMPLETE STEP)
+# =========================================================================
+def handle_update_step(*args, **kwargs):
+    project_id = kwargs.get("project_id")
+    step_id = kwargs.get("step_id")
+    payload = args[0] if (args and isinstance(args[0], dict)) else (kwargs.get("data") or request.get_json(silent=True) or {})
+
+    step = ProjectStep.query.filter_by(
+        project_id=project_id, id=step_id
+    ).first()
+    if not step:
+        return {
+            "success": False,
+            "error": {
+                "code": "STEP_NOT_FOUND",
+                "message": f"Step with id {step_id} was not found for project {project_id}.",
+            },
+        }, 404
+
+    user_id, user_name = _get_current_user_info()
+
+    if "data" in payload and payload["data"] is not None:
+        current_data = dict(step.data or {})
+        current_data.update(payload["data"])
+        step.data = current_data
+
+    if "status" in payload and payload["status"] is not None:
+        step.status = payload["status"]
+        if step.status == "completed":
+            if not step.completed_at:
+                step.completed_at = datetime.utcnow()
+            if "progress_percentage" not in payload:
+                step.progress_percentage = 100
+        elif step.status != "completed":
+            step.completed_at = None
+
+    if (
+        "progress_percentage" in payload
+        and payload["progress_percentage"] is not None
+    ):
+        step.progress_percentage = payload["progress_percentage"]
+
+    if "step_name" in payload and payload["step_name"]:
+        step.step_name = payload["step_name"]
+
+    if "description" in payload and payload["description"] is not None:
+        step.description = payload["description"]
+
+    if "remark" in payload and payload["remark"]:
+        r_author = payload.get("user_name") or user_name
+        r_obj = ProjectStepRemark(
+            project_id=project_id,
+            step_id=step.id,
+            step_number=step.step_order or step.step_number,
+            user_id=user_id,
+            user_name=r_author,
+            remark=str(payload["remark"]).strip(),
+            created_at=datetime.utcnow(),
+        )
+        db.session.add(r_obj)
+
+    step.updated_at = datetime.utcnow()
+
+    # Recalculate project progress
+    project = db.session.get(Project, project_id)
+    if project:
+        project.updated_at = datetime.utcnow()
+
+    db.session.commit()
+    return step.to_dict(), 200
+
+
+# =========================================================================
+# 6. DELETE / REMOVE A STEP FROM PROJECT
+# =========================================================================
+def handle_delete_step(project_id: int, step_id: int):
+    step = ProjectStep.query.filter_by(
+        project_id=project_id, id=step_id
+    ).first()
+    if not step:
+        return {
+            "success": False,
+            "error": {
+                "code": "STEP_NOT_FOUND",
+                "message": f"Step with id {step_id} was not found for project {project_id}.",
+            },
+        }, 404
+
+    db.session.delete(step)
+    db.session.flush()
+
+    # Reorder remaining steps
+    remaining = (
+        ProjectStep.query.filter_by(project_id=project_id)
+        .order_by(ProjectStep.step_order.asc(), ProjectStep.id.asc())
+        .all()
+    )
+    for idx, s in enumerate(remaining, start=1):
+        s.step_order = idx
+        s.step_number = idx
+
+    project = db.session.get(Project, project_id)
+    if project:
+        project.updated_at = datetime.utcnow()
+
+    db.session.commit()
+    return {"success": True, "message": "Step removed successfully"}, 200
+
+
+# =========================================================================
+# 7. UPLOAD ATTACHMENT FOR A STEP
+# =========================================================================
+def handle_upload_step_attachment(project_id: int, step_id: int):
+    step = ProjectStep.query.filter_by(
+        project_id=project_id, id=step_id
+    ).first()
+    if not step:
+        return {
+            "success": False,
+            "error": {
+                "code": "STEP_NOT_FOUND",
+                "message": f"Step with id {step_id} was not found for project {project_id}.",
+            },
+        }, 404
+
+    file = request.files.get("file")
+    if not file:
+        return {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "File is required.",
+            },
+        }, 400
+
+    upload_key = request.form.get("upload_key")
+    if not upload_key:
+        return {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "upload_key is required.",
+            },
+        }, 400
+
+    user_id, _ = _get_current_user_info()
+
+    try:
+        attachment, storage_key = create_attachment(
+            file=file,
+            entity_type="project_step",
+            entity_id=step.id,
+            uploaded_by=user_id or 1,
+        )
+
+        step_att = ProjectStepAttachment(
+            project_id=project_id,
+            step_id=step.id,
+            upload_key=upload_key.strip(),
+            file_name=attachment.file_name,
+            file_path=attachment.storage_key,
+            file_size_bytes=attachment.file_size,
+            mime_type=attachment.content_type,
+            created_at=datetime.utcnow(),
+        )
+        db.session.add(step_att)
+        db.session.commit()
+
+        size_disp = step_att.to_dict()["file_size"]
+        return {
+            "id": step_att.id,
+            "upload_key": step_att.upload_key,
+            "file_name": step_att.file_name,
+            "file_size": size_disp,
+            "file_path": step_att.file_path,
+            "download_url": f"/api/v1/attachments/{attachment.id}/download",
+            "created_at": step_att.created_at.isoformat(),
+        }, 201
+
+    except AttachmentValidationError as exc:
+        return {
+            "success": False,
+            "error": {
+                "code": "ATTACHMENT_VALIDATION_ERROR",
+                "message": str(exc),
+            },
+        }, 400
+
+
+# =========================================================================
+# 8. ADD REMARK TO A STEP
+# =========================================================================
+def handle_add_step_remark(*args, **kwargs):
+    project_id = kwargs.get("project_id")
+    step_id = kwargs.get("step_id")
+    payload = args[0] if (args and isinstance(args[0], dict)) else (kwargs.get("data") or request.get_json(silent=True) or {})
+
+    step = ProjectStep.query.filter_by(
+        project_id=project_id, id=step_id
+    ).first()
+    if not step:
+        return {
+            "success": False,
+            "error": {
+                "code": "STEP_NOT_FOUND",
+                "message": f"Step with id {step_id} was not found for project {project_id}.",
+            },
+        }, 404
+
+    remark_text = payload.get("remark")
+    if not remark_text or not str(remark_text).strip():
+        return {
+            "success": False,
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "remark is required.",
+            },
+        }, 400
+
+    user_id, default_user_name = _get_current_user_info()
+    user_name = payload.get("user_name") or default_user_name
+
+    new_remark = ProjectStepRemark(
+        project_id=project_id,
+        step_id=step.id,
+        step_number=step.step_order or step.step_number,
+        user_id=user_id,
+        user_name=user_name,
+        remark=str(remark_text).strip(),
+        created_at=datetime.utcnow(),
+    )
+    db.session.add(new_remark)
+    db.session.commit()
+
+    return new_remark.to_dict(), 201
+
+
+# =========================================================================
+# REGISTER ROUTES ON BOTH /api/v1 AND /api/v2 BLUEPRINTS
+# =========================================================================
+for bp in [project_step_bp, project_step_v2_bp]:
+    bp.route("/forms", methods=["GET"])(
+        bp.doc(
+            summary="List 28 Form Definitions",
+            description="Returns catalog metadata for all 28 forms available for attachment.",
+            security=[{"BearerAuth": []}],
+        )(
+            bp.response(200, FormDefinitionResponseSchema(many=True))(
+                jwt_required()(handle_get_forms)
+            )
+        )
+    )
+
+    bp.route("/forms/<string:form_code>", methods=["GET"])(
+        bp.doc(
+            summary="Get Form Definition by Code",
+            description="Returns metadata for a specific form by form_code.",
+            security=[{"BearerAuth": []}],
+        )(
+            bp.response(200, FormDefinitionResponseSchema)(
+                jwt_required()(handle_get_form_by_code)
+            )
+        )
+    )
+
+    bp.route("/projects/<int:project_id>/steps", methods=["GET"])(
+        bp.doc(
+            summary="List Project Steps",
+            description="Returns all active steps attached to this project, ordered by step_order ASC.",
+            security=[{"BearerAuth": []}],
+        )(
+            bp.response(200, ProjectStepResponseSchema(many=True))(
+                jwt_required()(handle_get_project_steps)
+            )
+        )
+    )
+
+    bp.route("/projects/<int:project_id>/steps", methods=["POST"])(
+        bp.doc(
+            summary="Attach Form as Step",
+            description="Attaches a new form from the 28-catalog as a step to the project.",
+            security=[{"BearerAuth": []}],
+        )(
+            bp.arguments(ProjectStepAttachSchema)(
+                bp.response(201, ProjectStepResponseSchema)(
+                    jwt_required()(handle_add_project_step)
+                )
+            )
+        )
+    )
+
+    bp.route("/projects/<int:project_id>/steps/<int:step_id>", methods=["GET"])(
+        bp.doc(
+            summary="Get Project Step",
+            description="Returns single step details with data, remarks, and attachments.",
+            security=[{"BearerAuth": []}],
+        )(
+            bp.response(200, ProjectStepResponseSchema)(
+                jwt_required()(handle_get_single_step)
+            )
+        )
+    )
+
+    bp.route("/projects/<int:project_id>/steps/<int:step_id>", methods=["PUT"])(
+        bp.doc(
+            summary="Update Step (Save Draft or Complete)",
+            description="Saves draft form fields, items, remarks, or marks step completed.",
+            security=[{"BearerAuth": []}],
+        )(
+            bp.arguments(ProjectStepUpdateSchema)(
+                bp.response(200, ProjectStepResponseSchema)(
+                    jwt_required()(handle_update_step)
+                )
+            )
+        )
+    )
+
+    bp.route("/projects/<int:project_id>/steps/<int:step_id>", methods=["PATCH"])(
+        bp.doc(
+            summary="Patch Step",
+            description="Partially updates step fields, items, or status.",
+            security=[{"BearerAuth": []}],
+        )(
+            bp.arguments(ProjectStepUpdateSchema)(
+                bp.response(200, ProjectStepResponseSchema)(
+                    jwt_required()(handle_update_step)
+                )
+            )
+        )
+    )
+
+    bp.route("/projects/<int:project_id>/steps/<int:step_id>", methods=["DELETE"])(
+        bp.doc(
+            summary="Delete Step",
+            description="Removes an attached step and cascades to its remarks and attachments.",
+            security=[{"BearerAuth": []}],
+        )(
+            jwt_required()(handle_delete_step)
+        )
+    )
+
+    bp.route(
+        "/projects/<int:project_id>/steps/<int:step_id>/attachments",
+        methods=["POST"],
+    )(
+        bp.doc(
+            summary="Upload Step Attachment",
+            description="Uploads a file for a specific upload slot (e.g. upload_pqb, upload_boe).",
+            security=[{"BearerAuth": []}],
+        )(
+            jwt_required()(handle_upload_step_attachment)
+        )
+    )
+
+    bp.route(
+        "/projects/<int:project_id>/steps/<int:step_id>/remarks",
+        methods=["POST"],
+    )(
+        bp.doc(
+            summary="Add Step Remark",
+            description="Adds a remark to the step audit trail.",
+            security=[{"BearerAuth": []}],
+        )(
+            bp.arguments(ProjectStepRemarkCreateSchema)(
+                jwt_required()(handle_add_step_remark)
+            )
+        )
+    )

@@ -537,6 +537,7 @@ def _project_response(project):
         "supplier_id": project.supplier_id,
         "total_margin": total_margin,
         "margin_percentage": margin_percentage,
+        "margin_percent": margin_percentage,
         "created_at": project.created_at,
         "updated_at": project.updated_at,
     }
@@ -545,34 +546,36 @@ def _project_response(project):
 def _project_summary_response(project):
     steps = project.steps if hasattr(project, "steps") and project.steps else []
 
-    # Current step number
-    in_progress_steps = [s for s in steps if s.status == "in_progress"]
-    active_or_completed_steps = [
-        s for s in steps if s.status in ("in_progress", "completed")
-    ]
-    if in_progress_steps:
-        current_step_number = min(s.step_number for s in in_progress_steps)
-    elif active_or_completed_steps:
-        current_step_number = max(s.step_number for s in active_or_completed_steps)
-    elif steps:
-        current_step_number = max(s.step_number for s in steps)
+    saved_steps = [s for s in steps if getattr(s, "id", None) is not None]
+    if saved_steps:
+        total_steps = len(saved_steps)
+        completed_steps_count = len([s for s in saved_steps if s.status == "completed"])
+        progress_percentage = round((completed_steps_count / total_steps) * 100) if total_steps > 0 else 0
+
+        in_progress_steps = [s for s in saved_steps if s.status == "in_progress"]
+        active_or_completed_steps = [
+            s for s in saved_steps if s.status in ("in_progress", "completed")
+        ]
+        if in_progress_steps:
+            curr_s = in_progress_steps[0]
+        elif active_or_completed_steps:
+            curr_s = active_or_completed_steps[-1]
+        else:
+            curr_s = saved_steps[-1]
+
+        current_step_number = curr_s.step_order or curr_s.step_number or 1
+        current_step_name = STEP_NAMES.get(current_step_number) or curr_s.step_name or f"Step {current_step_number}"
     else:
-        current_step_number = 1
-
-    total_steps = 15
-    current_step_number = max(1, min(total_steps, current_step_number))
-    current_step_name = STEP_NAMES.get(current_step_number, f"Step {current_step_number}")
-
-    completed_step_numbers = {
-        s.step_number
-        for s in steps
-        if s.status == "completed" and 1 <= s.step_number <= total_steps
-    }
-    completed_steps_count = len(completed_step_numbers)
-    progress_percentage = round((completed_steps_count / total_steps) * 100)
+        total_steps = 0
+        completed_steps_count = 0
+        progress_percentage = 0
+        current_step_number = 0
+        current_step_name = "No steps attached"
+        in_progress_steps = []
+        active_or_completed_steps = []
 
     # Project overall status
-    if completed_steps_count == total_steps:
+    if total_steps > 0 and completed_steps_count == total_steps:
         status = "completed"
     elif active_or_completed_steps:
         status = "in_progress"
@@ -786,6 +789,7 @@ def _project_summary_response(project):
         "total_value": total_value,
         "total_margin": total_margin,
         "margin_percentage": margin_percentage,
+        "margin_percent": margin_percentage,
         "currency": currency,
         "customer_payment_status": customer_payment_status,
         "supplier_payment_status": supplier_payment_status,

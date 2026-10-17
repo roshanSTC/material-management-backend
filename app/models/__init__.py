@@ -49,6 +49,9 @@ from app.models.cost_sheet import CostSheet
 from app.models.cost_sheet_item import CostSheetItem
 from app.models.item_price_history import ItemPriceHistory
 from app.models.step_remark import StepRemark
+from app.models.form_definition import FormDefinition
+from app.models.project_step_remark import ProjectStepRemark
+from app.models.project_step_attachment import ProjectStepAttachment
 
 
 __all__ = [
@@ -102,4 +105,7 @@ __all__ = [
     "CostSheetItem",
     "ItemPriceHistory",
     "StepRemark",
+    "FormDefinition",
+    "ProjectStepRemark",
+    "ProjectStepAttachment",
 ]

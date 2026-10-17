@@ -6,11 +6,11 @@ from flask_smorest import Blueprint
 
 from app.extensions.database import db
 from app.models import (
+    Attachment,
     FormDefinition,
     Project,
     ProjectStep,
-    ProjectStepAttachment,
-    ProjectStepRemark,
+    StepRemark,
     User,
 )
 from app.schemas.project_step import (
@@ -190,7 +190,7 @@ def handle_add_project_step(*args, **kwargs):
     if payload.get("remark"):
         user_id, default_user_name = _get_current_user_info()
         r_author = payload.get("user_name") or default_user_name
-        r_obj = ProjectStepRemark(
+        r_obj = StepRemark(
             project_id=project_id,
             step_id=new_step.id,
             step_number=next_order,
@@ -282,10 +282,10 @@ def handle_update_step(*args, **kwargs):
 
     if "remark" in payload and payload["remark"]:
         r_author = payload.get("user_name") or user_name
-        r_obj = ProjectStepRemark(
+        r_obj = StepRemark(
             project_id=project_id,
             step_id=step.id,
-            step_number=step.step_order or step.step_number,
+            step_number=step.step_order or step.step_number or 1,
             user_id=user_id,
             user_name=r_author,
             remark=str(payload["remark"]).strip(),
@@ -386,30 +386,10 @@ def handle_upload_step_attachment(project_id: int, step_id: int):
             entity_id=step.id,
             uploaded_by=user_id or 1,
         )
-
-        step_att = ProjectStepAttachment(
-            project_id=project_id,
-            step_id=step.id,
-            upload_key=upload_key.strip(),
-            file_name=attachment.file_name,
-            file_path=attachment.storage_key,
-            file_size_bytes=attachment.file_size,
-            mime_type=attachment.content_type,
-            created_at=datetime.utcnow(),
-        )
-        db.session.add(step_att)
+        attachment.upload_key = upload_key.strip()
         db.session.commit()
 
-        size_disp = step_att.to_dict()["file_size"]
-        return {
-            "id": step_att.id,
-            "upload_key": step_att.upload_key,
-            "file_name": step_att.file_name,
-            "file_size": size_disp,
-            "file_path": step_att.file_path,
-            "download_url": f"/api/v1/attachments/{attachment.id}/download",
-            "created_at": step_att.created_at.isoformat(),
-        }, 201
+        return attachment.to_dict(), 201
 
     except AttachmentValidationError as exc:
         return {
@@ -454,10 +434,10 @@ def handle_add_step_remark(*args, **kwargs):
     user_id, default_user_name = _get_current_user_info()
     user_name = payload.get("user_name") or default_user_name
 
-    new_remark = ProjectStepRemark(
+    new_remark = StepRemark(
         project_id=project_id,
         step_id=step.id,
-        step_number=step.step_order or step.step_number,
+        step_number=step.step_order or step.step_number or 1,
         user_id=user_id,
         user_name=user_name,
         remark=str(remark_text).strip(),

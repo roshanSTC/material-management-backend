@@ -51,6 +51,12 @@ class Attachment(db.Model):
         index=True,
     )
 
+    upload_key = db.Column(
+        db.String(80),
+        nullable=True,
+        index=True,
+    )
+
     created_at = db.Column(
         db.DateTime,
         nullable=False,
@@ -68,6 +74,28 @@ class Attachment(db.Model):
         "User",
         lazy="select",
     )
+
+    def to_dict(self) -> dict:
+        size_display = ""
+        if self.file_size is not None:
+            if self.file_size >= 1024 * 1024:
+                size_display = f"{self.file_size / (1024 * 1024):.1f} MB"
+            elif self.file_size >= 1024:
+                size_display = f"{self.file_size / 1024:.1f} KB"
+            else:
+                size_display = f"{self.file_size} B"
+
+        return {
+            "id": self.id,
+            "upload_key": self.upload_key,
+            "file_name": self.file_name,
+            "file_size": size_display,
+            "file_size_bytes": self.file_size,
+            "file_path": self.storage_key,
+            "mime_type": self.content_type,
+            "download_url": f"/api/v1/attachments/{self.id}/download" if self.id else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
 
     def __repr__(self) -> str:
         return (

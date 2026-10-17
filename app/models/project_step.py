@@ -1,7 +1,8 @@
 from datetime import datetime
 
-from sqlalchemy import JSON
+from sqlalchemy import JSON, and_
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import foreign
 
 from app.extensions.database import db
 
@@ -95,17 +96,17 @@ class ProjectStep(db.Model):
     )
 
     remarks = db.relationship(
-        "ProjectStepRemark",
+        "StepRemark",
         back_populates="step",
         cascade="all, delete-orphan",
-        order_by="ProjectStepRemark.created_at.desc()",
+        order_by="StepRemark.created_at.desc()",
     )
 
     step_attachments = db.relationship(
-        "ProjectStepAttachment",
-        back_populates="step",
+        "Attachment",
+        primaryjoin="and_(foreign(Attachment.entity_id) == ProjectStep.id, Attachment.entity_type == 'project_step')",
         cascade="all, delete-orphan",
-        order_by="ProjectStepAttachment.created_at.asc()",
+        order_by="Attachment.created_at.asc()",
     )
 
     __table_args__ = (

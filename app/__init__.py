@@ -113,6 +113,9 @@ def create_app(config_class=Config):
     from app.routes.step_remark import (
         step_remarks_bp,
     )
+    from app.ai_assistant.routes.ai_assistant_routes import (
+        ai_assistant_bp,
+    )
     
     api.register_blueprint(auth_bp)
     api.register_blueprint(customer_bp)
@@ -145,6 +148,7 @@ def create_app(config_class=Config):
     api.register_blueprint(transport_detail_bp)
     api.register_blueprint(customer_payment_bp)
     api.register_blueprint(supplier_payment_bp)
+    api.register_blueprint(ai_assistant_bp)
     return app
 
 

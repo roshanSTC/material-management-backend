@@ -129,24 +129,30 @@ def _customer_payment_response(payment):
         "project_id": payment.project_id,
         "customer_id": customer_id,
         "invoice_no": payment.invoice_no,
+        "invoice_number": payment.invoice_no,
+        "payment_against_invoice_no": payment.invoice_no,
         "invoice_date": payment.invoice_date,
         "payment_percentage": _format_decimal(pay_pct),
         "cumulative_payment_percentage": _format_decimal(cum_pct),
         "pending_percentage": _format_decimal(pend_pct),
         "invoice_value": _format_decimal(payment.invoice_value),
         "payment_amount": _format_decimal(payment.payment_amount),
+        "payment_received": _format_decimal(payment.payment_amount),
         "amount_paid": _format_decimal(amt),
         "total_paid_amount": _format_decimal(cum_paid),
         "remaining_amount_before_transaction": _format_decimal(remaining_before),
         "payment_date": payment.payment_date,
+        "payment_received_date": payment.payment_date,
         "pending_amount": _format_decimal(pend),
+        "balance_amount": _format_decimal(pend),
         "tds": _format_decimal(payment.tds),
+        "tds_deducted": _format_decimal(payment.tds),
         "ld": _format_decimal(payment.ld),
+        "ld_deducted": _format_decimal(payment.ld),
         "liquidated_damages": _format_decimal(payment.ld),
         "is_payment_completed": is_completed,
         "payment_status": payment_status,
         "payment_status_message": status_message,
-        "remark": payment.remark,
         "remarks": get_step_remarks_for_response(
             project_id=payment.project_id,
             step_number=14,
@@ -209,6 +215,16 @@ def _extract_payload_and_files():
             files = request.files.getlist("files")
         elif "attachments" in request.files:
             files = request.files.getlist("attachments")
+
+    if isinstance(raw_payload, dict) and "data" in raw_payload:
+        inner = raw_payload["data"]
+        if isinstance(inner, str):
+            try:
+                raw_payload = json.loads(inner)
+            except Exception:
+                pass
+        elif isinstance(inner, dict):
+            raw_payload = inner
 
     return raw_payload, files
 

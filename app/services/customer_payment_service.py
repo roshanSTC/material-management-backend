@@ -271,6 +271,22 @@ def _calculate_payment_amounts(
     total_previously_paid = get_total_previously_paid(project_id, exclude_id=exclude_id)
     remaining_before = (invoice_value - total_previously_paid).quantize(Decimal("0.01"))
 
+    raw_pend = data.get("pending_amount")
+    if provided_iv is not None and settled_amount > remaining_before:
+        # If client explicitly passed invoice value along with settled / pending amount,
+        # adjust invoice value so it covers settled + pending
+        min_iv = total_previously_paid + settled_amount
+        if raw_pend is not None:
+            try:
+                min_iv += max(Decimal(str(raw_pend)), Decimal("0.00"))
+            except Exception:
+                pass
+        if min_iv > invoice_value:
+            invoice_value = min_iv.quantize(Decimal("0.01"))
+            remaining_before = (invoice_value - total_previously_paid).quantize(Decimal("0.01"))
+
+    data["invoice_value"] = str(invoice_value.quantize(Decimal("0.01")))
+
     if settled_amount > remaining_before:
         symbol = "₹"
         if remaining_before <= Decimal("0.00"):

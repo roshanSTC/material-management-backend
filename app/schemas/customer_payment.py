@@ -99,6 +99,19 @@ class CustomerPaymentCreateSchema(Schema):
         required=False,
         allow_none=True,
     )
+    items = fields.List(
+        fields.Raw(),
+        required=False,
+        allow_none=True,
+    )
+    attachments_count = fields.Integer(
+        required=False,
+        allow_none=True,
+    )
+    form_code = fields.String(
+        required=False,
+        allow_none=True,
+    )
 
     @validates_schema
     def validate_amount_or_percentage(self, data, **kwargs):
@@ -116,24 +129,44 @@ class CustomerPaymentCreateSchema(Schema):
 
         # Handle project_id
         pid = normalized.get("project_id") if normalized.get("project_id") is not None else normalized.get("projectId")
-        if pid is not None:
+        if pid is not None and str(pid).strip() != "":
             try:
                 normalized["project_id"] = int(pid)
             except (ValueError, TypeError):
                 pass
+        elif pid == "":
+            normalized.pop("project_id", None)
 
         # Handle invoice_no
         inv_no = (
             normalized.get("invoice_no")
             if normalized.get("invoice_no") is not None
-            else normalized.get("invoiceNo")
-        )
-        if inv_no is None:
-            inv_no = (
-                normalized.get("invoice_number")
-                if normalized.get("invoice_number") is not None
-                else normalized.get("invoiceNumber")
+            else (
+                normalized.get("invoiceNo")
+                if normalized.get("invoiceNo") is not None
+                else (
+                    normalized.get("invoice_number")
+                    if normalized.get("invoice_number") is not None
+                    else (
+                        normalized.get("invoiceNumber")
+                        if normalized.get("invoiceNumber") is not None
+                        else (
+                            normalized.get("payment_against_invoice_no")
+                            if normalized.get("payment_against_invoice_no") is not None
+                            else (
+                                normalized.get("paymentAgainstInvoiceNo")
+                                if normalized.get("paymentAgainstInvoiceNo") is not None
+                                else (
+                                    normalized.get("against_invoice_no")
+                                    if normalized.get("against_invoice_no") is not None
+                                    else normalized.get("againstInvoiceNo")
+                                )
+                            )
+                        )
+                    )
+                )
             )
+        )
         if inv_no is not None:
             s_inv = str(inv_no).strip()
             normalized["invoice_no"] = s_inv if s_inv else None
@@ -144,95 +177,207 @@ class CustomerPaymentCreateSchema(Schema):
             if normalized.get("invoice_date") is not None
             else normalized.get("invoiceDate")
         )
-        if inv_date is not None:
+        if inv_date is not None and str(inv_date).strip() != "":
             parsed = _parse_date(inv_date)
             if parsed is not None:
                 normalized["invoice_date"] = parsed.isoformat()
+        elif inv_date == "":
+            normalized["invoice_date"] = None
 
         # Handle payment_percentage
         pct = (
             normalized.get("payment_percentage")
             if normalized.get("payment_percentage") is not None
-            else normalized.get("paymentPercentage")
+            else (
+                normalized.get("paymentPercentage")
+                if normalized.get("paymentPercentage") is not None
+                else (
+                    normalized.get("percentage")
+                    if normalized.get("percentage") is not None
+                    else (
+                        normalized.get("payment_pct")
+                        if normalized.get("payment_pct") is not None
+                        else normalized.get("paymentPct")
+                    )
+                )
+            )
         )
-        if pct is None:
-            pct = normalized.get("percentage")
-        if pct is not None:
+        if pct is not None and str(pct).strip() != "":
             normalized["payment_percentage"] = pct
+        elif pct == "":
+            normalized["payment_percentage"] = None
 
         # Handle invoice_value
         inv_val = (
             normalized.get("invoice_value")
             if normalized.get("invoice_value") is not None
-            else normalized.get("invoiceValue")
-        )
-        if inv_val is None:
-            inv_val = (
-                normalized.get("total_customer_value")
-                or normalized.get("totalCustomerValue")
-                or normalized.get("total_invoice_value")
-                or normalized.get("totalInvoiceValue")
+            else (
+                normalized.get("invoiceValue")
+                if normalized.get("invoiceValue") is not None
+                else (
+                    normalized.get("total_customer_value")
+                    if normalized.get("total_customer_value") is not None
+                    else (
+                        normalized.get("totalCustomerValue")
+                        if normalized.get("totalCustomerValue") is not None
+                        else (
+                            normalized.get("total_invoice_value")
+                            if normalized.get("total_invoice_value") is not None
+                            else normalized.get("totalInvoiceValue")
+                        )
+                    )
+                )
             )
-        if inv_val is not None:
+        )
+        if inv_val is not None and str(inv_val).strip() != "":
             normalized["invoice_value"] = inv_val
+        elif inv_val == "":
+            normalized["invoice_value"] = None
 
         # Handle payment_amount
         pay_amt = (
             normalized.get("payment_amount")
             if normalized.get("payment_amount") is not None
-            else normalized.get("paymentAmount")
-        )
-        if pay_amt is None:
-            pay_amt = (
-                normalized.get("amount")
-                if normalized.get("amount") is not None
+            else (
+                normalized.get("paymentAmount")
+                if normalized.get("paymentAmount") is not None
                 else (
-                    normalized.get("amount_paid")
-                    if normalized.get("amount_paid") is not None
+                    normalized.get("payment_received")
+                    if normalized.get("payment_received") is not None
                     else (
-                        normalized.get("amountPaid")
-                        if normalized.get("amountPaid") is not None
+                        normalized.get("paymentReceived")
+                        if normalized.get("paymentReceived") is not None
                         else (
-                            normalized.get("amount_received")
-                            if normalized.get("amount_received") is not None
-                            else normalized.get("amountReceived")
+                            normalized.get("amount")
+                            if normalized.get("amount") is not None
+                            else (
+                                normalized.get("amount_paid")
+                                if normalized.get("amount_paid") is not None
+                                else (
+                                    normalized.get("amountPaid")
+                                    if normalized.get("amountPaid") is not None
+                                    else (
+                                        normalized.get("amount_received")
+                                        if normalized.get("amount_received") is not None
+                                        else normalized.get("amountReceived")
+                                    )
+                                )
+                            )
                         )
                     )
                 )
             )
-        if pay_amt is not None:
+        )
+        if pay_amt is not None and str(pay_amt).strip() != "":
             normalized["payment_amount"] = pay_amt
+        elif pay_amt == "":
+            normalized["payment_amount"] = None
 
         # Handle pending_amount
         pend = (
             normalized.get("pending_amount")
             if normalized.get("pending_amount") is not None
-            else normalized.get("pendingAmount")
+            else (
+                normalized.get("pendingAmount")
+                if normalized.get("pendingAmount") is not None
+                else (
+                    normalized.get("balance_amount")
+                    if normalized.get("balance_amount") is not None
+                    else (
+                        normalized.get("balanceAmount")
+                        if normalized.get("balanceAmount") is not None
+                        else (
+                            normalized.get("balance")
+                            if normalized.get("balance") is not None
+                            else (
+                                normalized.get("outstanding_amount")
+                                if normalized.get("outstanding_amount") is not None
+                                else normalized.get("outstandingAmount")
+                            )
+                        )
+                    )
+                )
+            )
         )
-        if pend is not None:
+        if pend is not None and str(pend).strip() != "":
             normalized["pending_amount"] = pend
+        elif pend == "":
+            normalized["pending_amount"] = None
 
         # Handle payment_date
         pay_date = (
             normalized.get("payment_date")
             if normalized.get("payment_date") is not None
-            else normalized.get("paymentDate")
+            else (
+                normalized.get("paymentDate")
+                if normalized.get("paymentDate") is not None
+                else (
+                    normalized.get("payment_received_date")
+                    if normalized.get("payment_received_date") is not None
+                    else normalized.get("paymentReceivedDate")
+                )
+            )
         )
-        if pay_date is not None:
+        if pay_date is not None and str(pay_date).strip() != "":
             parsed = _parse_date(pay_date)
             if parsed is not None:
                 normalized["payment_date"] = parsed.isoformat()
+        elif pay_date == "":
+            normalized["payment_date"] = None
+
+        # Handle tds
+        tds_val = (
+            normalized.get("tds")
+            if normalized.get("tds") is not None
+            else (
+                normalized.get("tds_deducted")
+                if normalized.get("tds_deducted") is not None
+                else (
+                    normalized.get("tdsDeducted")
+                    if normalized.get("tdsDeducted") is not None
+                    else (
+                        normalized.get("tds_amount")
+                        if normalized.get("tds_amount") is not None
+                        else normalized.get("tdsAmount")
+                    )
+                )
+            )
+        )
+        if tds_val is not None and str(tds_val).strip() != "":
+            normalized["tds"] = tds_val
+        elif tds_val == "":
+            normalized["tds"] = None
 
         # Handle ld
-        ld_val = normalized.get("ld")
-        if ld_val is None:
-            ld_val = (
-                normalized.get("liquidated_damages")
-                if normalized.get("liquidated_damages") is not None
-                else normalized.get("liquidatedDamages")
+        ld_val = (
+            normalized.get("ld")
+            if normalized.get("ld") is not None
+            else (
+                normalized.get("ld_deducted")
+                if normalized.get("ld_deducted") is not None
+                else (
+                    normalized.get("ldDeducted")
+                    if normalized.get("ldDeducted") is not None
+                    else (
+                        normalized.get("liquidated_damages")
+                        if normalized.get("liquidated_damages") is not None
+                        else (
+                            normalized.get("liquidatedDamages")
+                            if normalized.get("liquidatedDamages") is not None
+                            else (
+                                normalized.get("ld_amount")
+                                if normalized.get("ld_amount") is not None
+                                else normalized.get("ldAmount")
+                            )
+                        )
+                    )
+                )
             )
-        if ld_val is not None:
+        )
+        if ld_val is not None and str(ld_val).strip() != "":
             normalized["ld"] = ld_val
+        elif ld_val == "":
+            normalized["ld"] = None
 
         # Handle remark / remarks
         if "remarks" in normalized and not normalized.get("remark"):
@@ -299,6 +444,19 @@ class CustomerPaymentUpdateSchema(Schema):
         required=False,
         allow_none=True,
     )
+    items = fields.List(
+        fields.Raw(),
+        required=False,
+        allow_none=True,
+    )
+    attachments_count = fields.Integer(
+        required=False,
+        allow_none=True,
+    )
+    form_code = fields.String(
+        required=False,
+        allow_none=True,
+    )
 
     @pre_load
     def normalize_data(self, data, **kwargs):
@@ -308,115 +466,243 @@ class CustomerPaymentUpdateSchema(Schema):
 
         if "project_id" in normalized or "projectId" in normalized:
             pid = normalized.get("project_id") if normalized.get("project_id") is not None else normalized.get("projectId")
-            if pid is not None:
+            if pid is not None and str(pid).strip() != "":
                 try:
                     normalized["project_id"] = int(pid)
                 except (ValueError, TypeError):
                     pass
+            elif pid == "":
+                normalized["project_id"] = None
 
-        if "invoice_no" in normalized or "invoiceNo" in normalized or "invoice_number" in normalized or "invoiceNumber" in normalized:
-            inv_no = normalized.get("invoice_no") or normalized.get("invoiceNo") or normalized.get("invoice_number") or normalized.get("invoiceNumber")
-            if inv_no is not None:
-                normalized["invoice_no"] = str(inv_no).strip()
-
-        if "invoice_date" in normalized or "invoiceDate" in normalized:
-            inv_date = normalized.get("invoice_date") or normalized.get("invoiceDate")
-            if inv_date is not None:
-                parsed = _parse_date(inv_date)
-                if parsed is not None:
-                    normalized["invoice_date"] = parsed.isoformat()
-
-        if "payment_percentage" in normalized or "paymentPercentage" in normalized or "percentage" in normalized:
-            pct = (
-                normalized.get("payment_percentage")
-                if normalized.get("payment_percentage") is not None
+        inv_no = (
+            normalized.get("invoice_no")
+            if normalized.get("invoice_no") is not None
+            else (
+                normalized.get("invoiceNo")
+                if normalized.get("invoiceNo") is not None
                 else (
-                    normalized.get("paymentPercentage")
-                    if normalized.get("paymentPercentage") is not None
-                    else normalized.get("percentage")
-                )
-            )
-            if pct is not None:
-                normalized["payment_percentage"] = pct
-
-        if (
-            "invoice_value" in normalized
-            or "invoiceValue" in normalized
-            or "total_customer_value" in normalized
-            or "totalCustomerValue" in normalized
-            or "total_invoice_value" in normalized
-            or "totalInvoiceValue" in normalized
-        ):
-            inv_val = (
-                normalized.get("invoice_value")
-                or normalized.get("invoiceValue")
-                or normalized.get("total_customer_value")
-                or normalized.get("totalCustomerValue")
-                or normalized.get("total_invoice_value")
-                or normalized.get("totalInvoiceValue")
-            )
-            if inv_val is not None:
-                normalized["invoice_value"] = inv_val
-
-        if (
-            "payment_amount" in normalized
-            or "paymentAmount" in normalized
-            or "amount" in normalized
-            or "amount_paid" in normalized
-            or "amountPaid" in normalized
-            or "amount_received" in normalized
-            or "amountReceived" in normalized
-        ):
-            pay_amt = (
-                normalized.get("payment_amount")
-                if normalized.get("payment_amount") is not None
-                else (
-                    normalized.get("paymentAmount")
-                    if normalized.get("paymentAmount") is not None
+                    normalized.get("invoice_number")
+                    if normalized.get("invoice_number") is not None
                     else (
-                        normalized.get("amount")
-                        if normalized.get("amount") is not None
+                        normalized.get("invoiceNumber")
+                        if normalized.get("invoiceNumber") is not None
                         else (
-                            normalized.get("amount_paid")
-                            if normalized.get("amount_paid") is not None
+                            normalized.get("payment_against_invoice_no")
+                            if normalized.get("payment_against_invoice_no") is not None
                             else (
-                                normalized.get("amountPaid")
-                                if normalized.get("amountPaid") is not None
+                                normalized.get("paymentAgainstInvoiceNo")
+                                if normalized.get("paymentAgainstInvoiceNo") is not None
                                 else (
-                                    normalized.get("amount_received")
-                                    if normalized.get("amount_received") is not None
-                                    else normalized.get("amountReceived")
+                                    normalized.get("against_invoice_no")
+                                    if normalized.get("against_invoice_no") is not None
+                                    else normalized.get("againstInvoiceNo")
                                 )
                             )
                         )
                     )
                 )
             )
-            if pay_amt is not None:
-                normalized["payment_amount"] = pay_amt
+        )
+        if inv_no is not None:
+            s_inv = str(inv_no).strip()
+            normalized["invoice_no"] = s_inv if s_inv else None
 
-        if "pending_amount" in normalized or "pendingAmount" in normalized:
-            pend = (
-                normalized.get("pending_amount")
-                if normalized.get("pending_amount") is not None
-                else normalized.get("pendingAmount")
-            )
-            if pend is not None:
-                normalized["pending_amount"] = pend
-
-        if "payment_date" in normalized or "paymentDate" in normalized:
-            pay_date = normalized.get("payment_date") or normalized.get("paymentDate")
-            if pay_date is not None:
-                parsed = _parse_date(pay_date)
+        if "invoice_date" in normalized or "invoiceDate" in normalized:
+            inv_date = normalized.get("invoice_date") or normalized.get("invoiceDate")
+            if inv_date is not None and str(inv_date).strip() != "":
+                parsed = _parse_date(inv_date)
                 if parsed is not None:
-                    normalized["payment_date"] = parsed.isoformat()
+                    normalized["invoice_date"] = parsed.isoformat()
+            elif inv_date == "":
+                normalized["invoice_date"] = None
 
-        if "ld" in normalized or "liquidated_damages" in normalized or "liquidatedDamages" in normalized:
-            ld_val = normalized.get("ld")
-            if ld_val is None:
-                ld_val = normalized.get("liquidated_damages") or normalized.get("liquidatedDamages")
-            if ld_val is not None:
-                normalized["ld"] = ld_val
+        pct = (
+            normalized.get("payment_percentage")
+            if normalized.get("payment_percentage") is not None
+            else (
+                normalized.get("paymentPercentage")
+                if normalized.get("paymentPercentage") is not None
+                else (
+                    normalized.get("percentage")
+                    if normalized.get("percentage") is not None
+                    else (
+                        normalized.get("payment_pct")
+                        if normalized.get("payment_pct") is not None
+                        else normalized.get("paymentPct")
+                    )
+                )
+            )
+        )
+        if pct is not None and str(pct).strip() != "":
+            normalized["payment_percentage"] = pct
+        elif pct == "":
+            normalized["payment_percentage"] = None
+
+        inv_val = (
+            normalized.get("invoice_value")
+            if normalized.get("invoice_value") is not None
+            else (
+                normalized.get("invoiceValue")
+                if normalized.get("invoiceValue") is not None
+                else (
+                    normalized.get("total_customer_value")
+                    if normalized.get("total_customer_value") is not None
+                    else (
+                        normalized.get("totalCustomerValue")
+                        if normalized.get("totalCustomerValue") is not None
+                        else (
+                            normalized.get("total_invoice_value")
+                            if normalized.get("total_invoice_value") is not None
+                            else normalized.get("totalInvoiceValue")
+                        )
+                    )
+                )
+            )
+        )
+        if inv_val is not None and str(inv_val).strip() != "":
+            normalized["invoice_value"] = inv_val
+        elif inv_val == "":
+            normalized["invoice_value"] = None
+
+        pay_amt = (
+            normalized.get("payment_amount")
+            if normalized.get("payment_amount") is not None
+            else (
+                normalized.get("paymentAmount")
+                if normalized.get("paymentAmount") is not None
+                else (
+                    normalized.get("payment_received")
+                    if normalized.get("payment_received") is not None
+                    else (
+                        normalized.get("paymentReceived")
+                        if normalized.get("paymentReceived") is not None
+                        else (
+                            normalized.get("amount")
+                            if normalized.get("amount") is not None
+                            else (
+                                normalized.get("amount_paid")
+                                if normalized.get("amount_paid") is not None
+                                else (
+                                    normalized.get("amountPaid")
+                                    if normalized.get("amountPaid") is not None
+                                    else (
+                                        normalized.get("amount_received")
+                                        if normalized.get("amount_received") is not None
+                                        else normalized.get("amountReceived")
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        if pay_amt is not None and str(pay_amt).strip() != "":
+            normalized["payment_amount"] = pay_amt
+        elif pay_amt == "":
+            normalized["payment_amount"] = None
+
+        pend = (
+            normalized.get("pending_amount")
+            if normalized.get("pending_amount") is not None
+            else (
+                normalized.get("pendingAmount")
+                if normalized.get("pendingAmount") is not None
+                else (
+                    normalized.get("balance_amount")
+                    if normalized.get("balance_amount") is not None
+                    else (
+                        normalized.get("balanceAmount")
+                        if normalized.get("balanceAmount") is not None
+                        else (
+                            normalized.get("balance")
+                            if normalized.get("balance") is not None
+                            else (
+                                normalized.get("outstanding_amount")
+                                if normalized.get("outstanding_amount") is not None
+                                else normalized.get("outstandingAmount")
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        if pend is not None and str(pend).strip() != "":
+            normalized["pending_amount"] = pend
+        elif pend == "":
+            normalized["pending_amount"] = None
+
+        pay_date = (
+            normalized.get("payment_date")
+            if normalized.get("payment_date") is not None
+            else (
+                normalized.get("paymentDate")
+                if normalized.get("paymentDate") is not None
+                else (
+                    normalized.get("payment_received_date")
+                    if normalized.get("payment_received_date") is not None
+                    else normalized.get("paymentReceivedDate")
+                )
+            )
+        )
+        if pay_date is not None and str(pay_date).strip() != "":
+            parsed = _parse_date(pay_date)
+            if parsed is not None:
+                normalized["payment_date"] = parsed.isoformat()
+        elif pay_date == "":
+            normalized["payment_date"] = None
+
+        tds_val = (
+            normalized.get("tds")
+            if normalized.get("tds") is not None
+            else (
+                normalized.get("tds_deducted")
+                if normalized.get("tds_deducted") is not None
+                else (
+                    normalized.get("tdsDeducted")
+                    if normalized.get("tdsDeducted") is not None
+                    else (
+                        normalized.get("tds_amount")
+                        if normalized.get("tds_amount") is not None
+                        else normalized.get("tdsAmount")
+                    )
+                )
+            )
+        )
+        if tds_val is not None and str(tds_val).strip() != "":
+            normalized["tds"] = tds_val
+        elif tds_val == "":
+            normalized["tds"] = None
+
+        ld_val = (
+            normalized.get("ld")
+            if normalized.get("ld") is not None
+            else (
+                normalized.get("ld_deducted")
+                if normalized.get("ld_deducted") is not None
+                else (
+                    normalized.get("ldDeducted")
+                    if normalized.get("ldDeducted") is not None
+                    else (
+                        normalized.get("liquidated_damages")
+                        if normalized.get("liquidated_damages") is not None
+                        else (
+                            normalized.get("liquidatedDamages")
+                            if normalized.get("liquidatedDamages") is not None
+                            else (
+                                normalized.get("ld_amount")
+                                if normalized.get("ld_amount") is not None
+                                else normalized.get("ldAmount")
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        if ld_val is not None and str(ld_val).strip() != "":
+            normalized["ld"] = ld_val
+        elif ld_val == "":
+            normalized["ld"] = None
 
         if "remarks" in normalized and not normalized.get("remark"):
             normalized["remark"] = normalized["remarks"]
@@ -431,19 +717,26 @@ class CustomerPaymentResponseSchema(Schema):
     project_id = fields.Integer(dump_only=True)
     customer_id = fields.Integer(dump_only=True, allow_none=True)
     invoice_no = fields.String(dump_only=True)
+    invoice_number = fields.String(dump_only=True)
+    payment_against_invoice_no = fields.String(dump_only=True)
     invoice_date = fields.Date(dump_only=True)
     payment_percentage = fields.Decimal(dump_only=True, as_string=True, places=2)
     cumulative_payment_percentage = fields.Decimal(dump_only=True, as_string=True, places=2)
     pending_percentage = fields.Decimal(dump_only=True, as_string=True, places=2)
     invoice_value = fields.Decimal(dump_only=True, as_string=True, places=2)
     payment_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
+    payment_received = fields.Decimal(dump_only=True, as_string=True, places=2)
     amount_paid = fields.Decimal(dump_only=True, as_string=True, places=2)
     total_paid_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
     remaining_amount_before_transaction = fields.Decimal(dump_only=True, as_string=True, places=2)
     pending_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
+    balance_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
     payment_date = fields.Date(dump_only=True)
+    payment_received_date = fields.Date(dump_only=True)
     tds = fields.Decimal(dump_only=True, as_string=True, places=2, allow_none=True)
+    tds_deducted = fields.Decimal(dump_only=True, as_string=True, places=2, allow_none=True)
     ld = fields.Decimal(dump_only=True, as_string=True, places=2, allow_none=True)
+    ld_deducted = fields.Decimal(dump_only=True, as_string=True, places=2, allow_none=True)
     liquidated_damages = fields.Decimal(dump_only=True, as_string=True, places=2, allow_none=True)
     is_payment_completed = fields.Boolean(dump_only=True)
     payment_status = fields.String(dump_only=True)
@@ -464,4 +757,3 @@ class CustomerPaymentQuerySchema(Schema):
 
     project_id = fields.Integer(required=False)
     invoice_no = fields.String(required=False)
-

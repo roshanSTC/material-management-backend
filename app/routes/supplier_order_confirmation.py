@@ -18,7 +18,6 @@ from app.services.attachment_service import (
     create_attachment,
     list_attachments,
 )
-from app.utils.remark_utils import get_step_remarks_for_response
 from app.services.storage.factory import get_storage
 from app.services.supplier_order_confirmation_service import (
     OrderConfirmationAlreadyExistsError,
@@ -32,6 +31,7 @@ from app.services.supplier_order_confirmation_service import (
     list_supplier_order_confirmation_records,
     update_supplier_order_confirmation_transaction,
 )
+from app.utils.remark_utils import get_step_remarks_for_response
 
 order_confirmation_bp = Blueprint(
     "order_confirmations",
@@ -39,7 +39,6 @@ order_confirmation_bp = Blueprint(
     url_prefix="/api/v1/order-confirmations",
     description="Supplier Order Confirmation APIs",
 )
-
 
 
 def _error(code: str, message: str, status: int):
@@ -70,8 +69,11 @@ def _order_confirmation_response(confirmation):
         "email": confirmation.email,
         "ref_no": confirmation.ref_no,
         "reference_number": confirmation.ref_no,
+        "order_confirmation_no": confirmation.ref_no,
+        "order_confirmation_number": confirmation.ref_no,
         "shipping_terms": confirmation.shipping_terms,
         "shipping_term": confirmation.shipping_terms,
+        "incoterms": confirmation.shipping_terms,
         "warranty_period": confirmation.warranty_period,
         "delivery_period": confirmation.delivery_period,
         "delivery_term": confirmation.delivery_period,
@@ -102,6 +104,7 @@ def _order_confirmation_response(confirmation):
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
                 "net_amount": item.net_amount,
+                "total_amount": item.net_amount,
                 "created_at": item.created_at,
             }
             for item in confirmation.items
@@ -180,11 +183,20 @@ def _latest_order_confirmation_response(confirmation):
 
 
 def _extract_payload_and_files():
-    content_type = request.content_type or ""
     files = []
-    raw_payload = {}
+    if request.files:
+        files = request.files.getlist("file") or request.files.getlist("files")
+        if not files:
+            files = list(request.files.values())
 
-    if "multipart/form-data" in content_type:
+    if request.is_json:
+        raw_payload = request.get_json(silent=True) or {}
+        if isinstance(raw_payload, dict) and "data" in raw_payload and isinstance(raw_payload["data"], str):
+            try:
+                raw_payload = json.loads(raw_payload["data"])
+            except Exception:
+                pass
+    else:
         data_raw = request.form.get("data")
         if data_raw:
             try:
@@ -194,10 +206,30 @@ def _extract_payload_and_files():
         else:
             raw_payload = request.form.to_dict()
 
-        if "file" in request.files:
-            files = request.files.getlist("file")
-    else:
-        raw_payload = request.get_json(silent=True) or {}
+    # Auto-resolve supplier_id if missing or link supplier to project
+    pid = raw_payload.get("project_id")
+    if pid:
+        try:
+            pid = int(pid)
+            from app.models import Project, Supplier
+            project = db.session.get(Project, pid)
+            if project:
+                if not raw_payload.get("supplier_id"):
+                    if project.supplier_id:
+                        raw_payload["supplier_id"] = project.supplier_id
+                    elif raw_payload.get("supplier_name"):
+                        s_name = str(raw_payload.get("supplier_name")).strip()
+                        sup = db.session.execute(
+                            db.select(Supplier).where(Supplier.name.ilike(s_name))
+                        ).scalars().first()
+                        if not sup:
+                            sup = Supplier(name=s_name)
+                            db.session.add(sup)
+                            db.session.flush()
+                        raw_payload["supplier_id"] = sup.id
+                        project.supplier_id = sup.id
+        except Exception:
+            pass
 
     return raw_payload, files
 
@@ -323,9 +355,6 @@ def _handle_get_latest_order_confirmation(args=None):
             "Failed to get latest order confirmation.",
             500,
         )
-
-
-
 
 
 def _handle_update_order_confirmation(order_confirmation_id: int):
@@ -499,7 +528,6 @@ def get_latest_order_confirmation(args=None):
     return _handle_get_latest_order_confirmation(args)
 
 
-
 @order_confirmation_bp.patch("/<int:order_confirmation_id>")
 @order_confirmation_bp.doc(
     security=[{"BearerAuth": []}],
@@ -516,8 +544,6 @@ def update_order_confirmation(order_confirmation_id):
 @jwt_required()
 def delete_order_confirmation(order_confirmation_id):
     return _handle_delete_order_confirmation(order_confirmation_id)
-
-
 
 
 @order_confirmation_bp.get("/<int:order_confirmation_id>")

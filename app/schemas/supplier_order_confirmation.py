@@ -98,22 +98,99 @@ class SupplierOrderConfirmationItemCreateSchema(Schema):
             return data
         normalized = dict(data)
 
-        if "material_name" in normalized and not normalized.get("description"):
-            normalized["description"] = normalized["material_name"]
-        elif "description" in normalized and not normalized.get("material_name"):
+        # description / material_name
+        desc = (
+            normalized.get("description")
+            or normalized.get("material_name")
+            or normalized.get("item_name")
+            or normalized.get("material_description")
+        )
+        if desc is None or not str(desc).strip():
+            sr_no = normalized.get("sr_no") or 1
+            desc = f"Order Item {sr_no}"
+        normalized["description"] = str(desc).strip()
+        if not normalized.get("material_name"):
             normalized["material_name"] = normalized["description"]
 
-        if "hsn_sac" in normalized and not normalized.get("hsn_code"):
-            normalized["hsn_code"] = normalized["hsn_sac"]
-        elif "hsn_code" in normalized and not normalized.get("hsn_sac"):
-            normalized["hsn_sac"] = normalized["hsn_code"]
+        # hsn_code / hsn_sac
+        hsn = (
+            normalized.get("hsn_code")
+            if normalized.get("hsn_code") is not None
+            else normalized.get("hsn_sac")
+            if normalized.get("hsn_sac") is not None
+            else normalized.get("hsn")
+        )
+        if hsn is not None and str(hsn).strip():
+            normalized["hsn_code"] = str(hsn).strip()
+            normalized["hsn_sac"] = str(hsn).strip()
+        else:
+            normalized["hsn_code"] = None
+            normalized["hsn_sac"] = None
 
-        if "quantity" in normalized and normalized["quantity"] is not None:
-            normalized["quantity"] = str(normalized["quantity"]).strip()
-        if "unit_price" in normalized and normalized["unit_price"] is not None:
-            normalized["unit_price"] = str(normalized["unit_price"]).strip()
-        if "net_amount" in normalized and normalized["net_amount"] is not None:
-            normalized["net_amount"] = str(normalized["net_amount"]).strip()
+        # quantity
+        qty = (
+            normalized.get("quantity")
+            if normalized.get("quantity") is not None
+            else normalized.get("qty")
+        )
+        if qty is None or str(qty).strip() == "":
+            normalized["quantity"] = "1.000"
+        else:
+            try:
+                clean_q = re.sub(r"[^\d.]", "", str(qty))
+                d_q = Decimal(clean_q) if clean_q else Decimal("1.000")
+                if d_q <= 0:
+                    d_q = Decimal("1.000")
+                normalized["quantity"] = str(d_q)
+            except Exception:
+                normalized["quantity"] = "1.000"
+
+        # unit_price
+        uprice = (
+            normalized.get("unit_price")
+            if normalized.get("unit_price") is not None
+            else normalized.get("unitPrice")
+            if normalized.get("unitPrice") is not None
+            else normalized.get("rate")
+            if normalized.get("rate") is not None
+            else normalized.get("price")
+        )
+        if uprice is None or str(uprice).strip() == "":
+            normalized["unit_price"] = "0.00"
+        else:
+            try:
+                clean_p = re.sub(r"[^\d.]", "", str(uprice))
+                normalized["unit_price"] = str(Decimal(clean_p)) if clean_p else "0.00"
+            except Exception:
+                normalized["unit_price"] = "0.00"
+
+        # net_amount / total_amount
+        total = (
+            normalized.get("net_amount")
+            if normalized.get("net_amount") is not None
+            else normalized.get("netAmount")
+            if normalized.get("netAmount") is not None
+            else normalized.get("total_amount")
+            if normalized.get("total_amount") is not None
+            else normalized.get("totalAmount")
+            if normalized.get("totalAmount") is not None
+            else normalized.get("net_total")
+            if normalized.get("net_total") is not None
+            else normalized.get("total")
+        )
+        if total is not None and str(total).strip() != "":
+            try:
+                clean_t = re.sub(r"[^\d.]", "", str(total))
+                normalized["net_amount"] = str(Decimal(clean_t)) if clean_t else None
+            except Exception:
+                normalized["net_amount"] = None
+        else:
+            try:
+                d_qty = Decimal(normalized["quantity"])
+                d_price = Decimal(normalized["unit_price"])
+                normalized["net_amount"] = str((d_qty * d_price).quantize(Decimal("0.01")))
+            except Exception:
+                normalized["net_amount"] = None
 
         return normalized
 
@@ -169,23 +246,69 @@ class SupplierOrderConfirmationItemUpdateSchema(Schema):
             return data
         normalized = dict(data)
 
-        if "material_name" in normalized and not normalized.get("description"):
-            normalized["description"] = normalized["material_name"]
-        elif "description" in normalized and not normalized.get("material_name"):
-            normalized["material_name"] = normalized["description"]
+        if "material_name" in normalized or "description" in normalized:
+            desc = normalized.get("description") or normalized.get("material_name")
+            if desc is not None and str(desc).strip():
+                normalized["description"] = str(desc).strip()
+                normalized["material_name"] = str(desc).strip()
+            else:
+                normalized["description"] = None
+                normalized["material_name"] = None
 
-        if "hsn_sac" in normalized and not normalized.get("hsn_code"):
-            normalized["hsn_code"] = normalized["hsn_sac"]
-        elif "hsn_code" in normalized and not normalized.get("hsn_sac"):
-            normalized["hsn_sac"] = normalized["hsn_code"]
+        if "hsn_sac" in normalized or "hsn_code" in normalized or "hsn" in normalized:
+            hsn = normalized.get("hsn_code") or normalized.get("hsn_sac") or normalized.get("hsn")
+            if hsn is not None and str(hsn).strip():
+                normalized["hsn_code"] = str(hsn).strip()
+                normalized["hsn_sac"] = str(hsn).strip()
+            else:
+                normalized["hsn_code"] = None
+                normalized["hsn_sac"] = None
 
-        if "quantity" in normalized and normalized["quantity"] is not None:
-            normalized["quantity"] = str(normalized["quantity"]).strip()
-        if "unit_price" in normalized and normalized["unit_price"] is not None:
-            normalized["unit_price"] = str(normalized["unit_price"]).strip()
-        if "net_amount" in normalized and normalized["net_amount"] is not None:
-            normalized["net_amount"] = str(normalized["net_amount"]).strip()
+        if "quantity" in normalized:
+            qty = normalized.get("quantity")
+            if qty is None or str(qty).strip() == "":
+                normalized["quantity"] = None
+            else:
+                try:
+                    clean_q = re.sub(r"[^\d.]", "", str(qty))
+                    d_q = Decimal(clean_q) if clean_q else Decimal("1.000")
+                    normalized["quantity"] = str(d_q)
+                except Exception:
+                    normalized["quantity"] = "1.000"
 
+        if "unit_price" in normalized:
+            uprice = normalized.get("unit_price")
+            if uprice is None or str(uprice).strip() == "":
+                normalized["unit_price"] = None
+            else:
+                try:
+                    clean_p = re.sub(r"[^\d.]", "", str(uprice))
+                    normalized["unit_price"] = str(Decimal(clean_p)) if clean_p else "0.00"
+                except Exception:
+                    normalized["unit_price"] = "0.00"
+
+        total = (
+            normalized.get("net_amount")
+            if normalized.get("net_amount") is not None
+            else normalized.get("netAmount")
+            if normalized.get("netAmount") is not None
+            else normalized.get("total_amount")
+            if normalized.get("total_amount") is not None
+            else normalized.get("totalAmount")
+            if normalized.get("totalAmount") is not None
+            else normalized.get("net_total")
+            if normalized.get("net_total") is not None
+            else normalized.get("total")
+        )
+        if total is not None:
+            if str(total).strip() == "":
+                normalized["net_amount"] = None
+            else:
+                try:
+                    clean_t = re.sub(r"[^\d.]", "", str(total))
+                    normalized["net_amount"] = str(Decimal(clean_t)) if clean_t else None
+                except Exception:
+                    normalized["net_amount"] = None
         return normalized
 
 
@@ -347,37 +470,60 @@ class SupplierOrderConfirmationCreateSchema(Schema):
             normalized["order_confirmation_date"] = resolved_date
             normalized["confirmation_date"] = resolved_date
 
-        # ref_no / reference_number
+        # ref_no / reference_number / order_confirmation_no / confirmation_no
         resolved_ref = (
             normalized.get("ref_no")
             if normalized.get("ref_no") is not None
             else normalized.get("refNo")
             if normalized.get("refNo") is not None
+            else normalized.get("order_confirmation_no")
+            if normalized.get("order_confirmation_no") is not None
+            else normalized.get("orderConfirmationNo")
+            if normalized.get("orderConfirmationNo") is not None
+            else normalized.get("order_confirmation_number")
+            if normalized.get("order_confirmation_number") is not None
+            else normalized.get("orderConfirmationNumber")
+            if normalized.get("orderConfirmationNumber") is not None
             else normalized.get("reference_number")
             if normalized.get("reference_number") is not None
             else normalized.get("referenceNumber")
+            if normalized.get("referenceNumber") is not None
+            else normalized.get("confirmation_no")
+            if normalized.get("confirmation_no") is not None
+            else normalized.get("confirmation_number")
+            if normalized.get("confirmation_number") is not None
+            else normalized.get("oc_no")
+            if normalized.get("oc_no") is not None
+            else normalized.get("oc_number")
         )
-        if resolved_ref is not None:
+        if resolved_ref is not None and str(resolved_ref).strip() != "":
             normalized["ref_no"] = str(resolved_ref).strip()
             normalized["reference_number"] = str(resolved_ref).strip()
+        elif not normalized.get("ref_no"):
+            normalized["ref_no"] = f"OC-{normalized.get('project_id') or 1}"
+            normalized["reference_number"] = normalized["ref_no"]
 
         # email
         if "email" in normalized and normalized["email"] is not None:
             normalized["email"] = _clean_email(normalized["email"])
 
-        # shipping_terms / shipping_term
+        # shipping_terms / shipping_term / incoterms / inco_terms
         resolved_shipping = (
             normalized.get("shipping_terms")
             if normalized.get("shipping_terms") is not None
             else normalized.get("shipping_term")
             if normalized.get("shipping_term") is not None
+            else normalized.get("incoterms")
+            if normalized.get("incoterms") is not None
+            else normalized.get("inco_terms")
+            if normalized.get("inco_terms") is not None
             else normalized.get("shippingTerms")
             if normalized.get("shippingTerms") is not None
             else normalized.get("shippingTerm")
         )
         if resolved_shipping is not None:
-            normalized["shipping_terms"] = resolved_shipping
-            normalized["shipping_term"] = resolved_shipping
+            normalized["shipping_terms"] = str(resolved_shipping).strip()
+            normalized["shipping_term"] = str(resolved_shipping).strip()
 
         # delivery_period / delivery_term
         resolved_delivery = (
@@ -390,8 +536,8 @@ class SupplierOrderConfirmationCreateSchema(Schema):
             else normalized.get("deliveryTerm")
         )
         if resolved_delivery is not None:
-            normalized["delivery_period"] = resolved_delivery
-            normalized["delivery_term"] = resolved_delivery
+            normalized["delivery_period"] = str(resolved_delivery).strip()
+            normalized["delivery_term"] = str(resolved_delivery).strip()
 
         # payment_terms / payment_term
         resolved_payment = (
@@ -404,8 +550,8 @@ class SupplierOrderConfirmationCreateSchema(Schema):
             else normalized.get("paymentTerm")
         )
         if resolved_payment is not None:
-            normalized["payment_terms"] = resolved_payment
-            normalized["payment_term"] = resolved_payment
+            normalized["payment_terms"] = str(resolved_payment).strip()
+            normalized["payment_term"] = str(resolved_payment).strip()
 
         # warranty_period
         if "warrantyPeriod" in normalized and not normalized.get("warranty_period"):
@@ -417,7 +563,7 @@ class SupplierOrderConfirmationCreateSchema(Schema):
             if normalized.get("total_amount") is not None
             else normalized.get("totalAmount")
         )
-        if resolved_total is not None:
+        if resolved_total is not None and str(resolved_total).strip() != "":
             normalized["total_amount"] = str(resolved_total).strip()
 
         # total_net_amount / totalNetAmount
@@ -426,8 +572,23 @@ class SupplierOrderConfirmationCreateSchema(Schema):
             if normalized.get("total_net_amount") is not None
             else normalized.get("totalNetAmount")
         )
-        if resolved_net_total is not None:
+        if resolved_net_total is not None and str(resolved_net_total).strip() != "":
             normalized["total_net_amount"] = str(resolved_net_total).strip()
+
+        # Root total_amount calculation fallback from items
+        if not normalized.get("total_amount") and normalized.get("items"):
+            try:
+                calc_total = sum(
+                    Decimal(str(it.get("net_amount") or it.get("total_amount") or 0))
+                    for it in normalized["items"]
+                    if isinstance(it, (dict, Mapping))
+                )
+                if calc_total > 0:
+                    normalized["total_amount"] = str(calc_total)
+                    if not normalized.get("total_net_amount"):
+                        normalized["total_net_amount"] = str(calc_total)
+            except Exception:
+                pass
 
         # currency_unit / currencyUnit / currency
         resolved_curr = (
@@ -445,6 +606,12 @@ class SupplierOrderConfirmationCreateSchema(Schema):
             normalized["remark"] = normalized["remarks"]
         elif "remark" in normalized and not normalized.get("remarks"):
             normalized["remarks"] = normalized["remark"]
+
+        # clean items
+        if "items" in normalized and isinstance(normalized["items"], list):
+            normalized["items"] = [
+                item for item in normalized["items"] if isinstance(item, (dict, Mapping))
+            ]
 
         return normalized
 
@@ -510,11 +677,23 @@ class SupplierOrderConfirmationUpdateSchema(Schema):
             if normalized.get("ref_no") is not None
             else normalized.get("refNo")
             if normalized.get("refNo") is not None
+            else normalized.get("order_confirmation_no")
+            if normalized.get("order_confirmation_no") is not None
+            else normalized.get("orderConfirmationNo")
+            if normalized.get("orderConfirmationNo") is not None
+            else normalized.get("order_confirmation_number")
+            if normalized.get("order_confirmation_number") is not None
+            else normalized.get("orderConfirmationNumber")
+            if normalized.get("orderConfirmationNumber") is not None
             else normalized.get("reference_number")
             if normalized.get("reference_number") is not None
             else normalized.get("referenceNumber")
+            if normalized.get("referenceNumber") is not None
+            else normalized.get("confirmation_no")
+            if normalized.get("confirmation_no") is not None
+            else normalized.get("confirmation_number")
         )
-        if resolved_ref is not None:
+        if resolved_ref is not None and str(resolved_ref).strip() != "":
             normalized["ref_no"] = str(resolved_ref).strip()
             normalized["reference_number"] = str(resolved_ref).strip()
 
@@ -526,13 +705,17 @@ class SupplierOrderConfirmationUpdateSchema(Schema):
             if normalized.get("shipping_terms") is not None
             else normalized.get("shipping_term")
             if normalized.get("shipping_term") is not None
+            else normalized.get("incoterms")
+            if normalized.get("incoterms") is not None
+            else normalized.get("inco_terms")
+            if normalized.get("inco_terms") is not None
             else normalized.get("shippingTerms")
             if normalized.get("shippingTerms") is not None
             else normalized.get("shippingTerm")
         )
         if resolved_shipping is not None:
-            normalized["shipping_terms"] = resolved_shipping
-            normalized["shipping_term"] = resolved_shipping
+            normalized["shipping_terms"] = str(resolved_shipping).strip()
+            normalized["shipping_term"] = str(resolved_shipping).strip()
 
         resolved_delivery = (
             normalized.get("delivery_period")
@@ -544,8 +727,8 @@ class SupplierOrderConfirmationUpdateSchema(Schema):
             else normalized.get("deliveryTerm")
         )
         if resolved_delivery is not None:
-            normalized["delivery_period"] = resolved_delivery
-            normalized["delivery_term"] = resolved_delivery
+            normalized["delivery_period"] = str(resolved_delivery).strip()
+            normalized["delivery_term"] = str(resolved_delivery).strip()
 
         resolved_payment = (
             normalized.get("payment_terms")
@@ -557,8 +740,8 @@ class SupplierOrderConfirmationUpdateSchema(Schema):
             else normalized.get("paymentTerm")
         )
         if resolved_payment is not None:
-            normalized["payment_terms"] = resolved_payment
-            normalized["payment_term"] = resolved_payment
+            normalized["payment_terms"] = str(resolved_payment).strip()
+            normalized["payment_term"] = str(resolved_payment).strip()
 
         if "warrantyPeriod" in normalized and not normalized.get("warranty_period"):
             normalized["warranty_period"] = normalized["warrantyPeriod"]
@@ -568,7 +751,7 @@ class SupplierOrderConfirmationUpdateSchema(Schema):
             if normalized.get("total_amount") is not None
             else normalized.get("totalAmount")
         )
-        if resolved_total is not None:
+        if resolved_total is not None and str(resolved_total).strip() != "":
             normalized["total_amount"] = str(resolved_total).strip()
 
         resolved_net_total = (
@@ -576,7 +759,7 @@ class SupplierOrderConfirmationUpdateSchema(Schema):
             if normalized.get("total_net_amount") is not None
             else normalized.get("totalNetAmount")
         )
-        if resolved_net_total is not None:
+        if resolved_net_total is not None and str(resolved_net_total).strip() != "":
             normalized["total_net_amount"] = str(resolved_net_total).strip()
 
         if "currency_unit" in normalized or "currencyUnit" in normalized or "currency" in normalized:
@@ -655,6 +838,7 @@ class SupplierOrderConfirmationItemResponseSchema(Schema):
     quantity = fields.Decimal(as_string=True, places=3, required=True)
     unit_price = fields.Decimal(as_string=True, places=2, required=True)
     net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+    total_amount = fields.Decimal(attribute="net_amount", as_string=True, places=2, allow_none=True, dump_only=True)
     created_at = fields.DateTime(required=True)
 
 
@@ -671,8 +855,11 @@ class SupplierOrderConfirmationResponseSchema(Schema):
     email = fields.String(allow_none=True)
     ref_no = fields.String(required=False, allow_none=True)
     reference_number = fields.String(dump_only=True)
+    order_confirmation_no = fields.String(attribute="ref_no", dump_only=True)
+    order_confirmation_number = fields.String(attribute="ref_no", dump_only=True)
     shipping_terms = fields.String(allow_none=True)
     shipping_term = fields.String(dump_only=True)
+    incoterms = fields.String(attribute="shipping_terms", dump_only=True)
     delivery_period = fields.String(allow_none=True)
     delivery_term = fields.String(dump_only=True)
     payment_terms = fields.String(allow_none=True)

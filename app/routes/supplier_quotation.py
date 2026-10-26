@@ -176,18 +176,50 @@ def _handle_get_latest_supplier_quotation(args=None):
 
 
 def _parse_form_data(schema):
-    data_raw = request.form.get("data")
-    if not data_raw:
-        return None, _error("DATA_REQUIRED", "data is required.", 422)
-    try:
-        data = json.loads(data_raw)
-    except json.JSONDecodeError:
-        return None, _error("INVALID_DATA", "data must contain valid JSON.", 422)
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+    else:
+        data_raw = request.form.get("data")
+        if not data_raw:
+            data = request.form.to_dict()
+        else:
+            try:
+                data = json.loads(data_raw)
+            except json.JSONDecodeError:
+                return None, _error("INVALID_DATA", "data must contain valid JSON.", 422)
+
+    # Auto-resolve supplier_id if missing or link supplier to project
+    pid = data.get("project_id")
+    if pid:
+        try:
+            pid = int(pid)
+            from app.models import Project, Supplier
+            project = db.session.get(Project, pid)
+            if project:
+                if not data.get("supplier_id"):
+                    if project.supplier_id:
+                        data["supplier_id"] = project.supplier_id
+                    else:
+                        s_name = data.get("supplier_name") or "Default Supplier"
+                        supp = Supplier.query.filter_by(name=s_name).first()
+                        if not supp:
+                            supp = Supplier(name=s_name)
+                            db.session.add(supp)
+                            db.session.flush()
+                        data["supplier_id"] = supp.id
+                        project.supplier_id = supp.id
+                        db.session.flush()
+                elif not project.supplier_id:
+                    project.supplier_id = data["supplier_id"]
+                    db.session.flush()
+        except Exception:
+            pass
 
     try:
         return schema.load(data), None
     except Exception as exc:
-        return None, _error("VALIDATION_ERROR", str(exc), 422)
+        err_msg = getattr(exc, "messages", None) if hasattr(exc, "messages") else str(exc)
+        return None, _error("VALIDATION_ERROR", err_msg, 422)
 
 
 def _error(code: str, message: str, status: int):
@@ -215,7 +247,10 @@ def _attach_files(
     uploaded_by: int,
     storage_keys: list[str],
 ) -> None:
-    for file in request.files.getlist("file"):
+    file_list = request.files.getlist("file") or request.files.getlist("files")
+    if not file_list and request.files:
+        file_list = list(request.files.values())
+    for file in file_list:
         if not file or not file.filename:
             continue
         _, storage_key = create_attachment(

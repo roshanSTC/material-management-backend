@@ -118,19 +118,52 @@ def _customer_quotation_response(customer_quotation):
 
 
 def _extract_payload_and_files():
-    if request.content_type and "multipart/form-data" in request.content_type:
+    files = []
+    if request.files:
+        files = request.files.getlist("file") or request.files.getlist("files")
+        if not files:
+            files = list(request.files.values())
+
+    if request.is_json:
+        payload = request.get_json(silent=True) or {}
+    else:
         raw_data = request.form.get("data")
-        if not raw_data:
-            raise ValidationError({"data": ["data field is required in form-data."]})
+        if raw_data:
+            try:
+                payload = json.loads(raw_data)
+            except Exception as exc:
+                raise ValidationError({"data": [f"Invalid JSON in data: {exc}"]})
+        else:
+            payload = request.form.to_dict()
+
+    # Auto-resolve customer_id if missing or link customer to project
+    pid = payload.get("project_id")
+    if pid:
         try:
-            payload = json.loads(raw_data)
-        except Exception as exc:
-            raise ValidationError({"data": [f"Invalid JSON in data: {exc}"]})
-        files = request.files.getlist("file")
-        return payload, files
-    elif request.is_json:
-        return request.get_json() or {}, []
-    return {}, []
+            pid = int(pid)
+            from app.models import Customer, Project
+            project = db.session.get(Project, pid)
+            if project:
+                if not payload.get("customer_id"):
+                    if project.customer_id:
+                        payload["customer_id"] = project.customer_id
+                    else:
+                        c_name = payload.get("customer_name") or "Default Customer"
+                        cust = Customer.query.filter_by(name=c_name).first()
+                        if not cust:
+                            cust = Customer(name=c_name)
+                            db.session.add(cust)
+                            db.session.flush()
+                        payload["customer_id"] = cust.id
+                        project.customer_id = cust.id
+                        db.session.flush()
+                elif not project.customer_id:
+                    project.customer_id = payload["customer_id"]
+                    db.session.flush()
+        except Exception:
+            pass
+
+    return payload, files
 
 
 @customer_quotation_bp.post("")

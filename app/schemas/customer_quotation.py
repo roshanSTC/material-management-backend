@@ -13,6 +13,7 @@ from marshmallow import (
 )
 
 from app.schemas.attachment import AttachmentResponseSchema
+from app.schemas.common import FlexibleDate, FlexibleFloat, FlexibleInt
 
 
 def _not_blank(value: str) -> None:
@@ -106,12 +107,37 @@ class CustomerQuotationItemSchema(Schema):
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
+        # 1. material_name / description aliases
+        if not normalized.get("material_name"):
+            normalized["material_name"] = (
+                normalized.get("description")
+                or normalized.get("itemDescription")
+                or normalized.get("item_description")
+                or "Material Requirement"
+            )
+        # 2. unit_price
         if "unit_price" in normalized and normalized["unit_price"] is not None:
-            normalized["unit_price"] = str(normalized["unit_price"]).strip()
-        if "net_amount" in normalized and normalized["net_amount"] is not None:
-            normalized["net_amount"] = str(normalized["net_amount"]).strip()
-        if "quantity" in normalized and normalized["quantity"] is not None:
-            normalized["quantity"] = str(normalized["quantity"]).strip()
+            val = str(normalized["unit_price"]).strip()
+            normalized["unit_price"] = val if val != "" else None
+        # 3. net_amount / total_amount aliases
+        net_amt = (
+            normalized.get("net_amount")
+            if normalized.get("net_amount") is not None
+            else normalized.get("total_amount")
+        )
+        if net_amt is not None:
+            val = str(net_amt).strip()
+            normalized["net_amount"] = val if val != "" else None
+        # 4. quantity
+        qty = normalized.get("quantity")
+        if qty is None or str(qty).strip() == "":
+            normalized["quantity"] = "1.000"
+        else:
+            try:
+                q_dec = Decimal(str(qty).replace(",", "").strip())
+                normalized["quantity"] = str(q_dec) if q_dec >= Decimal("0.001") else "1.000"
+            except Exception:
+                normalized["quantity"] = "1.000"
         return normalized
 
 
@@ -173,12 +199,62 @@ class CustomerQuotationCreateSchema(Schema):
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
-        if "qo_number" in normalized and "quotation_number" not in normalized:
-            normalized["quotation_number"] = normalized["qo_number"]
-        if "remarks" in normalized and "remark" not in normalized:
+
+        # 1. quotation_number / quotation_no / qo_number / quote_no
+        if not normalized.get("quotation_number"):
+            q_no = (
+                normalized.get("quotation_no")
+                or normalized.get("qo_number")
+                or normalized.get("quotationNumber")
+                or normalized.get("quote_no")
+            )
+            if q_no:
+                normalized["quotation_number"] = str(q_no).strip()
+
+        # 2. validity / quotation_validity / validity_days
+        if not normalized.get("validity"):
+            v = (
+                normalized.get("quotation_validity")
+                or normalized.get("validity_days")
+                or normalized.get("validityDays")
+            )
+            if v is not None:
+                normalized["validity"] = str(v).strip()
+
+        # 3. remarks / remark
+        if "remarks" in normalized and not normalized.get("remark"):
             normalized["remark"] = normalized["remarks"]
+        elif "remark" in normalized and not normalized.get("remarks"):
+            normalized["remarks"] = normalized["remark"]
+
+        # 4. total_net_amount
         if "total_net_amount" in normalized and normalized["total_net_amount"] is not None:
             normalized["total_net_amount"] = str(normalized["total_net_amount"]).strip()
+
+        # 5. quotation_date
+        if not normalized.get("quotation_date"):
+            from datetime import date
+            normalized["quotation_date"] = date.today().isoformat()
+        elif isinstance(normalized["quotation_date"], str):
+            d = _parse_date(normalized["quotation_date"])
+            if d:
+                normalized["quotation_date"] = d.isoformat()
+
+        # 6. quotation_value
+        if not normalized.get("quotation_value") or str(normalized.get("quotation_value")).strip() == "":
+            total = Decimal("0")
+            for it in normalized.get("items") or []:
+                amt = it.get("net_amount") or it.get("total_amount")
+                if amt is not None and str(amt).strip() != "":
+                    try:
+                        total += Decimal(str(amt).replace(",", "").strip())
+                    except Exception:
+                        pass
+            if total > Decimal("0"):
+                normalized["quotation_value"] = str(total)
+            else:
+                normalized["quotation_value"] = "1.00"
+
         return normalized
 
 
@@ -239,12 +315,42 @@ class CustomerQuotationUpdateSchema(Schema):
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
-        if "qo_number" in normalized and "quotation_number" not in normalized:
-            normalized["quotation_number"] = normalized["qo_number"]
-        if "remarks" in normalized and "remark" not in normalized:
+
+        # 1. quotation_number / quotation_no / qo_number / quote_no
+        if not normalized.get("quotation_number"):
+            q_no = (
+                normalized.get("quotation_no")
+                or normalized.get("qo_number")
+                or normalized.get("quotationNumber")
+                or normalized.get("quote_no")
+            )
+            if q_no:
+                normalized["quotation_number"] = str(q_no).strip()
+
+        # 2. validity / quotation_validity / validity_days
+        if not normalized.get("validity"):
+            v = (
+                normalized.get("quotation_validity")
+                or normalized.get("validity_days")
+                or normalized.get("validityDays")
+            )
+            if v is not None:
+                normalized["validity"] = str(v).strip()
+
+        # 3. remarks / remark
+        if "remarks" in normalized and not normalized.get("remark"):
             normalized["remark"] = normalized["remarks"]
+        elif "remark" in normalized and not normalized.get("remarks"):
+            normalized["remarks"] = normalized["remark"]
+
         if "total_net_amount" in normalized and normalized["total_net_amount"] is not None:
             normalized["total_net_amount"] = str(normalized["total_net_amount"]).strip()
+
+        if "quotation_date" in normalized and isinstance(normalized["quotation_date"], str):
+            d = _parse_date(normalized["quotation_date"])
+            if d:
+                normalized["quotation_date"] = d.isoformat()
+
         return normalized
 
 

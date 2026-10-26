@@ -152,11 +152,15 @@ def _latest_customer_tender_response(customer_tender):
 
 
 def _extract_payload_and_files():
-    content_type = request.content_type or ""
     files = []
-    raw_payload = {}
+    if request.files:
+        files = request.files.getlist("file") or request.files.getlist("files")
+        if not files:
+            files = list(request.files.values())
 
-    if "multipart/form-data" in content_type:
+    if request.is_json:
+        raw_payload = request.get_json(silent=True) or {}
+    else:
         data_raw = request.form.get("data")
         if data_raw:
             try:
@@ -166,10 +170,32 @@ def _extract_payload_and_files():
         else:
             raw_payload = request.form.to_dict()
 
-        if "file" in request.files:
-            files = request.files.getlist("file")
-    else:
-        raw_payload = request.get_json(silent=True) or {}
+    # Auto-resolve customer_id if missing or link customer to project
+    pid = raw_payload.get("project_id")
+    if pid:
+        try:
+            pid = int(pid)
+            from app.models import Customer, Project
+            project = db.session.get(Project, pid)
+            if project:
+                if not raw_payload.get("customer_id"):
+                    if project.customer_id:
+                        raw_payload["customer_id"] = project.customer_id
+                    else:
+                        c_name = raw_payload.get("customer_name") or "Default Customer"
+                        cust = Customer.query.filter_by(name=c_name).first()
+                        if not cust:
+                            cust = Customer(name=c_name)
+                            db.session.add(cust)
+                            db.session.flush()
+                        raw_payload["customer_id"] = cust.id
+                        project.customer_id = cust.id
+                        db.session.flush()
+                elif not project.customer_id:
+                    project.customer_id = raw_payload["customer_id"]
+                    db.session.flush()
+        except Exception:
+            pass
 
     return raw_payload, files
 

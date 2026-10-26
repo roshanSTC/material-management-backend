@@ -65,10 +65,24 @@ class CustomerTenderItemCreateSchema(Schema):
         if not isinstance(data, (dict, Mapping)):
             return data
         normalized = dict(data)
-        if "material_name" in normalized and not normalized.get("description"):
-            normalized["description"] = normalized["material_name"]
-        if "quantity" in normalized and normalized["quantity"] is not None:
-            normalized["quantity"] = str(normalized["quantity"]).strip()
+        # 1. description / material_name aliases
+        if not normalized.get("description"):
+            normalized["description"] = (
+                normalized.get("material_name")
+                or normalized.get("itemDescription")
+                or normalized.get("item_description")
+                or "Material Requirement"
+            )
+        # 2. quantity coercion
+        qty = normalized.get("quantity")
+        if qty is None or str(qty).strip() == "":
+            normalized["quantity"] = "1.000"
+        else:
+            try:
+                q_dec = Decimal(str(qty).replace(",", "").strip())
+                normalized["quantity"] = str(q_dec) if q_dec >= Decimal("0.001") else "1.000"
+            except Exception:
+                normalized["quantity"] = "1.000"
         if "item_code" in normalized and normalized["item_code"] is not None:
             normalized["item_code"] = str(normalized["item_code"]).strip()
         return normalized
@@ -248,6 +262,26 @@ class CustomerTenderCreateSchema(Schema):
         if "remarks" in normalized and not normalized.get("remark"):
             normalized["remark"] = normalized["remarks"]
 
+        # tender_number / tender_no / tenderNumber / tender_id
+        if not normalized.get("tender_number"):
+            t_no = (
+                normalized.get("tender_no")
+                or normalized.get("tenderNumber")
+                or normalized.get("tender_id")
+            )
+            if t_no:
+                normalized["tender_number"] = str(t_no).strip()
+
+        # tender_date / tender_issue_date / issue_date
+        if not normalized.get("tender_date"):
+            t_date = (
+                normalized.get("tender_issue_date")
+                or normalized.get("issue_date")
+                or normalized.get("tenderDate")
+            )
+            if t_date:
+                normalized["tender_date"] = t_date
+
         return normalized
 
 
@@ -298,6 +332,24 @@ class CustomerTenderUpdateSchema(Schema):
             normalized["tender_fee"] = str(normalized["tender_fee"]).strip()
         if "remarks" in normalized and not normalized.get("remark"):
             normalized["remark"] = normalized["remarks"]
+
+        if not normalized.get("tender_number"):
+            t_no = (
+                normalized.get("tender_no")
+                or normalized.get("tenderNumber")
+                or normalized.get("tender_id")
+            )
+            if t_no:
+                normalized["tender_number"] = str(t_no).strip()
+
+        if not normalized.get("tender_date"):
+            t_date = (
+                normalized.get("tender_issue_date")
+                or normalized.get("issue_date")
+                or normalized.get("tenderDate")
+            )
+            if t_date:
+                normalized["tender_date"] = t_date
 
         return normalized
 

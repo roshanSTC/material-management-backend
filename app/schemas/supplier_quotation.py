@@ -1,4 +1,5 @@
 import re
+from app.schemas.common import FlexibleDate, FlexibleFloat, FlexibleInt
 from collections.abc import Mapping
 from decimal import Decimal
 
@@ -79,6 +80,15 @@ class SupplierQuotationItemSchema(Schema):
         if not isinstance(data, dict):
             return data
         normalized = dict(data)
+        # 1. material_name / description aliases
+        if not normalized.get("material_name"):
+            normalized["material_name"] = (
+                normalized.get("description")
+                or normalized.get("itemDescription")
+                or normalized.get("item_description")
+                or "Material Requirement"
+            )
+        # 2. hsn_code / hsn_sac aliases
         hsn = (
             normalized.get("hsn_code")
             if normalized.get("hsn_code") is not None
@@ -86,10 +96,29 @@ class SupplierQuotationItemSchema(Schema):
         )
         if hsn is not None:
             normalized["hsn_code"] = str(hsn).strip() or None
+        # 3. unit_price
         if "unit_price" in normalized and normalized["unit_price"] is not None:
-            normalized["unit_price"] = str(normalized["unit_price"]).strip()
-        if "net_amount" in normalized and normalized["net_amount"] is not None:
-            normalized["net_amount"] = str(normalized["net_amount"]).strip()
+            val = str(normalized["unit_price"]).strip()
+            normalized["unit_price"] = val if val != "" else None
+        # 4. net_amount / total_amount aliases
+        net_amt = (
+            normalized.get("net_amount")
+            if normalized.get("net_amount") is not None
+            else normalized.get("total_amount")
+        )
+        if net_amt is not None:
+            val = str(net_amt).strip()
+            normalized["net_amount"] = val if val != "" else None
+        # 5. quantity
+        qty = normalized.get("quantity")
+        if qty is None or str(qty).strip() == "":
+            normalized["quantity"] = "1.000"
+        else:
+            try:
+                q_dec = Decimal(str(qty).replace(",", "").strip())
+                normalized["quantity"] = str(q_dec) if q_dec >= Decimal("0.001") else "1.000"
+            except Exception:
+                normalized["quantity"] = "1.000"
         return normalized
 
 
@@ -102,7 +131,8 @@ class SupplierQuotationCreateSchema(Schema):
         validate=validate.Range(min=1),
     )
     supplier_id = fields.Integer(
-        required=True,
+        required=False,
+        allow_none=True,
         validate=validate.Range(min=1),
     )
     quotation_number = fields.String(
@@ -112,7 +142,7 @@ class SupplierQuotationCreateSchema(Schema):
             _not_blank,
         ),
     )
-    quotation_date = fields.Date(required=True)
+    quotation_date = FlexibleDate(required=True)
     quotation_value = fields.Decimal(
         required=True,
         as_string=True,
@@ -168,6 +198,31 @@ class SupplierQuotationCreateSchema(Schema):
         elif "remark" in normalized and not normalized.get("remarks"):
             normalized["remarks"] = normalized["remark"]
 
+        # Support quotation_no, quotationNumber, quote_no
+        if not normalized.get("quotation_number"):
+            q_no = (
+                normalized.get("quotation_no")
+                or normalized.get("quotationNumber")
+                or normalized.get("quote_no")
+            )
+            if q_no:
+                normalized["quotation_number"] = str(q_no).strip()
+
+        # Support quotation_validity, validity_days
+        if not normalized.get("validity"):
+            v = (
+                normalized.get("quotation_validity")
+                or normalized.get("validity_days")
+                or normalized.get("validityDays")
+            )
+            if v is not None:
+                normalized["validity"] = str(v).strip()
+
+        # Default quotation_date if missing
+        if not normalized.get("quotation_date"):
+            from datetime import date
+            normalized["quotation_date"] = date.today().isoformat()
+
         # Support currency_symbol / value_symbol as aliases for currency_unit
         currency_symbol = normalized.pop("currency_symbol", None)
         value_symbol = normalized.pop("value_symbol", None)
@@ -204,14 +259,14 @@ class SupplierQuotationUpdateSchema(Schema):
         unknown = EXCLUDE
 
     project_id = fields.Integer(validate=validate.Range(min=1))
-    supplier_id = fields.Integer(validate=validate.Range(min=1))
+    supplier_id = fields.Integer(required=False, allow_none=True, validate=validate.Range(min=1))
     quotation_number = fields.String(
         validate=validate.And(
             validate.Length(min=1, max=100),
             _not_blank,
         ),
     )
-    quotation_date = fields.Date()
+    quotation_date = FlexibleDate(required=False, allow_none=True)
     quotation_value = fields.Decimal(
         as_string=True,
         places=2,

@@ -32,6 +32,7 @@ from app.services.supplier_packing_list_service import (
     list_supplier_packing_list_records,
     update_supplier_packing_list_transaction,
 )
+from app.utils.remark_utils import get_step_remarks_for_response
 
 supplier_packing_list_bp = Blueprint(
     "supplier_packing_lists",
@@ -46,9 +47,6 @@ def _error(code: str, message: str, status: int):
         jsonify({"success": False, "error": {"code": code, "message": message}}),
         status,
     )
-
-
-from app.utils.remark_utils import get_step_remarks_for_response
 
 
 def _supplier_packing_list_response(packing_list):
@@ -68,6 +66,9 @@ def _supplier_packing_list_response(packing_list):
         "weight": packing_list.weight,
         "total_weight": packing_list.total_weight,
         "total_gross_weight_kg": packing_list.total_weight,
+        "gross_weight": packing_list.total_weight,
+        "net_weight": packing_list.weight,
+        "total_no_packages": 1,
         "remarks": get_step_remarks_for_response(
             project_id=packing_list.project_id,
             step_number=10,
@@ -149,11 +150,20 @@ def _latest_supplier_packing_list_response(packing_list):
 
 
 def _extract_payload_and_files():
-    content_type = request.content_type or ""
     files = []
-    raw_payload = {}
+    if request.files:
+        files = request.files.getlist("file") or request.files.getlist("files")
+        if not files:
+            files = list(request.files.values())
 
-    if "multipart/form-data" in content_type:
+    if request.is_json:
+        raw_payload = request.get_json(silent=True) or {}
+        if isinstance(raw_payload, dict) and "data" in raw_payload and isinstance(raw_payload["data"], str):
+            try:
+                raw_payload = json.loads(raw_payload["data"])
+            except Exception:
+                pass
+    else:
         data_raw = request.form.get("data")
         if data_raw:
             try:
@@ -163,10 +173,30 @@ def _extract_payload_and_files():
         else:
             raw_payload = request.form.to_dict()
 
-        if "file" in request.files:
-            files = request.files.getlist("file")
-    else:
-        raw_payload = request.get_json(silent=True) or {}
+    # Auto-resolve supplier_id if missing or link supplier to project
+    pid = raw_payload.get("project_id")
+    if pid:
+        try:
+            pid = int(pid)
+            from app.models import Project, Supplier
+            project = db.session.get(Project, pid)
+            if project:
+                if not raw_payload.get("supplier_id"):
+                    if project.supplier_id:
+                        raw_payload["supplier_id"] = project.supplier_id
+                    elif raw_payload.get("supplier_name"):
+                        s_name = str(raw_payload.get("supplier_name")).strip()
+                        sup = db.session.execute(
+                            db.select(Supplier).where(Supplier.name.ilike(s_name))
+                        ).scalars().first()
+                        if not sup:
+                            sup = Supplier(name=s_name)
+                            db.session.add(sup)
+                            db.session.flush()
+                        raw_payload["supplier_id"] = sup.id
+                        project.supplier_id = sup.id
+        except Exception:
+            pass
 
     return raw_payload, files
 
@@ -259,33 +289,34 @@ def _handle_list_supplier_packing_lists(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    
+    supplier_id = (
+        args.get("supplier_id")
+        or request.args.get("supplier_id")
+        or request.args.get("supplierId")
+    )
+    if supplier_id is not None:
+        try:
+            supplier_id = int(supplier_id)
+        except (ValueError, TypeError):
+            supplier_id = None
+
+    packing_list_no = (
+        args.get("packing_list_no")
+        or args.get("packing_list_number")
+        or request.args.get("packing_list_no")
+        or request.args.get("packing_list_number")
+    )
 
     try:
         packing_lists = list_supplier_packing_list_records(
             project_id=project_id,
         )
-        return [_supplier_packing_list_response(pl) for pl in packing_lists], 200
+        return [_supplier_packing_list_response(p) for p in packing_lists], 200
     except Exception:
         current_app.logger.exception("Failed to list supplier packing lists")
         return _error(
             "SUPPLIER_PACKING_LIST_LIST_FAILED",
             "Failed to list supplier packing lists.",
-            500,
-        )
-
-
-def _handle_get_supplier_packing_list(supplier_packing_list_id: int):
-    try:
-        packing_list = get_supplier_packing_list_record(supplier_packing_list_id)
-        return _supplier_packing_list_response(packing_list), 200
-    except SupplierPackingListNotFoundError as exc:
-        return _error("SUPPLIER_PACKING_LIST_NOT_FOUND", str(exc), 404)
-    except Exception:
-        current_app.logger.exception("Failed to get supplier packing list")
-        return _error(
-            "SUPPLIER_PACKING_LIST_GET_FAILED",
-            "Failed to get supplier packing list.",
             500,
         )
 
@@ -298,24 +329,17 @@ def _handle_get_latest_supplier_packing_list(args=None):
         args.get("project_id")
         or request.args.get("project_id")
         or request.args.get("projectId")
+        or request.args.get("product_id")
     )
     if not project_id:
-        return _error(
-            "PROJECT_ID_REQUIRED",
-            "project_id query parameter is required.",
-            400,
-        )
+        return _error("PROJECT_ID_REQUIRED", "project_id query parameter is required.", 400)
 
     try:
         project_id = int(project_id)
         if project_id <= 0:
             raise ValueError()
     except (ValueError, TypeError):
-        return _error(
-            "INVALID_PROJECT_ID",
-            "project_id must be a positive integer.",
-            400,
-        )
+        return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
 
     try:
         packing_list = get_latest_supplier_packing_list_record(project_id)
@@ -429,6 +453,18 @@ def _handle_delete_supplier_packing_list(supplier_packing_list_id: int):
         )
 
 
+def _handle_get_supplier_packing_list(supplier_packing_list_id: int):
+    try:
+        record = get_supplier_packing_list_record(supplier_packing_list_id)
+        return jsonify(_supplier_packing_list_response(record)), 200
+    except SupplierPackingListNotFoundError as exc:
+        return _error("SUPPLIER_PACKING_LIST_NOT_FOUND", str(exc), 404)
+
+
+# ==========================================
+# /api/v1/supplier-packing-lists endpoints
+# ==========================================
+
 _REQUEST_BODY_CREATE_DOC = {
     "required": True,
     "content": {
@@ -440,7 +476,6 @@ _REQUEST_BODY_CREATE_DOC = {
                     "data": {
                         "type": "string",
                         "description": "Serialized JSON string matching SupplierPackingListCreateSchema",
-                        "example":('{"project_id":1,"packing_list_no":"SDF4-45Y54J-","packing_list_date":"2026-09-01","packing_condition":"NO condition","weight":6644,"total_weight":6644,"remark":"no remark here ","items":[{"material_name":"cold ice tank","description":"cold ice tank","hsn_code":"46","quantity":21,"unit_price":55,"net_amount":1155,"weight":12,"unit_weight":12,"total_weight":252},{"material_name":"steel heaters","description":"steel heaters","hsn_code":"4563","quantity":50,"unit_price":34,"net_amount":1700,"weight":46,"unit_weight":46,"total_weight":2300},{"material_name":"Textiles","description":"Textiles","hsn_code":"465","quantity":12,"unit_price":34,"net_amount":408,"weight":1,"unit_weight":1,"total_weight":12},{"material_name":"Rubber","description":"Rubber","hsn_code":"njlk5423","quantity":12,"unit_price":21,"net_amount":252,"weight":12,"unit_weight":12,"total_weight":144},{"material_name":"Rubber","description":"Rubber","hsn_code":"rytf588","quantity":123,"unit_price":7,"net_amount":861,"weight":32,"unit_weight":32,"total_weight":3936},{"material_name":"Glass","description":"Glass","hsn_code":"","quantity":324,"unit_price":45,"net_amount":14580,"weight":0,"unit_weight":0,"total_weight":0},{"material_name":"Plastics","description":"Plastics","hsn_code":"","quantity":12,"unit_price":43,"net_amount":516,"weight":0,"unit_weight":0,"total_weight":0},{"material_name":"Metals plate","description":"Metals plate","hsn_code":"","quantity":121,"unit_price":34,"net_amount":4114,"weight":0,"unit_weight":0,"total_weight":0},{"material_name":"steeeel wood bord","description":"steeeel wood bord","hsn_code":"","quantity":21,"unit_price":5,"net_amount":105,"weight":0,"unit_weight":0,"total_weight":0}]}')
                     },
                     "file": {
                         "type": "array",
@@ -465,7 +500,6 @@ _REQUEST_BODY_UPDATE_DOC = {
                     "data": {
                         "type": "string",
                         "description": "Serialized JSON string matching SupplierPackingListUpdateSchema",
-                        "example":('{"project_id":1,"packing_list_no":"SDF4-45Y54J-","packing_list_date":"2026-09-01","packing_condition":"NO condition","weight":6644,"total_weight":6644,"remark":"no remark here ","items":[{"material_name":"cold ice tank","description":"cold ice tank","hsn_code":"46","quantity":21,"unit_price":55,"net_amount":1155,"weight":12,"unit_weight":12,"total_weight":252},{"material_name":"steel heaters","description":"steel heaters","hsn_code":"4563","quantity":50,"unit_price":34,"net_amount":1700,"weight":46,"unit_weight":46,"total_weight":2300},{"material_name":"Textiles","description":"Textiles","hsn_code":"465","quantity":12,"unit_price":34,"net_amount":408,"weight":1,"unit_weight":1,"total_weight":12},{"material_name":"Rubber","description":"Rubber","hsn_code":"njlk5423","quantity":12,"unit_price":21,"net_amount":252,"weight":12,"unit_weight":12,"total_weight":144},{"material_name":"Rubber","description":"Rubber","hsn_code":"rytf588","quantity":123,"unit_price":7,"net_amount":861,"weight":32,"unit_weight":32,"total_weight":3936},{"material_name":"Glass","description":"Glass","hsn_code":"","quantity":324,"unit_price":45,"net_amount":14580,"weight":0,"unit_weight":0,"total_weight":0},{"material_name":"Plastics","description":"Plastics","hsn_code":"","quantity":12,"unit_price":43,"net_amount":516,"weight":0,"unit_weight":0,"total_weight":0},{"material_name":"Metals plate","description":"Metals plate","hsn_code":"","quantity":121,"unit_price":34,"net_amount":4114,"weight":0,"unit_weight":0,"total_weight":0},{"material_name":"steeeel wood bord","description":"steeeel wood bord","hsn_code":"","quantity":21,"unit_price":5,"net_amount":105,"weight":0,"unit_weight":0,"total_weight":0}]}')
                     },
                     "file": {
                         "type": "array",
@@ -514,7 +548,6 @@ def get_latest_supplier_packing_list(args=None):
     return _handle_get_latest_supplier_packing_list(args)
 
 
-
 @supplier_packing_list_bp.patch("/<int:supplier_packing_list_id>")
 @supplier_packing_list_bp.doc(
     security=[{"BearerAuth": []}],
@@ -531,12 +564,6 @@ def update_supplier_packing_list(supplier_packing_list_id):
 @jwt_required()
 def delete_supplier_packing_list(supplier_packing_list_id):
     return _handle_delete_supplier_packing_list(supplier_packing_list_id)
-
-
-
-
-
-
 
 
 @supplier_packing_list_bp.get("/<int:supplier_packing_list_id>")

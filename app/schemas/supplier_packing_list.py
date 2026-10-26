@@ -65,7 +65,8 @@ class SupplierPackingListItemCreateSchema(Schema):
         validate=validate.Length(max=50),
     )
     quantity = fields.Decimal(
-        required=True,
+        required=False,
+        load_default=Decimal("1.000"),
         as_string=True,
         places=3,
         validate=validate.Range(min=Decimal("0.001")),
@@ -125,15 +126,17 @@ class SupplierPackingListItemCreateSchema(Schema):
             if normalized.get("item_description") is not None
             else normalized.get("material_description")
         )
-        if not desc and mat_name:
-            desc = mat_name
-        if not mat_name and desc:
-            mat_name = desc
-
-        if mat_name is not None:
+        if desc is None or not str(desc).strip():
+            if mat_name and str(mat_name).strip():
+                desc = str(mat_name).strip()
+            else:
+                sr_no = normalized.get("sr_no") or 1
+                desc = f"Packing Item {sr_no}"
+        normalized["description"] = str(desc).strip()
+        if not mat_name or not str(mat_name).strip():
+            normalized["material_name"] = normalized["description"]
+        else:
             normalized["material_name"] = str(mat_name).strip()
-        if desc is not None:
-            normalized["description"] = str(desc).strip()
 
         # HSN aliases
         hsn = (
@@ -143,41 +146,15 @@ class SupplierPackingListItemCreateSchema(Schema):
             if normalized.get("hsn_sac") is not None
             else normalized.get("hsn")
         )
-        if hsn is not None:
+        if hsn is not None and str(hsn).strip():
             cleaned_hsn = str(hsn).strip()
             normalized["hsn_code"] = cleaned_hsn
             normalized["hsn_sac"] = cleaned_hsn
+        else:
+            normalized["hsn_code"] = None
+            normalized["hsn_sac"] = None
 
-        # Quantity
-        qty_val = (
-            normalized.get("quantity")
-            if normalized.get("quantity") is not None
-            else normalized.get("qty")
-        )
-        if qty_val is not None:
-            normalized["quantity"] = str(qty_val).strip()
-
-        # Unit price
-        price_val = (
-            normalized.get("unit_price")
-            if normalized.get("unit_price") is not None
-            else normalized.get("unitPrice")
-            if normalized.get("unitPrice") is not None
-            else normalized.get("rate")
-        )
-        if price_val is not None:
-            normalized["unit_price"] = str(price_val).strip()
-
-        # Net amount
-        net_val = (
-            normalized.get("net_amount")
-            if normalized.get("net_amount") is not None
-            else normalized.get("netAmount")
-        )
-        if net_val is not None:
-            normalized["net_amount"] = str(net_val).strip()
-
-        # Weight / Unit weight / Total weight
+        # Unit weight
         uweight_val = (
             normalized.get("unit_weight")
             if normalized.get("unit_weight") is not None
@@ -187,24 +164,105 @@ class SupplierPackingListItemCreateSchema(Schema):
             if normalized.get("unit_weight_kg") is not None
             else normalized.get("weight")
         )
-        if uweight_val is not None:
-            normalized["unit_weight"] = str(uweight_val).strip()
+        if uweight_val is not None and str(uweight_val).strip() != "":
+            try:
+                normalized["unit_weight"] = str(Decimal(str(uweight_val).strip()))
+            except Exception:
+                normalized["unit_weight"] = None
+        else:
+            normalized["unit_weight"] = None
 
-        weight_val = (
-            normalized.get("weight")
-            if normalized.get("weight") is not None
-            else uweight_val
-        )
-        if weight_val is not None:
-            normalized["weight"] = str(weight_val).strip()
-
+        # Total weight
         tot_weight_val = (
             normalized.get("total_weight")
             if normalized.get("total_weight") is not None
             else normalized.get("totalWeight")
         )
-        if tot_weight_val is not None:
-            normalized["total_weight"] = str(tot_weight_val).strip()
+        if tot_weight_val is not None and str(tot_weight_val).strip() != "":
+            try:
+                normalized["total_weight"] = str(Decimal(str(tot_weight_val).strip()))
+            except Exception:
+                normalized["total_weight"] = None
+        elif normalized.get("unit_weight") and (normalized.get("quantity") or normalized.get("qty")):
+            try:
+                q_temp = Decimal(str(normalized.get("quantity") or normalized.get("qty") or 1))
+                normalized["total_weight"] = str(
+                    (Decimal(normalized["unit_weight"]) * q_temp).quantize(Decimal("0.001"))
+                )
+            except Exception:
+                normalized["total_weight"] = None
+        else:
+            normalized["total_weight"] = None
+
+        normalized["weight"] = normalized.get("unit_weight")
+
+        # Quantity
+        qty_val = (
+            normalized.get("quantity")
+            if normalized.get("quantity") is not None
+            else normalized.get("qty")
+        )
+        if qty_val is None or str(qty_val).strip() == "":
+            try:
+                uw = Decimal(str(normalized.get("unit_weight") or 0))
+                tw = Decimal(str(normalized.get("total_weight") or 0))
+                if uw > 0 and tw > 0:
+                    qty_val = (tw / uw).quantize(Decimal("0.001"))
+                else:
+                    qty_val = "1.000"
+            except Exception:
+                qty_val = "1.000"
+        else:
+            try:
+                clean_q = re.sub(r"[^\d.]", "", str(qty_val))
+                d_q = Decimal(clean_q) if clean_q else Decimal("1.000")
+                if d_q <= 0:
+                    d_q = Decimal("1.000")
+                qty_val = str(d_q)
+            except Exception:
+                qty_val = "1.000"
+        normalized["quantity"] = str(qty_val).strip()
+
+        # Unit price
+        price_val = (
+            normalized.get("unit_price")
+            if normalized.get("unit_price") is not None
+            else normalized.get("unitPrice")
+            if normalized.get("unitPrice") is not None
+            else normalized.get("rate")
+        )
+        if price_val is not None and str(price_val).strip() != "":
+            try:
+                clean_p = re.sub(r"[^\d.]", "", str(price_val))
+                normalized["unit_price"] = str(Decimal(clean_p)) if clean_p else "0.00"
+            except Exception:
+                normalized["unit_price"] = "0.00"
+        else:
+            normalized["unit_price"] = "0.00"
+
+        # Net amount / total_amount
+        net_val = (
+            normalized.get("net_amount")
+            if normalized.get("net_amount") is not None
+            else normalized.get("netAmount")
+            if normalized.get("netAmount") is not None
+            else normalized.get("total_amount")
+            if normalized.get("total_amount") is not None
+            else normalized.get("totalAmount")
+        )
+        if net_val is not None and str(net_val).strip() != "":
+            try:
+                clean_n = re.sub(r"[^\d.]", "", str(net_val))
+                normalized["net_amount"] = str(Decimal(clean_n)) if clean_n else None
+            except Exception:
+                normalized["net_amount"] = None
+        else:
+            try:
+                d_q = Decimal(normalized["quantity"])
+                d_p = Decimal(normalized["unit_price"])
+                normalized["net_amount"] = str((d_q * d_p).quantize(Decimal("0.01")))
+            except Exception:
+                normalized["net_amount"] = None
 
         return normalized
 
@@ -276,6 +334,28 @@ class SupplierPackingListItemUpdateSchema(Schema):
         places=3,
         validate=validate.Range(min=Decimal("0.000")),
     )
+
+    @pre_load
+    def normalize_item_data(self, data, **kwargs):
+        if not isinstance(data, (dict, Mapping)):
+            return data
+        normalized = dict(data)
+        if "description" in normalized or "material_name" in normalized:
+            desc = normalized.get("description") or normalized.get("material_name")
+            if desc is not None and str(desc).strip():
+                normalized["description"] = str(desc).strip()
+                normalized["material_name"] = str(desc).strip()
+        if "quantity" in normalized:
+            qty = normalized.get("quantity")
+            if qty is not None and str(qty).strip() != "":
+                try:
+                    clean_q = re.sub(r"[^\d.]", "", str(qty))
+                    normalized["quantity"] = str(Decimal(clean_q)) if clean_q else "1.000"
+                except Exception:
+                    normalized["quantity"] = "1.000"
+            else:
+                normalized["quantity"] = None
+        return normalized
 
 
 class SupplierPackingListItemResponseSchema(Schema):
@@ -414,7 +494,7 @@ class SupplierPackingListCreateSchema(Schema):
         if resolved_cond is not None:
             normalized["packing_condition"] = str(resolved_cond).strip()
 
-        # Weight / Total weight
+        # Weight / Total weight / gross_weight / net_weight
         resolved_tot_weight = (
             normalized.get("total_weight")
             if normalized.get("total_weight") is not None
@@ -422,24 +502,59 @@ class SupplierPackingListCreateSchema(Schema):
             if normalized.get("totalWeight") is not None
             else normalized.get("total_gross_weight_kg")
             if normalized.get("total_gross_weight_kg") is not None
+            else normalized.get("gross_weight")
+            if normalized.get("gross_weight") is not None
+            else normalized.get("grossWeight")
+            if normalized.get("grossWeight") is not None
             else normalized.get("weight")
         )
-        if resolved_tot_weight is not None:
-            normalized["total_weight"] = str(resolved_tot_weight).strip()
+        if resolved_tot_weight is not None and str(resolved_tot_weight).strip() != "":
+            try:
+                normalized["total_weight"] = str(Decimal(str(resolved_tot_weight).strip()))
+            except Exception:
+                normalized["total_weight"] = str(resolved_tot_weight).strip()
 
         resolved_weight = (
-            normalized.get("weight")
+            normalized.get("net_weight")
+            if normalized.get("net_weight") is not None
+            else normalized.get("netWeight")
+            if normalized.get("netWeight") is not None
+            else normalized.get("weight")
             if normalized.get("weight") is not None
             else resolved_tot_weight
         )
-        if resolved_weight is not None:
-            normalized["weight"] = str(resolved_weight).strip()
+        if resolved_weight is not None and str(resolved_weight).strip() != "":
+            try:
+                normalized["weight"] = str(Decimal(str(resolved_weight).strip()))
+            except Exception:
+                normalized["weight"] = str(resolved_weight).strip()
+
+        # Fallback total_weight from items if root is missing
+        if not normalized.get("total_weight") and normalized.get("items"):
+            try:
+                sum_tw = sum(
+                    Decimal(str(it.get("total_weight") or it.get("unit_weight") or 0))
+                    for it in normalized["items"]
+                    if isinstance(it, (dict, Mapping))
+                )
+                if sum_tw > 0:
+                    normalized["total_weight"] = str(sum_tw)
+                    if not normalized.get("weight"):
+                        normalized["weight"] = str(sum_tw)
+            except Exception:
+                pass
 
         # Remark / remarks
         if "remarks" in normalized and not normalized.get("remark"):
             normalized["remark"] = normalized["remarks"]
         elif "remark" in normalized and not normalized.get("remarks"):
             normalized["remarks"] = normalized["remark"]
+
+        # clean items
+        if "items" in normalized and isinstance(normalized["items"], list):
+            normalized["items"] = [
+                item for item in normalized["items"] if isinstance(item, (dict, Mapping))
+            ]
 
         return normalized
 
@@ -523,6 +638,10 @@ class SupplierPackingListUpdateSchema(Schema):
             normalized["total_weight"] = normalized["totalWeight"]
         if "total_gross_weight_kg" in normalized and "total_weight" not in normalized:
             normalized["total_weight"] = normalized["total_gross_weight_kg"]
+        if "gross_weight" in normalized and "total_weight" not in normalized:
+            normalized["total_weight"] = normalized["gross_weight"]
+        if "net_weight" in normalized and "weight" not in normalized:
+            normalized["weight"] = normalized["net_weight"]
         if "remarks" in normalized and "remark" not in normalized:
             normalized["remark"] = normalized["remarks"]
 
@@ -573,7 +692,7 @@ class SupplierPackingListResponseSchema(Schema):
 
     id = fields.Integer(required=True)
     project_id = fields.Integer(required=True)
-    supplier_id = fields.Integer(required=True)
+    supplier_id = fields.Integer(required=False, allow_none=True)
     packing_list_no = fields.String(required=True)
     packing_list_number = fields.String(dump_only=True)
     packing_list_date = fields.Date(required=True)
@@ -581,6 +700,8 @@ class SupplierPackingListResponseSchema(Schema):
     weight = fields.Decimal(as_string=True, places=3, allow_none=True)
     total_weight = fields.Decimal(as_string=True, places=3, allow_none=True)
     total_gross_weight_kg = fields.Decimal(dump_only=True, as_string=True, places=3, allow_none=True)
+    gross_weight = fields.Decimal(attribute="total_weight", dump_only=True, as_string=True, places=3, allow_none=True)
+    net_weight = fields.Decimal(attribute="weight", dump_only=True, as_string=True, places=3, allow_none=True)
     remarks = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
@@ -621,4 +742,3 @@ class LatestSupplierPackingListResponseSchema(Schema):
 
     total_gross_weight_kg = fields.Decimal(as_string=True, places=3, allow_none=True)
     total_weight = fields.Decimal(as_string=True, places=3, allow_none=True)
-

@@ -102,17 +102,23 @@ def _supplier_payment_response(payment):
         "supplier_id": payment.supplier_id,
         "currency": payment.currency,
         "payment_percentage": _format_decimal(payment.payment_percentage),
+        "payment_pct": _format_decimal(payment.payment_percentage),
         "cumulative_payment_percentage": _format_decimal(cum_pct),
         "pending_percentage": _format_decimal(pend_pct),
         "total_supplier_value": _format_decimal(payment.total_supplier_value),
+        "total_contract_value": _format_decimal(payment.total_supplier_value),
         "amount_paid": _format_decimal(payment.amount_paid),
+        "payment_amount": _format_decimal(payment.amount_paid),
         "total_paid_amount": _format_decimal(cum_paid),
         "remaining_amount_before_transaction": _format_decimal(remaining_before),
         "payment_date": payment.payment_date,
         "transaction_details": payment.transaction_details,
+        "reference_no": payment.transaction_details,
         "pending_amount": _format_decimal(payment.pending_amount),
         "exchange_rate": _format_decimal(payment.exchange_rate),
+        "eur_to_inr_rate": _format_decimal(payment.exchange_rate),
         "total_with_exchange": _format_decimal(payment.total_with_exchange),
+        "payment_amount_inr": _format_decimal(payment.total_with_exchange),
         "bank_charges_currency": payment.bank_charges_currency,
         "bank_charges": _format_decimal(payment.bank_charges),
         "swift_charges": _format_decimal(payment.swift_charges),
@@ -120,7 +126,6 @@ def _supplier_payment_response(payment):
         "is_payment_completed": is_completed,
         "payment_status": payment_status,
         "payment_status_message": status_message,
-        "remark": payment.remark,
         "remarks": get_step_remarks_for_response(payment.project_id, 15, payment.remark),
         "created_at": payment.created_at,
         "updated_at": payment.updated_at,
@@ -178,6 +183,46 @@ def _extract_payload_and_files():
             files = request.files.getlist("files")
         elif "attachments" in request.files:
             files = request.files.getlist("attachments")
+
+    if isinstance(raw_payload, dict) and "data" in raw_payload:
+        inner = raw_payload["data"]
+        if isinstance(inner, str):
+            try:
+                raw_payload = json.loads(inner)
+            except Exception:
+                pass
+        elif isinstance(inner, dict):
+            raw_payload = inner
+
+    # Auto-resolve supplier_id if missing and project or supplier_name is provided
+    if isinstance(raw_payload, dict):
+        pid = raw_payload.get("project_id") or raw_payload.get("projectId")
+        if pid:
+            try:
+                pid = int(pid)
+                from app.models import Project, Supplier
+                project = db.session.get(Project, pid)
+                if project:
+                    if not raw_payload.get("supplier_id") and not raw_payload.get("supplierId"):
+                        if project.supplier_id:
+                            raw_payload["supplier_id"] = project.supplier_id
+                        elif raw_payload.get("supplier_name"):
+                            s_name = str(raw_payload.get("supplier_name")).strip()
+                            supp = Supplier.query.filter_by(name=s_name).first()
+                            if not supp:
+                                supp = Supplier(name=s_name)
+                                db.session.add(supp)
+                                db.session.flush()
+                            raw_payload["supplier_id"] = supp.id
+                            project.supplier_id = supp.id
+                            db.session.flush()
+                    elif not project.supplier_id:
+                        s_id = raw_payload.get("supplier_id") or raw_payload.get("supplierId")
+                        if s_id:
+                            project.supplier_id = int(s_id)
+                            db.session.flush()
+            except Exception:
+                pass
 
     return raw_payload, files
 

@@ -27,8 +27,14 @@ def _parse_date(val):
         if "T" in s:
             return datetime.fromisoformat(s.replace("Z", "+00:00")).date()
         return date.fromisoformat(s[:10])
-    except ValueError:
-        raise ValidationError(f"Invalid date format: {val}. Expected YYYY-MM-DD.")
+    except Exception:
+        pass
+    for fmt in ("%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    raise ValidationError(f"Invalid date format: {val}. Expected YYYY-MM-DD.")
 
 
 def _normalize_transport_detail_payload(raw_data):
@@ -37,24 +43,78 @@ def _normalize_transport_detail_payload(raw_data):
     normalized = dict(raw_data)
 
     # Date normalization
-    if "date" in normalized and normalized["date"] is not None:
-        d = _parse_date(normalized["date"])
+    raw_date = (
+        normalized.get("date")
+        or normalized.get("lr_rr_awb_date")
+        or normalized.get("lr_rr_date")
+        or normalized.get("transport_date")
+    )
+    if raw_date is not None:
+        d = _parse_date(raw_date)
         if d is not None:
             normalized["date"] = d.isoformat()
-    elif "transport_date" in normalized and normalized["transport_date"] is not None:
-        d = _parse_date(normalized["transport_date"])
-        if d is not None:
-            normalized["date"] = d.isoformat()
+            normalized["lr_rr_awb_date"] = d.isoformat()
+            normalized["transport_date"] = d.isoformat()
 
     # Mode normalization
-    if "transportation_mode" in normalized and "transport_mode" not in normalized:
-        normalized["transport_mode"] = normalized["transportation_mode"]
-    if "transport_mode" in normalized and isinstance(normalized["transport_mode"], str):
-        normalized["transport_mode"] = normalized["transport_mode"].strip().lower()
+    raw_mode = (
+        normalized.get("transportation_mode")
+        or normalized.get("transport_mode")
+        or normalized.get("mode")
+    )
+    if raw_mode:
+        m_str = str(raw_mode).strip().lower()
+        if "air" in m_str:
+            norm_mode = "air"
+        elif "train" in m_str or "rail" in m_str:
+            norm_mode = "train"
+        elif "road" in m_str or "truck" in m_str:
+            norm_mode = "road"
+        else:
+            norm_mode = m_str
+        normalized["transport_mode"] = norm_mode
+        normalized["transportation_mode"] = raw_mode
+    elif "transport_mode" not in normalized:
+        normalized["transport_mode"] = "road"
+        normalized["transportation_mode"] = "Road"
 
-    # Aliases
-    if "lr_number" in normalized and "lr_no" not in normalized:
-        normalized["lr_no"] = normalized["lr_number"]
+    # Number aliases
+    raw_no = (
+        normalized.get("lr_rr_awb_no")
+        or normalized.get("lr_no")
+        or normalized.get("lr_number")
+        or normalized.get("rr_no")
+        or normalized.get("awb_no")
+    )
+    if raw_no:
+        clean_no = str(raw_no).strip()
+        normalized["lr_rr_awb_no"] = clean_no
+        t_mode = normalized.get("transport_mode", "road")
+        if t_mode == "air":
+            if "awb_no" not in normalized:
+                normalized["awb_no"] = clean_no
+            if "lr_no" not in normalized:
+                normalized["lr_no"] = clean_no
+        elif t_mode == "train":
+            if "rr_no" not in normalized:
+                normalized["rr_no"] = clean_no
+            if "lr_no" not in normalized:
+                normalized["lr_no"] = clean_no
+        else:
+            if "lr_no" not in normalized:
+                normalized["lr_no"] = clean_no
+
+    # Charges normalization
+    charges = (
+        normalized.get("total_transportation_charges")
+        or normalized.get("totalTransportationCharges")
+        or normalized.get("transport_charges")
+        or normalized.get("transportCharges")
+    )
+    if charges is not None and str(charges).strip() != "":
+        normalized["transport_charges"] = charges
+        normalized["total_transportation_charges"] = charges
+
     if "remarks" in normalized and not normalized.get("remark"):
         normalized["remark"] = normalized["remarks"]
     elif "remark" in normalized and not normalized.get("remarks"):
@@ -65,6 +125,7 @@ def _normalize_transport_detail_payload(raw_data):
         "lr_no",
         "rr_no",
         "awb_no",
+        "lr_rr_awb_no",
         "from_location",
         "to_location",
     ):
@@ -106,6 +167,16 @@ class TransportDetailCreateSchema(Schema):
     remark = fields.Raw(allow_none=True, load_default=None)
     remarks = fields.Raw(allow_none=True, load_default=None)
 
+    # Aliases
+    transportation_mode = fields.Raw(allow_none=True, load_default=None)
+    lr_rr_awb_no = fields.String(allow_none=True, load_default=None)
+    lr_rr_awb_date = fields.Date(allow_none=True, load_default=None)
+    transport_date = fields.Date(allow_none=True, load_default=None)
+    total_transportation_charges = fields.Decimal(allow_none=True, load_default=None)
+    items = fields.Raw(allow_none=True, load_default=None)
+    attachments_count = fields.Raw(allow_none=True, load_default=None)
+    form_code = fields.Raw(allow_none=True, load_default=None)
+
     @pre_load
     def preprocess(self, data, **kwargs):
         return _normalize_transport_detail_payload(data)
@@ -139,6 +210,16 @@ class TransportDetailUpdateSchema(Schema):
     remark = fields.Raw(allow_none=True)
     remarks = fields.Raw(allow_none=True)
 
+    # Aliases
+    transportation_mode = fields.Raw(allow_none=True)
+    lr_rr_awb_no = fields.String(allow_none=True)
+    lr_rr_awb_date = fields.Date(allow_none=True)
+    transport_date = fields.Date(allow_none=True)
+    total_transportation_charges = fields.Decimal(allow_none=True)
+    items = fields.Raw(allow_none=True)
+    attachments_count = fields.Raw(allow_none=True)
+    form_code = fields.Raw(allow_none=True)
+
     @pre_load
     def preprocess(self, data, **kwargs):
         return _normalize_transport_detail_payload(data)
@@ -154,13 +235,16 @@ class TransportDetailResponseSchema(Schema):
     transportation_mode = fields.String(dump_only=True)
     date = fields.Date(dump_only=True)
     transport_date = fields.Date(dump_only=True)
+    lr_rr_awb_date = fields.Date(dump_only=True)
     from_location = fields.String(dump_only=True)
     to_location = fields.String(dump_only=True)
     lr_no = fields.String(dump_only=True, allow_none=True)
     lr_number = fields.String(dump_only=True, allow_none=True)
     rr_no = fields.String(dump_only=True, allow_none=True)
     awb_no = fields.String(dump_only=True, allow_none=True)
+    lr_rr_awb_no = fields.String(dump_only=True, allow_none=True)
     transport_charges = fields.Decimal(dump_only=True, as_string=False, allow_none=True)
+    total_transportation_charges = fields.Decimal(dump_only=True, as_string=False, allow_none=True)
     remarks = fields.Raw(dump_only=True, allow_none=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
@@ -172,6 +256,9 @@ class TransportDetailResponseSchema(Schema):
 
 
 class TransportDetailQuerySchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     project_id = fields.Integer(required=False)
     transport_mode = fields.String(required=False)
     lr_no = fields.String(required=False)

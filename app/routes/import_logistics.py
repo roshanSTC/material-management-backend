@@ -51,12 +51,58 @@ def _import_logistics_response(logistics):
         entity_id=logistics.id,
     )
 
+    from decimal import Decimal
+    from app.models import TransportDetail
+
+    td = (
+        TransportDetail.query.filter_by(project_id=logistics.project_id)
+        .order_by(TransportDetail.id.desc())
+        .first()
+    )
+
+    charges = None
+    if td and td.transport_charges is not None:
+        try:
+            charges = f"{Decimal(str(td.transport_charges)):.2f}"
+        except Exception:
+            charges = str(td.transport_charges)
+
+    from_loc = (
+        logistics.airport_of_loading
+        if logistics.logistic_type == "air"
+        else logistics.port_of_loading
+    )
+    if not from_loc and td and td.from_location:
+        from_loc = td.from_location
+
+    to_loc = logistics.port_of_discharge or (td.to_location if td else None)
+    awb_val = (
+        logistics.airway_bill_no
+        if logistics.logistic_type == "air"
+        else (logistics.bill_of_lading_no or (td.lr_no or td.awb_no if td else None))
+    )
+
     return {
         "id": logistics.id,
         "project_id": logistics.project_id,
         "supplier_id": logistics.supplier_id,
         "logistic_type": logistics.logistic_type,
+        "transportation_mode": (
+            "Air Cargo"
+            if logistics.logistic_type == "air"
+            else ("Sea Cargo" if logistics.logistic_type == "sea" else logistics.logistic_type.title())
+        ),
+        "transport_mode": logistics.logistic_type,
         "date": logistics.date,
+        "lr_rr_awb_date": logistics.date,
+        "transport_date": logistics.date,
+        "from_location": from_loc,
+        "to_location": to_loc,
+        "lr_rr_awb_no": awb_val,
+        "lr_no": awb_val,
+        "awb_no": logistics.airway_bill_no or (td.awb_no if td else None),
+        "total_transportation_charges": charges,
+        "transport_charges": charges,
         "port_of_discharge": logistics.port_of_discharge,
         "remarks": get_step_remarks_for_response(
             project_id=logistics.project_id,
@@ -131,6 +177,16 @@ def _extract_payload_and_files():
             files = request.files.getlist("files")
         elif "attachments" in request.files:
             files = request.files.getlist("attachments")
+
+    if isinstance(raw_payload, dict) and "data" in raw_payload:
+        inner = raw_payload["data"]
+        if isinstance(inner, str):
+            try:
+                raw_payload = json.loads(inner)
+            except Exception:
+                pass
+        elif isinstance(inner, dict):
+            raw_payload = inner
 
     return raw_payload, files
 

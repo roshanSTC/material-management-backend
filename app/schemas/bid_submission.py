@@ -78,16 +78,86 @@ class BidSubmissionItemCreateSchema(Schema):
         if not isinstance(data, (dict, Mapping)):
             return data
         normalized = dict(data)
-        if "material_name" in normalized and not normalized.get("description"):
-            normalized["description"] = normalized["material_name"]
-        if "net_amount" in normalized and not normalized.get("net_total"):
-            normalized["net_total"] = normalized["net_amount"]
-        if "quantity" in normalized and normalized["quantity"] is not None:
-            normalized["quantity"] = str(normalized["quantity"]).strip()
-        if "unit_price" in normalized and normalized["unit_price"] is not None:
-            normalized["unit_price"] = str(normalized["unit_price"]).strip()
-        if "net_total" in normalized and normalized["net_total"] is not None:
-            normalized["net_total"] = str(normalized["net_total"]).strip()
+
+        # description fallback
+        desc = (
+            normalized.get("description")
+            or normalized.get("material_name")
+            or normalized.get("item_name")
+            or normalized.get("material_description")
+        )
+        if desc is None or not str(desc).strip():
+            sr_no = normalized.get("sr_no") or 1
+            desc = f"Bid Item {sr_no}"
+        normalized["description"] = str(desc).strip()
+
+        # hsn_sac
+        if "hsn_sac" in normalized:
+            hsn = normalized.get("hsn_sac")
+            normalized["hsn_sac"] = str(hsn).strip() if hsn is not None and str(hsn).strip() else None
+
+        # quantity
+        qty = (
+            normalized.get("quantity")
+            if normalized.get("quantity") is not None
+            else normalized.get("qty")
+        )
+        if qty is None or str(qty).strip() == "":
+            normalized["quantity"] = "1.000"
+        else:
+            try:
+                clean_q = re.sub(r"[^\d.]", "", str(qty))
+                d_q = Decimal(clean_q) if clean_q else Decimal("1.000")
+                if d_q <= 0:
+                    d_q = Decimal("1.000")
+                normalized["quantity"] = str(d_q)
+            except Exception:
+                normalized["quantity"] = "1.000"
+
+        # unit_price
+        uprice = (
+            normalized.get("unit_price")
+            if normalized.get("unit_price") is not None
+            else normalized.get("unitPrice")
+            if normalized.get("unitPrice") is not None
+            else normalized.get("rate")
+            if normalized.get("rate") is not None
+            else normalized.get("price")
+        )
+        if uprice is None or str(uprice).strip() == "":
+            normalized["unit_price"] = None
+        else:
+            try:
+                clean_p = re.sub(r"[^\d.]", "", str(uprice))
+                normalized["unit_price"] = str(Decimal(clean_p)) if clean_p else None
+            except Exception:
+                normalized["unit_price"] = None
+
+        # net_total
+        total = (
+            normalized.get("net_total")
+            if normalized.get("net_total") is not None
+            else normalized.get("net_amount")
+            if normalized.get("net_amount") is not None
+            else normalized.get("netTotal")
+            if normalized.get("netTotal") is not None
+            else normalized.get("netAmount")
+            if normalized.get("netAmount") is not None
+            else normalized.get("total_amount")
+            if normalized.get("total_amount") is not None
+            else normalized.get("totalAmount")
+            if normalized.get("totalAmount") is not None
+            else normalized.get("total")
+        )
+        if total is None or str(total).strip() == "":
+            normalized["net_total"] = None
+        else:
+            try:
+                clean_t = re.sub(r"[^\d.]", "", str(total))
+                normalized["net_total"] = str(Decimal(clean_t)) if clean_t else None
+            except Exception:
+                normalized["net_total"] = None
+
         return normalized
 
 
@@ -131,16 +201,64 @@ class BidSubmissionItemUpdateSchema(Schema):
         if not isinstance(data, (dict, Mapping)):
             return data
         normalized = dict(data)
-        if "material_name" in normalized and not normalized.get("description"):
-            normalized["description"] = normalized["material_name"]
-        if "net_amount" in normalized and not normalized.get("net_total"):
-            normalized["net_total"] = normalized["net_amount"]
-        if "quantity" in normalized and normalized["quantity"] is not None:
-            normalized["quantity"] = str(normalized["quantity"]).strip()
-        if "unit_price" in normalized and normalized["unit_price"] is not None:
-            normalized["unit_price"] = str(normalized["unit_price"]).strip()
-        if "net_total" in normalized and normalized["net_total"] is not None:
-            normalized["net_total"] = str(normalized["net_total"]).strip()
+        if "description" in normalized or "material_name" in normalized:
+            desc = normalized.get("description") or normalized.get("material_name")
+            if desc is not None and str(desc).strip():
+                normalized["description"] = str(desc).strip()
+            else:
+                normalized["description"] = None
+
+        if "hsn_sac" in normalized:
+            hsn = normalized.get("hsn_sac")
+            normalized["hsn_sac"] = str(hsn).strip() if hsn is not None and str(hsn).strip() else None
+
+        if "quantity" in normalized:
+            qty = normalized.get("quantity")
+            if qty is None or str(qty).strip() == "":
+                normalized["quantity"] = None
+            else:
+                try:
+                    clean_q = re.sub(r"[^\d.]", "", str(qty))
+                    d_q = Decimal(clean_q) if clean_q else Decimal("1.000")
+                    normalized["quantity"] = str(d_q)
+                except Exception:
+                    normalized["quantity"] = "1.000"
+
+        if "unit_price" in normalized:
+            uprice = normalized.get("unit_price")
+            if uprice is None or str(uprice).strip() == "":
+                normalized["unit_price"] = None
+            else:
+                try:
+                    clean_p = re.sub(r"[^\d.]", "", str(uprice))
+                    normalized["unit_price"] = str(Decimal(clean_p)) if clean_p else None
+                except Exception:
+                    normalized["unit_price"] = None
+
+        total = (
+            normalized.get("net_total")
+            if normalized.get("net_total") is not None
+            else normalized.get("net_amount")
+            if normalized.get("net_amount") is not None
+            else normalized.get("netTotal")
+            if normalized.get("netTotal") is not None
+            else normalized.get("netAmount")
+            if normalized.get("netAmount") is not None
+            else normalized.get("total_amount")
+            if normalized.get("total_amount") is not None
+            else normalized.get("totalAmount")
+            if normalized.get("totalAmount") is not None
+            else normalized.get("total")
+        )
+        if total is not None:
+            if str(total).strip() == "":
+                normalized["net_total"] = None
+            else:
+                try:
+                    clean_t = re.sub(r"[^\d.]", "", str(total))
+                    normalized["net_total"] = str(Decimal(clean_t)) if clean_t else None
+                except Exception:
+                    normalized["net_total"] = None
         return normalized
 
 
@@ -252,13 +370,18 @@ class BidSubmissionCreateSchema(Schema):
         elif "tenderTitle" in normalized and not normalized.get("tender_title"):
             normalized["tender_title"] = normalized["tenderTitle"]
 
-        # tender_number / submission_number
-        if "submission_number" in normalized and not normalized.get("tender_number"):
-            normalized["tender_number"] = normalized["submission_number"]
-        elif "tenderNumber" in normalized and not normalized.get("tender_number"):
-            normalized["tender_number"] = normalized["tenderNumber"]
-        elif "submissionNumber" in normalized and not normalized.get("tender_number"):
-            normalized["tender_number"] = normalized["submissionNumber"]
+        # tender_number / tender_no / submission_number
+        tender_num = (
+            normalized.get("tender_number")
+            or normalized.get("tender_no")
+            or normalized.get("tenderNo")
+            or normalized.get("tenderNumber")
+            or normalized.get("submission_number")
+            or normalized.get("submissionNumber")
+            or normalized.get("tender_id")
+        )
+        if tender_num is not None and str(tender_num).strip() != "":
+            normalized["tender_number"] = str(tender_num).strip()
 
         # delivery_term / delivery_terms
         if "delivery_terms" in normalized and not normalized.get("delivery_term"):
@@ -284,19 +407,57 @@ class BidSubmissionCreateSchema(Schema):
         if "warrantyPeriod" in normalized and not normalized.get("warranty_period"):
             normalized["warranty_period"] = normalized["warrantyPeriod"]
 
-        # submission_date / submissionDate
-        if "submissionDate" in normalized and not normalized.get("submission_date"):
-            normalized["submission_date"] = normalized["submissionDate"]
+        # validity / bid_validity / quotation_validity
+        val = (
+            normalized.get("validity")
+            or normalized.get("bid_validity")
+            or normalized.get("bidValidity")
+            or normalized.get("quotation_validity")
+            or normalized.get("quotationValidity")
+        )
+        if val is not None and str(val).strip() != "":
+            normalized["validity"] = str(val).strip()
 
-        # gst_rate decimal
-        if "gst_rate" in normalized and normalized["gst_rate"] is not None:
-            normalized["gst_rate"] = str(normalized["gst_rate"]).strip()
-        elif "gstRate" in normalized and normalized["gstRate"] is not None:
-            normalized["gst_rate"] = str(normalized["gstRate"]).strip()
+        # submission_date / bid_submission_date / tender_issue_date
+        sub_date = (
+            normalized.get("submission_date")
+            or normalized.get("submissionDate")
+            or normalized.get("bid_submission_date")
+            or normalized.get("bidSubmissionDate")
+            or normalized.get("tender_issue_date")
+            or normalized.get("tenderIssueDate")
+        )
+        if sub_date is not None and str(sub_date).strip() != "":
+            normalized["submission_date"] = sub_date
+
+        # gst_rate decimal / gst_pct
+        gst = (
+            normalized.get("gst_rate")
+            if normalized.get("gst_rate") is not None
+            else normalized.get("gstRate")
+            if normalized.get("gstRate") is not None
+            else normalized.get("gst_pct")
+            if normalized.get("gst_pct") is not None
+            else normalized.get("gstPct")
+        )
+        if gst is not None and str(gst).strip() != "":
+            try:
+                clean_gst = re.sub(r"[^\d.]", "", str(gst))
+                normalized["gst_rate"] = str(Decimal(clean_gst)) if clean_gst else str(gst).strip()
+            except Exception:
+                normalized["gst_rate"] = str(gst).strip()
+        else:
+            normalized.pop("gst_rate", None)
 
         # remarks alias
         if "remarks" in normalized and not normalized.get("remark"):
             normalized["remark"] = normalized["remarks"]
+
+        # items list cleaning
+        if "items" in normalized and isinstance(normalized["items"], list):
+            normalized["items"] = [
+                item for item in normalized["items"] if isinstance(item, (dict, Mapping))
+            ]
 
         return normalized
 
@@ -338,8 +499,18 @@ class BidSubmissionUpdateSchema(Schema):
             normalized["tender_id"] = normalized["customer_tender_id"]
         if "tender_name" in normalized and not normalized.get("tender_title"):
             normalized["tender_title"] = normalized["tender_name"]
-        if "submission_number" in normalized and not normalized.get("tender_number"):
-            normalized["tender_number"] = normalized["submission_number"]
+
+        tender_num = (
+            normalized.get("tender_number")
+            or normalized.get("tender_no")
+            or normalized.get("tenderNo")
+            or normalized.get("tenderNumber")
+            or normalized.get("submission_number")
+            or normalized.get("submissionNumber")
+        )
+        if tender_num is not None and str(tender_num).strip() != "":
+            normalized["tender_number"] = str(tender_num).strip()
+
         if "delivery_terms" in normalized and not normalized.get("delivery_term"):
             normalized["delivery_term"] = normalized["delivery_terms"]
         if "deliveryPeriod" in normalized and not normalized.get("delivery_period"):
@@ -352,10 +523,44 @@ class BidSubmissionUpdateSchema(Schema):
             normalized["payment_term"] = normalized["payment_terms"]
         if "warrantyPeriod" in normalized and not normalized.get("warranty_period"):
             normalized["warranty_period"] = normalized["warrantyPeriod"]
-        if "submissionDate" in normalized and not normalized.get("submission_date"):
-            normalized["submission_date"] = normalized["submissionDate"]
-        if "gst_rate" in normalized and normalized["gst_rate"] is not None:
-            normalized["gst_rate"] = str(normalized["gst_rate"]).strip()
+
+        val = (
+            normalized.get("validity")
+            or normalized.get("bid_validity")
+            or normalized.get("bidValidity")
+            or normalized.get("quotation_validity")
+            or normalized.get("quotationValidity")
+        )
+        if val is not None and str(val).strip() != "":
+            normalized["validity"] = str(val).strip()
+
+        sub_date = (
+            normalized.get("submission_date")
+            or normalized.get("submissionDate")
+            or normalized.get("bid_submission_date")
+            or normalized.get("bidSubmissionDate")
+            or normalized.get("tender_issue_date")
+            or normalized.get("tenderIssueDate")
+        )
+        if sub_date is not None and str(sub_date).strip() != "":
+            normalized["submission_date"] = sub_date
+
+        gst = (
+            normalized.get("gst_rate")
+            if normalized.get("gst_rate") is not None
+            else normalized.get("gstRate")
+            if normalized.get("gstRate") is not None
+            else normalized.get("gst_pct")
+            if normalized.get("gst_pct") is not None
+            else normalized.get("gstPct")
+        )
+        if gst is not None and str(gst).strip() != "":
+            try:
+                clean_gst = re.sub(r"[^\d.]", "", str(gst))
+                normalized["gst_rate"] = str(Decimal(clean_gst)) if clean_gst else str(gst).strip()
+            except Exception:
+                normalized["gst_rate"] = str(gst).strip()
+
         if "remarks" in normalized and not normalized.get("remark"):
             normalized["remark"] = normalized["remarks"]
 
@@ -486,5 +691,3 @@ class LatestBidSubmissionResponseSchema(Schema):
         fields.Nested(LatestBidSubmissionItemResponseSchema),
         required=True,
     )
-
-

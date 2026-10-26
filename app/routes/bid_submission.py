@@ -50,7 +50,6 @@ bid_submission_singular_bp = Blueprint(
 )
 
 
-
 def _error(code: str, message: str, status: int):
     return make_response(
         jsonify({"success": False, "error": {"code": code, "message": message}}),
@@ -150,11 +149,20 @@ def _latest_bid_submission_response(bid_submission):
 
 
 def _extract_payload_and_files():
-    content_type = request.content_type or ""
     files = []
-    raw_payload = {}
+    if request.files:
+        files = request.files.getlist("file") or request.files.getlist("files")
+        if not files:
+            files = list(request.files.values())
 
-    if "multipart/form-data" in content_type:
+    if request.is_json:
+        raw_payload = request.get_json(silent=True) or {}
+        if isinstance(raw_payload, dict) and "data" in raw_payload and isinstance(raw_payload["data"], str):
+            try:
+                raw_payload = json.loads(raw_payload["data"])
+            except Exception:
+                pass
+    else:
         data_raw = request.form.get("data")
         if data_raw:
             try:
@@ -164,10 +172,25 @@ def _extract_payload_and_files():
         else:
             raw_payload = request.form.to_dict()
 
-        if "file" in request.files:
-            files = request.files.getlist("file")
-    else:
-        raw_payload = request.get_json(silent=True) or {}
+    # Auto-resolve / link customer if provided and project doesn't have customer_id yet
+    pid = raw_payload.get("project_id")
+    if pid:
+        try:
+            pid = int(pid)
+            from app.models import Customer, Project
+            project = db.session.get(Project, pid)
+            if project and not project.customer_id:
+                c_name = raw_payload.get("customer_name") or "Default Customer"
+                cust = db.session.execute(
+                    db.select(Customer).where(Customer.name.ilike(str(c_name).strip()))
+                ).scalars().first()
+                if not cust:
+                    cust = Customer(name=str(c_name).strip())
+                    db.session.add(cust)
+                    db.session.flush()
+                project.customer_id = cust.id
+        except Exception:
+            pass
 
     return raw_payload, files
 
@@ -315,9 +338,6 @@ def _handle_get_latest_bid_submission(args=None):
         return _error("BID_SUBMISSION_GET_FAILED", "Failed to get latest bid submission.", 500)
 
 
-
-
-
 @bid_submission_bp.get("/latest")
 @bid_submission_bp.doc(security=[{"BearerAuth": []}])
 @bid_submission_bp.arguments(LatestBidSubmissionQuerySchema, location="query")
@@ -439,15 +459,6 @@ def delete_bid_submission(bid_submission_id):
         return _error("BID_SUBMISSION_DELETE_FAILED", "Failed to delete bid submission.", 500)
 
 
-
-
-
-
-
-
-
-
-
 @bid_submission_bp.get("/<int:bid_submission_id>")
 @jwt_required()
 def get_bid_submission_by_id(bid_submission_id: int):
@@ -456,5 +467,6 @@ def get_bid_submission_by_id(bid_submission_id: int):
         return jsonify(_bid_submission_response(record)), 200
     except BidSubmissionNotFoundError as exc:
         return _error("BID_SUBMISSION_NOT_FOUND", str(exc), 404)
+
 
 bid_submission_singular_bp.add_url_rule("/latest", view_func=get_latest_bid_submission, methods=["GET"])

@@ -463,3 +463,13 @@ def update_delivery_challan(delivery_challan_id):
 def delete_delivery_challan(delivery_challan_id):
     return _handle_delete_delivery_challan(delivery_challan_id)
 
+
+
+@delivery_challan_bp.get("/<int:delivery_challan_id>")
+@jwt_required()
+def get_delivery_challan_by_id(delivery_challan_id: int):
+    try:
+        record = get_delivery_challan_record(delivery_challan_id)
+        return jsonify(_delivery_challan_response(record)), 200
+    except DeliveryChallanNotFoundError as exc:
+        return _error("DELIVERY_CHALLAN_NOT_FOUND", str(exc), 404)

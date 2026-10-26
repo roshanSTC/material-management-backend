@@ -422,3 +422,13 @@ def delete_customer_quotation(customer_quotation_id):
         return _error("CUSTOMER_QUOTATION_DELETE_FAILED", "Failed to delete customer quotation.", 500)
 
 
+
+
+@customer_quotation_bp.get("/<int:customer_quotation_id>")
+@jwt_required()
+def get_customer_quotation_by_id(customer_quotation_id: int):
+    try:
+        record = get_customer_quotation_record(customer_quotation_id)
+        return jsonify(_customer_quotation_response(record)), 200
+    except CustomerQuotationNotFoundError as exc:
+        return _error("CUSTOMER_QUOTATION_NOT_FOUND", str(exc), 404)

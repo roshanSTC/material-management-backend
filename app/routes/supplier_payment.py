@@ -549,3 +549,13 @@ def update_supplier_payment(supplier_payment_id):
 @jwt_required()
 def delete_supplier_payment(supplier_payment_id):
     return _handle_delete_supplier_payment(supplier_payment_id)
+
+
+@supplier_payment_bp.get("/<int:supplier_payment_id>")
+@jwt_required()
+def get_supplier_payment_by_id(supplier_payment_id: int):
+    try:
+        record = get_supplier_payment_record(supplier_payment_id)
+        return jsonify(_supplier_payment_response(record)), 200
+    except SupplierPaymentNotFoundError as exc:
+        return _error("SUPPLIER_PAYMENT_NOT_FOUND", str(exc), 404)

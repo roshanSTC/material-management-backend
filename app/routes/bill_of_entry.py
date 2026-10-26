@@ -40,6 +40,21 @@ bill_of_entry_bp = Blueprint(
     description="Bill of Entry APIs",
 )
 
+bill_of_entry_singular_bp = Blueprint(
+    "bill_of_entry_singular",
+    __name__,
+    url_prefix="/api/v1/bill-of-entry",
+    description="Bill of Entry Singular Alias APIs",
+)
+
+bill_of_entry_alias_bp = Blueprint(
+    "bill_of_entries_alias",
+    __name__,
+    url_prefix="/api/v1/bill-of-entries",
+    description="Bill of Entries Alias APIs",
+)
+
+
 
 def _error(code: str, message: str, status: int):
     return make_response(
@@ -483,6 +498,9 @@ def list_bills_of_entry(args=None):
     return _handle_list_bills_of_entry(args)
 
 
+
+
+
 @bill_of_entry_bp.get("/latest")
 @bill_of_entry_bp.doc(
     security=[{"BearerAuth": []}],
@@ -520,3 +538,55 @@ def delete_bill_of_entry(bill_of_entry_id: int):
 
 
 
+
+
+def _handle_get_single_bill_of_entry(bill_of_entry_id: int):
+    try:
+        record = get_bill_of_entry_record(bill_of_entry_id)
+        return _bill_of_entry_response(record), 200
+    except BillOfEntryNotFoundError as exc:
+        return _error("BILL_OF_ENTRY_NOT_FOUND", str(exc), 404)
+
+
+@bill_of_entry_bp.get("/<int:bill_of_entry_id>")
+@jwt_required()
+def get_single_bill_of_entry(bill_of_entry_id: int):
+    return _handle_get_single_bill_of_entry(bill_of_entry_id)
+
+
+@bill_of_entry_alias_bp.post("")
+@jwt_required()
+def create_bill_of_entry_alias():
+    return _handle_create_bill_of_entry()
+
+
+@bill_of_entry_alias_bp.get("")
+@jwt_required()
+def list_bills_of_entry_alias(args=None):
+    return _handle_list_bills_of_entry(args)
+
+
+@bill_of_entry_alias_bp.get("/latest")
+@jwt_required()
+def get_latest_bill_of_entry_alias(args=None):
+    return _handle_get_latest_bill_of_entry(args)
+
+
+@bill_of_entry_alias_bp.get("/<int:bill_of_entry_id>")
+@jwt_required()
+def get_single_bill_of_entry_alias(bill_of_entry_id: int):
+    return _handle_get_single_bill_of_entry(bill_of_entry_id)
+
+
+@bill_of_entry_alias_bp.patch("/<int:bill_of_entry_id>")
+@jwt_required()
+def update_bill_of_entry_alias(bill_of_entry_id: int):
+    return _handle_update_bill_of_entry(bill_of_entry_id)
+
+
+@bill_of_entry_alias_bp.delete("/<int:bill_of_entry_id>")
+@jwt_required()
+def delete_bill_of_entry_alias(bill_of_entry_id: int):
+    return _handle_delete_bill_of_entry(bill_of_entry_id)
+
+bill_of_entry_singular_bp.add_url_rule("/latest", view_func=get_latest_bill_of_entry, methods=["GET"])

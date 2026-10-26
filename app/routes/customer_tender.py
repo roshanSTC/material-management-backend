@@ -451,3 +451,13 @@ def delete_customer_tender(customer_tender_id):
 
 
 
+
+
+@customer_tender_bp.get("/<int:customer_tender_id>")
+@jwt_required()
+def get_customer_tender_by_id(customer_tender_id: int):
+    try:
+        record = get_customer_tender_record(customer_tender_id)
+        return jsonify(_customer_tender_response(record)), 200
+    except CustomerTenderNotFoundError as exc:
+        return _error("CUSTOMER_TENDER_NOT_FOUND", str(exc), 404)

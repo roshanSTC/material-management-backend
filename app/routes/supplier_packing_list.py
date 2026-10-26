@@ -537,3 +537,9 @@ def delete_supplier_packing_list(supplier_packing_list_id):
 
 
 
+
+
+@supplier_packing_list_bp.get("/<int:supplier_packing_list_id>")
+@jwt_required()
+def get_supplier_packing_list(supplier_packing_list_id: int):
+    return _handle_get_supplier_packing_list(supplier_packing_list_id)

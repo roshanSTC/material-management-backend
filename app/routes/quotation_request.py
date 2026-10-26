@@ -181,20 +181,38 @@ def create():
 
         user_id = int(get_jwt_identity())
 
-        quotation_request = (
-            create_quotation_request_transaction(
-                project_id=validated_data["project_id"],
-                supplier_id=validated_data["supplier_id"],
-                quotation_requested_date=validated_data[
-                    "quotation_requested_date"
-                ],
-                supplier_contacted=validated_data[
-                    "supplier_contacted"
-                ],
-                remarks=validated_data.get("remarks") if "remarks" in validated_data else validated_data.get("remark"),
-                items=validated_data["items"],
-                user_id=user_id,
-            )
+        pid = validated_data["project_id"]
+        from app.models import Project, Supplier
+        project = db.session.get(Project, pid)
+        if not project:
+            return _error("PROJECT_NOT_FOUND", f"Project with id {pid} was not found.", 404)
+
+        supplier_id = validated_data.get("supplier_id")
+        if not supplier_id:
+            if project.supplier_id:
+                supplier_id = project.supplier_id
+            else:
+                s_name = data.get("supplier_name") or "Default Supplier"
+                supp = Supplier.query.filter_by(name=s_name).first()
+                if not supp:
+                    supp = Supplier(name=s_name)
+                    db.session.add(supp)
+                    db.session.flush()
+                supplier_id = supp.id
+                project.supplier_id = supp.id
+                db.session.flush()
+        elif not project.supplier_id:
+            project.supplier_id = supplier_id
+            db.session.flush()
+
+        quotation_request = create_quotation_request_transaction(
+            project_id=pid,
+            supplier_id=supplier_id,
+            quotation_requested_date=validated_data["quotation_requested_date"],
+            supplier_contacted=validated_data.get("supplier_contacted", True),
+            remarks=validated_data.get("remarks") if "remarks" in validated_data else validated_data.get("remark"),
+            items=validated_data["items"],
+            user_id=user_id,
         )
 
         for file in files:
@@ -654,3 +672,13 @@ def delete(quotation_request_id):
         }, 500
 
 
+
+
+@quotation_request_bp.get("/<int:quotation_request_id>")
+@jwt_required()
+def get_quotation_request_by_id(quotation_request_id: int):
+    try:
+        record = get_quotation_request_record(quotation_request_id)
+        return jsonify(_quotation_request_response(record)), 200
+    except QuotationRequestNotFoundError as exc:
+        return _error("QUOTATION_REQUEST_NOT_FOUND", str(exc), 404)

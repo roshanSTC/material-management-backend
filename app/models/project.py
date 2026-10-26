@@ -93,6 +93,55 @@ class Project(db.Model):
         order_by="CostSheet.version_number.desc()",
     )
 
+    pre_qualification_bids = db.relationship(
+        "PreQualificationBid",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    pqb_bid_documents = db.relationship(
+        "PqbBidDocument",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    corrigendums = db.relationship(
+        "Corrigendum",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    limited_tender_enquiries = db.relationship(
+        "LimitedTenderEnquiry",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    notification_awards = db.relationship(
+        "NotificationAward",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    consultancy_invoices = db.relationship(
+        "ConsultancyInvoice",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    expressions_of_interest = db.relationship(
+        "ExpressionOfInterest",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
     customer_quotations = db.relationship(
         "CustomerQuotation",
         back_populates="project",

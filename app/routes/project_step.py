@@ -87,8 +87,94 @@ def handle_get_form_by_code(form_code: str):
 
 
 # =========================================================================
-# 2. GET CURRENT STEPS FOR A PROJECT
+# 2. GET CURRENT STEPS FOR A PROJECT (TIMELINE OVERVIEW)
 # =========================================================================
+def sync_project_steps_from_records(project):
+    """
+    Ensures that any forms created directly via their dedicated REST endpoints
+    are reflected as completed steps in the project_steps table for this project.
+    """
+    form_rel_map = [
+        ("FORM_01_PQB", "pre_qualification_bids"),
+        ("FORM_02_PQB_BID_DOCUMENT", "pqb_bid_documents"),
+        ("FORM_03_CORRIGENDUM", "corrigendums"),
+        ("FORM_04_LTE", "limited_tender_enquiries"),
+        ("FORM_05_NAC", "notification_awards"),
+        ("FORM_06_CONSULTANCY_INVOICE", "consultancy_invoices"),
+        ("FORM_07_EOI", "expressions_of_interest"),
+        ("FORM_08_CUSTOMER_QUERY", "customer_queries"),
+        ("FORM_09_RFQ", "quotation_requests"),
+        ("FORM_10_COST_SHEET", "cost_sheets"),
+        ("FORM_11_SUPPLIER_QUOTATION", "supplier_quotations"),
+        ("FORM_12_CUSTOMER_QUOTATION", "customer_quotations"),
+        ("FORM_13_PAC_TENDER", "customer_tenders"),
+        ("FORM_14_PURCHASE_ORDER", "purchase_orders"),
+        ("FORM_15_BID_DOCUMENT", "bid_submissions"),
+        ("FORM_16_ORDER_CONFIRMATION", "supplier_order_confirmations"),
+        ("FORM_17_PROFORMA_INVOICE", "supplier_proforma_invoices"),
+        ("FORM_18_SUPPLIER_INVOICE", "supplier_invoices"),
+        ("FORM_19_SUPPLIER_PACKING_LIST", "supplier_packing_lists"),
+        ("FORM_20_PAYMENT_TO_SUPPLIER", "supplier_payments"),
+        ("FORM_21_TRANSPORTATION_DETAILS", ["import_logistics", "transport_details"]),
+        ("FORM_22_PAYMENT_FROM_CUSTOMER", "customer_payments"),
+        ("FORM_23_WARRANTY_CERTIFICATE", "warranty_certificates"),
+        ("FORM_24_DELIVERY_CHALLAN", "delivery_challans"),
+        ("FORM_25_CUSTOMER_PACKING_LIST", "customer_delivery_packing_lists"),
+        ("FORM_26_TAX_INVOICE_CUSTOMER", "customer_delivery_invoices"),
+        ("FORM_27_SHIPPING_CLEARANCE", "bills_of_entry"),
+        ("FORM_28_FREIGHT_CHA", "customs_clearances"),
+    ]
+
+    existing_steps = {s.form_code: s for s in project.steps if s.form_code}
+    max_order = max([s.step_order or s.step_number or 0 for s in project.steps], default=0)
+    changed = False
+
+    try:
+        form_defs = {f.form_code: f for f in FormDefinition.query.filter_by(is_active=True).all()}
+    except Exception:
+        form_defs = {}
+
+    for form_code, attrs in form_rel_map:
+        has_record = False
+        if isinstance(attrs, list):
+            has_record = any(bool(getattr(project, a, None)) for a in attrs)
+        else:
+            has_record = bool(getattr(project, attrs, None))
+
+        if has_record:
+            if form_code in existing_steps:
+                step = existing_steps[form_code]
+                if step.status != "completed" or step.progress_percentage != 100:
+                    step.status = "completed"
+                    step.progress_percentage = 100
+                    if not step.completed_at:
+                        step.completed_at = datetime.utcnow()
+                    changed = True
+            else:
+                fdef = form_defs.get(form_code)
+                max_order += 1
+                new_step = ProjectStep(
+                    project_id=project.id,
+                    step_order=max_order,
+                    step_number=max_order,
+                    form_code=form_code,
+                    step_name=fdef.name if fdef else form_code,
+                    description=fdef.description if fdef else "",
+                    status="completed",
+                    progress_percentage=100,
+                    completed_at=datetime.utcnow(),
+                    data={},
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+                db.session.add(new_step)
+                existing_steps[form_code] = new_step
+                changed = True
+
+    if changed:
+        db.session.commit()
+
+
 def handle_get_project_steps(project_id: int):
     project = db.session.get(Project, project_id)
     if not project:
@@ -99,6 +185,9 @@ def handle_get_project_steps(project_id: int):
                 "message": f"Project with id {project_id} was not found.",
             },
         }, 404
+
+    # Synchronize any filled records into project_steps
+    sync_project_steps_from_records(project)
 
     steps = (
         ProjectStep.query.filter_by(project_id=project_id)

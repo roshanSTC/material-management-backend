@@ -42,6 +42,13 @@ bid_submission_bp = Blueprint(
     description="Bid Submission APIs",
 )
 
+bid_submission_singular_bp = Blueprint(
+    "bid_submissions_singular",
+    __name__,
+    url_prefix="/api/v1/bid-submission",
+    description="Bid Submission Singular Alias APIs",
+)
+
 
 
 def _error(code: str, message: str, status: int):
@@ -308,6 +315,9 @@ def _handle_get_latest_bid_submission(args=None):
         return _error("BID_SUBMISSION_GET_FAILED", "Failed to get latest bid submission.", 500)
 
 
+
+
+
 @bid_submission_bp.get("/latest")
 @bid_submission_bp.doc(security=[{"BearerAuth": []}])
 @bid_submission_bp.arguments(LatestBidSubmissionQuerySchema, location="query")
@@ -436,3 +446,15 @@ def delete_bid_submission(bid_submission_id):
 
 
 
+
+
+@bid_submission_bp.get("/<int:bid_submission_id>")
+@jwt_required()
+def get_bid_submission_by_id(bid_submission_id: int):
+    try:
+        record = get_bid_submission_record(bid_submission_id)
+        return jsonify(_bid_submission_response(record)), 200
+    except BidSubmissionNotFoundError as exc:
+        return _error("BID_SUBMISSION_NOT_FOUND", str(exc), 404)
+
+bid_submission_singular_bp.add_url_rule("/latest", view_func=get_latest_bid_submission, methods=["GET"])

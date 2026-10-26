@@ -50,6 +50,17 @@ from app.models.cost_sheet_item import CostSheetItem
 from app.models.item_price_history import ItemPriceHistory
 from app.models.step_remark import StepRemark
 from app.models.form_definition import FormDefinition
+from app.models.pre_qualification_bid import PreQualificationBid
+from app.models.pre_qualification_bid_item import PreQualificationBidItem
+from app.models.pqb_bid_document import PqbBidDocument
+from app.models.corrigendum import Corrigendum
+from app.models.limited_tender_enquiry import LimitedTenderEnquiry
+from app.models.limited_tender_enquiry_item import LimitedTenderEnquiryItem
+from app.models.notification_award import NotificationAward
+from app.models.notification_award_item import NotificationAwardItem
+from app.models.consultancy_invoice import ConsultancyInvoice
+from app.models.expression_of_interest import ExpressionOfInterest
+from app.models.expression_of_interest_item import ExpressionOfInterestItem
 
 
 __all__ = [
@@ -104,4 +115,15 @@ __all__ = [
     "ItemPriceHistory",
     "StepRemark",
     "FormDefinition",
+    "PreQualificationBid",
+    "PreQualificationBidItem",
+    "PqbBidDocument",
+    "Corrigendum",
+    "LimitedTenderEnquiry",
+    "LimitedTenderEnquiryItem",
+    "NotificationAward",
+    "NotificationAwardItem",
+    "ConsultancyInvoice",
+    "ExpressionOfInterest",
+    "ExpressionOfInterestItem",
 ]

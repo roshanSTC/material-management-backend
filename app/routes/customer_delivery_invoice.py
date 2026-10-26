@@ -534,3 +534,9 @@ def update_customer_delivery_invoice(customer_delivery_invoice_id):
 def delete_customer_delivery_invoice(customer_delivery_invoice_id):
     return _handle_delete_customer_delivery_invoice(customer_delivery_invoice_id)
 
+
+
+@customer_delivery_invoice_bp.get("/<int:customer_delivery_invoice_id>")
+@jwt_required()
+def get_customer_delivery_invoice(customer_delivery_invoice_id: int):
+    return _handle_get_customer_delivery_invoice(customer_delivery_invoice_id)

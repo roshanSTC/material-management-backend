@@ -1177,6 +1177,7 @@ def upsert_project_step_record(
             step_name=definition["name"],
             description=definition["description"],
             status=status,
+            progress_percentage=int(progress_percentage),
             completed_at=(
                 datetime.now(timezone.utc)
                 if status == "completed"
@@ -1189,6 +1190,7 @@ def upsert_project_step_record(
         step.step_name = definition["name"]
         step.description = definition["description"]
         step.status = status
+        step.progress_percentage = int(progress_percentage)
         step.data = data
         step.completed_at = (
             datetime.now(timezone.utc)

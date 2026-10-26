@@ -439,3 +439,13 @@ def update_supplier_invoice(supplier_invoice_id):
 def delete_supplier_invoice(supplier_invoice_id):
     return _handle_delete_supplier_invoice(supplier_invoice_id)
 
+
+
+@supplier_invoice_bp.get("/<int:supplier_invoice_id>")
+@jwt_required()
+def get_supplier_invoice_by_id(supplier_invoice_id: int):
+    try:
+        record = get_supplier_invoice_record(supplier_invoice_id)
+        return jsonify(_supplier_invoice_response(record)), 200
+    except SupplierInvoiceNotFoundError as exc:
+        return _error("SUPPLIER_INVOICE_NOT_FOUND", str(exc), 404)

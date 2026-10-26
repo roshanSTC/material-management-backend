@@ -512,3 +512,13 @@ def delete_purchase_order(purchase_order_id):
         return _error("PURCHASE_ORDER_DELETE_FAILED", "Failed to delete purchase order.", 500)
 
 
+
+
+@purchase_order_bp.get("/<int:purchase_order_id>")
+@jwt_required()
+def get_purchase_order_by_id(purchase_order_id: int):
+    try:
+        record = get_purchase_order_record(purchase_order_id)
+        return jsonify(_purchase_order_response(record)), 200
+    except PurchaseOrderNotFoundError as exc:
+        return _error("PURCHASE_ORDER_NOT_FOUND", str(exc), 404)

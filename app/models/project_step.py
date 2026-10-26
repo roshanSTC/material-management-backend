@@ -118,16 +118,20 @@ class ProjectStep(db.Model):
 
     def to_dict(self) -> dict:
         order_val = self.step_order or self.step_number or 1
+        fdef = self.form_definition
         return {
             "id": self.id,
             "project_id": self.project_id,
             "step_order": order_val,
             "step_number": order_val,
             "form_code": self.form_code or "",
-            "step_name": self.step_name or "",
-            "description": self.description or "",
+            "step_name": self.step_name or (fdef.name if fdef else ""),
+            "description": self.description or (fdef.description if fdef else ""),
+            "phase_id": fdef.phase_id if fdef else "",
+            "category": fdef.category if fdef else "",
+            "icon": fdef.icon if fdef else "pi pi-file",
             "status": self.status or "in_progress",
-            "progress_percentage": self.progress_percentage or 0,
+            "progress_percentage": self.progress_percentage if self.progress_percentage is not None else 0,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
             "data": self.data or {},
             "remarks": [r.to_dict() for r in (self.remarks or [])],

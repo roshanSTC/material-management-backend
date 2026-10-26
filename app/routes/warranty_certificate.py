@@ -448,3 +448,13 @@ def update_warranty_certificate(warranty_certificate_id):
 @jwt_required()
 def delete_warranty_certificate(warranty_certificate_id):
     return _handle_delete_warranty_certificate(warranty_certificate_id)
+
+
+@warranty_certificate_bp.get("/<int:warranty_certificate_id>")
+@jwt_required()
+def get_warranty_certificate_by_id(warranty_certificate_id: int):
+    try:
+        record = get_warranty_certificate_record(warranty_certificate_id)
+        return jsonify(_warranty_certificate_response(record)), 200
+    except WarrantyCertificateNotFoundError as exc:
+        return _error("WARRANTY_CERTIFICATE_NOT_FOUND", str(exc), 404)

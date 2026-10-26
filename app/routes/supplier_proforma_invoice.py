@@ -526,3 +526,13 @@ def update_supplier_proforma_invoice(proforma_invoice_id):
 @jwt_required()
 def delete_supplier_proforma_invoice(proforma_invoice_id):
     return _handle_delete_supplier_proforma_invoice(proforma_invoice_id)
+
+
+@supplier_proforma_invoice_bp.get("/<int:proforma_invoice_id>")
+@jwt_required()
+def get_proforma_invoice_by_id(proforma_invoice_id: int):
+    try:
+        record = get_supplier_proforma_invoice_record(proforma_invoice_id)
+        return jsonify(_proforma_invoice_response(record)), 200
+    except SupplierProformaInvoiceNotFoundError as exc:
+        return _error("SUPPLIER_PROFORMA_INVOICE_NOT_FOUND", str(exc), 404)

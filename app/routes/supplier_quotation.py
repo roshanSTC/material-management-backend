@@ -606,3 +606,13 @@ def upload_excel():
 
 
 
+
+
+@supplier_quotation_bp.get("/<int:supplier_quotation_id>")
+@jwt_required()
+def get_supplier_quotation_by_id(supplier_quotation_id: int):
+    try:
+        record = get_supplier_quotation_record(supplier_quotation_id)
+        return jsonify(_supplier_quotation_response(record)), 200
+    except SupplierQuotationNotFoundError as exc:
+        return _error("SUPPLIER_QUOTATION_NOT_FOUND", str(exc), 404)

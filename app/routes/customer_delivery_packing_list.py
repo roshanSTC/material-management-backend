@@ -467,3 +467,9 @@ def update_customer_delivery_packing_list(packing_list_id):
 def delete_customer_delivery_packing_list(packing_list_id):
     return _handle_delete_customer_delivery_packing_list(packing_list_id)
 
+
+
+@customer_delivery_packing_list_bp.get("/<int:packing_list_id>")
+@jwt_required()
+def get_customer_delivery_packing_list(packing_list_id: int):
+    return _handle_get_customer_delivery_packing_list(packing_list_id)

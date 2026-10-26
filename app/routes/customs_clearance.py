@@ -488,3 +488,13 @@ def update_customs_clearance_route(clearance_id: int):
 @jwt_required()
 def delete_customs_clearance_route(clearance_id: int):
     return _handle_delete_customs_clearance(clearance_id)
+
+
+@customs_clearance_bp.get("/<int:clearance_id>")
+@jwt_required()
+def get_customs_clearance_by_id(clearance_id: int):
+    try:
+        record = get_customs_clearance_record(clearance_id)
+        return jsonify(_customs_clearance_response(record)), 200
+    except CustomsClearanceNotFoundError as exc:
+        return _error("CUSTOMS_CLEARANCE_NOT_FOUND", str(exc), 404)

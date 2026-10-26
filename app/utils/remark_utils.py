@@ -118,7 +118,7 @@ def get_step_remarks_for_response(
                 v_label = v_map.get(eid, "v1") if eid is not None else "v1"
                 item["version_label"] = v_label
                 item.pop("version", None)
-            db_remarks.sort(key=lambda r: (_get_version_num(r), r.get("id", 0) or 0), reverse=True)
+            db_remarks.sort(key=lambda r: (-_get_version_num(r), r.get("id", 0) or 0))
         except Exception:
             pass
         return db_remarks

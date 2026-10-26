@@ -561,3 +561,13 @@ def update_customer_payment(customer_payment_id):
 def delete_customer_payment(customer_payment_id):
     return _handle_delete_customer_payment(customer_payment_id)
 
+
+
+@customer_payment_bp.get("/<int:customer_payment_id>")
+@jwt_required()
+def get_customer_payment_by_id(customer_payment_id: int):
+    try:
+        record = get_customer_payment_record(customer_payment_id)
+        return jsonify(_customer_payment_response(record)), 200
+    except CustomerPaymentNotFoundError as exc:
+        return _error("CUSTOMER_PAYMENT_NOT_FOUND", str(exc), 404)

@@ -497,3 +497,13 @@ def update_import_logistics(logistics_id: int):
 def delete_import_logistics(logistics_id: int):
     return _handle_delete_import_logistics(logistics_id)
 
+
+
+@import_logistics_bp.get("/<int:logistics_id>")
+@jwt_required()
+def get_import_logistics_by_id(logistics_id: int):
+    try:
+        record = get_import_logistics_record(logistics_id)
+        return jsonify(_import_logistics_response(record)), 200
+    except ImportLogisticsNotFoundError as exc:
+        return _error("IMPORT_LOGISTICS_NOT_FOUND", str(exc), 404)

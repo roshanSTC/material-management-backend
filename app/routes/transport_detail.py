@@ -461,3 +461,13 @@ def update_transport_detail(transport_detail_id):
 @jwt_required()
 def delete_transport_detail(transport_detail_id):
     return _handle_delete_transport_detail(transport_detail_id)
+
+
+@transport_detail_bp.get("/<int:transport_detail_id>")
+@jwt_required()
+def get_transport_detail_by_id(transport_detail_id: int):
+    try:
+        record = get_transport_detail_record(transport_detail_id)
+        return jsonify(_transport_detail_response(record)), 200
+    except TransportDetailNotFoundError as exc:
+        return _error("TRANSPORT_DETAIL_NOT_FOUND", str(exc), 404)

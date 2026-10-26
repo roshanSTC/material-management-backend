@@ -203,9 +203,33 @@ def create():
             else validated_data.get("remarks")
         )
 
+        project_id = validated_data["project_id"]
+        customer_id = validated_data.get("customer_id")
+        from app.models import Project, Customer
+        project = db.session.get(Project, project_id)
+        if not project:
+            return _error("PROJECT_NOT_FOUND", f"Project with id {project_id} was not found.", 404)
+
+        if not customer_id:
+            if project.customer_id:
+                customer_id = project.customer_id
+            else:
+                cust_name = data.get("customer_name") or "Default Customer"
+                customer = Customer.query.filter_by(name=cust_name).first()
+                if not customer:
+                    customer = Customer(name=cust_name)
+                    db.session.add(customer)
+                    db.session.flush()
+                customer_id = customer.id
+                project.customer_id = customer.id
+                db.session.flush()
+        elif not project.customer_id:
+            project.customer_id = customer_id
+            db.session.flush()
+
         customer_query = create_customer_query_transaction(
-            project_id=validated_data["project_id"],
-            customer_id=validated_data["customer_id"],
+            project_id=project_id,
+            customer_id=customer_id,
             qo_date=validated_data["qo_date"],
             remark=remark_input,
             items=validated_data["items"],
@@ -645,3 +669,12 @@ def delete(customer_query_id):
                 "message": str(exc),
             },
         }, 500
+
+@customer_query_bp.get("/<int:customer_query_id>")
+@jwt_required()
+def get_customer_query_by_id(customer_query_id: int):
+    try:
+        record = get_customer_query_record(customer_query_id)
+        return jsonify(_customer_query_response(record)), 200
+    except CustomerQueryNotFoundError as exc:
+        return _error("CUSTOMER_QUERY_NOT_FOUND", str(exc), 404)

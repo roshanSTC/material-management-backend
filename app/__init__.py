@@ -63,6 +63,7 @@ def create_app(config_class=Config):
     from app.routes.customer_quotation import customer_quotation_bp
     from app.routes.customer_tender import customer_tender_bp
     from app.routes.bid_submission import (
+        bid_submission_singular_bp,
         bid_submission_bp,
     )
     from app.routes.purchase_order import (
@@ -84,6 +85,7 @@ def create_app(config_class=Config):
         import_logistics_bp,
     )
     from app.routes.bill_of_entry import (
+        bill_of_entry_singular_bp,
         bill_of_entry_bp,
     )
     from app.routes.customs_clearance import (
@@ -114,6 +116,10 @@ def create_app(config_class=Config):
         step_remarks_bp,
     )
     
+    from app.routes.phase1_routes import PHASE1_BLUEPRINTS
+    from app.routes.cost_sheet import cost_sheet_v1_bp, cost_sheet_v1_singular_bp
+    from app.routes.bill_of_entry import bill_of_entry_alias_bp
+
     api.register_blueprint(auth_bp)
     api.register_blueprint(customer_bp)
     api.register_blueprint(supplier_bp)
@@ -130,6 +136,7 @@ def create_app(config_class=Config):
     api.register_blueprint(customer_quotation_bp)
     api.register_blueprint(customer_tender_bp)
     api.register_blueprint(bid_submission_bp)
+    api.register_blueprint(bid_submission_singular_bp)
     api.register_blueprint(purchase_order_bp)
     api.register_blueprint(order_confirmation_bp)
     api.register_blueprint(supplier_proforma_invoice_bp)
@@ -145,6 +152,12 @@ def create_app(config_class=Config):
     api.register_blueprint(transport_detail_bp)
     api.register_blueprint(customer_payment_bp)
     api.register_blueprint(supplier_payment_bp)
+    for bp in PHASE1_BLUEPRINTS:
+        api.register_blueprint(bp)
+    api.register_blueprint(cost_sheet_v1_bp)
+    api.register_blueprint(cost_sheet_v1_singular_bp)
+    api.register_blueprint(bill_of_entry_alias_bp)
+    api.register_blueprint(bill_of_entry_singular_bp)
     return app
 
 

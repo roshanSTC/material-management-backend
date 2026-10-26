@@ -518,3 +518,13 @@ def delete_order_confirmation(order_confirmation_id):
     return _handle_delete_order_confirmation(order_confirmation_id)
 
 
+
+
+@order_confirmation_bp.get("/<int:order_confirmation_id>")
+@jwt_required()
+def get_order_confirmation_by_id(order_confirmation_id: int):
+    try:
+        record = get_supplier_order_confirmation_record(order_confirmation_id)
+        return jsonify(_order_confirmation_response(record)), 200
+    except SupplierOrderConfirmationNotFoundError as exc:
+        return _error("SUPPLIER_ORDER_CONFIRMATION_NOT_FOUND", str(exc), 404)

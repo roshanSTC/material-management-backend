@@ -54,6 +54,7 @@ def _delivery_challan_response(delivery_challan):
         "project_id": delivery_challan.project_id,
         "delivery_challan_no": delivery_challan.delivery_challan_no,
         "delivery_challan_number": delivery_challan.delivery_challan_no,
+        "challan_no": delivery_challan.delivery_challan_no,
         "delivery_challan_date": delivery_challan.delivery_challan_date,
         "gst_rate": delivery_challan.gst_rate,
         "gst_amount": delivery_challan.gst_amount,
@@ -73,6 +74,7 @@ def _delivery_challan_response(delivery_challan):
                 "delivery_challan_id": item.delivery_challan_id,
                 "material_name": item.material_name,
                 "material_description": item.material_name,
+                "description": item.material_name,
                 "hsn_code": item.hsn_code,
                 "hsn_sac": item.hsn_code,
                 "quantity": str(item.quantity) if item.quantity is not None else None,
@@ -80,6 +82,7 @@ def _delivery_challan_response(delivery_challan):
                 "rate_per_unit": str(item.unit_price) if item.unit_price is not None else None,
                 "net_amount": str(item.net_amount) if item.net_amount is not None else None,
                 "amount": str(item.net_amount) if item.net_amount is not None else None,
+                "total_amount": str(item.net_amount) if item.net_amount is not None else None,
                 "created_at": item.created_at,
                 "updated_at": item.updated_at,
             }
@@ -139,6 +142,16 @@ def _extract_payload_and_files():
             files = request.files.getlist("files")
         elif "attachments" in request.files:
             files = request.files.getlist("attachments")
+
+    if isinstance(raw_payload, dict) and "data" in raw_payload:
+        inner = raw_payload["data"]
+        if isinstance(inner, str):
+            try:
+                raw_payload = json.loads(inner)
+            except Exception:
+                pass
+        elif isinstance(inner, dict):
+            raw_payload = inner
 
     return raw_payload, files
 

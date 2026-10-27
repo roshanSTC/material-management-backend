@@ -56,6 +56,7 @@ def _customer_delivery_packing_list_response(packing_list):
         "packing_list_number": packing_list.packing_list_no,
         "packing_list_date": packing_list.packing_list_date,
         "total_no_of_packs": packing_list.total_no_of_packs,
+        "total_no_packages": packing_list.total_no_of_packs,
         "packing_condition": packing_list.packing_condition,
         "net_weight": packing_list.net_weight,
         "net_weight_kg": packing_list.net_weight,
@@ -75,10 +76,13 @@ def _customer_delivery_packing_list_response(packing_list):
                 "packing_list_id": item.packing_list_id,
                 "material_name": item.material_name,
                 "material_description": item.material_name,
+                "description": item.material_name,
                 "hsn_code": item.hsn_code,
                 "hsn_sac": item.hsn_code,
                 "quantity": str(item.quantity) if item.quantity is not None else None,
                 "weight": str(item.weight) if item.weight is not None else None,
+                "unit_weight": str(item.weight) if item.weight is not None else None,
+                "total_weight": str(item.weight) if item.weight is not None else None,
                 "total_weight_kg": str(item.weight) if item.weight is not None else None,
                 "weight_per_unit_kg": str(item.weight) if item.weight is not None else None,
                 "created_at": item.created_at,
@@ -140,6 +144,16 @@ def _extract_payload_and_files():
             files = request.files.getlist("files")
         elif "attachments" in request.files:
             files = request.files.getlist("attachments")
+
+    if isinstance(raw_payload, dict) and "data" in raw_payload:
+        inner = raw_payload["data"]
+        if isinstance(inner, str):
+            try:
+                raw_payload = json.loads(inner)
+            except Exception:
+                pass
+        elif isinstance(inner, dict):
+            raw_payload = inner
 
     return raw_payload, files
 

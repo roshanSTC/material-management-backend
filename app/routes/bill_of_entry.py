@@ -74,13 +74,21 @@ def _bill_of_entry_response(record):
         "project_id": record.project_id,
         "bill_of_entry_no": record.bill_of_entry_no,
         "bill_of_entry_number": record.bill_of_entry_no,
+        "boe_no": record.bill_of_entry_no,
         "date": record.date,
         "entry_date": record.date,
+        "boe_filing_date": record.date,
+        "boe_date": record.date,
         "total_assessable_value": record.total_assessable_value,
         "bcd": record.bcd,
+        "basic_custom_duty_bcd": record.bcd,
         "sws": record.sws,
         "igst": record.igst,
         "total_duty": record.total_duty,
+        "duty": record.total_duty,
+        "duty_amount": record.total_duty,
+        "items": [],
+        "form_code": "FORM_27_SHIPPING_CLEARANCE",
         "remarks": get_step_remarks_for_response(
             project_id=record.project_id,
             step_number=11,
@@ -162,6 +170,16 @@ def _extract_payload_and_files():
             files = request.files.getlist("files")
         elif "attachments" in request.files:
             files = request.files.getlist("attachments")
+
+    if isinstance(raw_payload, dict) and "data" in raw_payload:
+        inner = raw_payload["data"]
+        if isinstance(inner, str):
+            try:
+                raw_payload = json.loads(inner)
+            except Exception:
+                pass
+        elif isinstance(inner, dict):
+            raw_payload = inner
 
     return raw_payload, files
 

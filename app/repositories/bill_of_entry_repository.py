@@ -49,9 +49,17 @@ def _parse_date_val(val) -> date | None:
     s = str(val).strip()
     if not s:
         return None
-    if "T" in s:
-        return datetime.fromisoformat(s.replace("Z", "+00:00")).date()
-    return date.fromisoformat(s[:10])
+    for fmt in ("%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            pass
+    try:
+        if "T" in s:
+            return datetime.fromisoformat(s.replace("Z", "+00:00")).date()
+        return date.fromisoformat(s[:10])
+    except Exception:
+        return None
 
 
 def _parse_decimal_val(val) -> Decimal | None:
@@ -66,10 +74,13 @@ def _parse_decimal_val(val) -> Decimal | None:
 
 
 def create_bill_of_entry(data: dict) -> BillOfEntry:
+    date_val = _parse_date_val(data.get("date")) or _parse_date_val(data.get("entry_date"))
+    if not date_val:
+        date_val = datetime.utcnow().date()
     record = BillOfEntry(
         project_id=data["project_id"],
         bill_of_entry_no=data["bill_of_entry_no"],
-        date=_parse_date_val(data["date"]),
+        date=date_val,
         total_assessable_value=_parse_decimal_val(data.get("total_assessable_value")),
         bcd=_parse_decimal_val(data.get("bcd")),
         sws=_parse_decimal_val(data.get("sws")),

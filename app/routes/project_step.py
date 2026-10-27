@@ -87,6 +87,43 @@ def handle_get_form_by_code(form_code: str):
 
 
 # =========================================================================
+# =========================================================================
+# 2. FORM RELATIONSHIP MAPPING
+# =========================================================================
+FORM_REL_MAP = [
+    ("FORM_01_PQB", "pre_qualification_bids"),
+    ("FORM_02_PQB_BID_DOCUMENT", "pqb_bid_documents"),
+    ("FORM_03_CORRIGENDUM", "corrigendums"),
+    ("FORM_04_LTE", "limited_tender_enquiries"),
+    ("FORM_05_NAC", "notification_awards"),
+    ("FORM_06_CONSULTANCY_INVOICE", "consultancy_invoices"),
+    ("FORM_07_EOI", "expressions_of_interest"),
+    ("FORM_08_CUSTOMER_QUERY", "customer_queries"),
+    ("FORM_09_RFQ", "quotation_requests"),
+    ("FORM_10_COST_SHEET", "cost_sheets"),
+    ("FORM_11_SUPPLIER_QUOTATION", "supplier_quotations"),
+    ("FORM_12_CUSTOMER_QUOTATION", "customer_quotations"),
+    ("FORM_13_PAC_TENDER", "customer_tenders"),
+    ("FORM_14_PURCHASE_ORDER", "purchase_orders"),
+    ("FORM_15_BID_DOCUMENT", "bid_submissions"),
+    ("FORM_16_ORDER_CONFIRMATION", "supplier_order_confirmations"),
+    ("FORM_17_PROFORMA_INVOICE", "supplier_proforma_invoices"),
+    ("FORM_18_SUPPLIER_INVOICE", "supplier_invoices"),
+    ("FORM_19_SUPPLIER_PACKING_LIST", "supplier_packing_lists"),
+    ("FORM_20_PAYMENT_TO_SUPPLIER", "supplier_payments"),
+    ("FORM_21_TRANSPORTATION_DETAILS", ["import_logistics", "transport_details"]),
+    ("FORM_22_PAYMENT_FROM_CUSTOMER", "customer_payments"),
+    ("FORM_23_WARRANTY_CERTIFICATE", "warranty_certificates"),
+    ("FORM_24_DELIVERY_CHALLAN", "delivery_challans"),
+    ("FORM_25_CUSTOMER_PACKING_LIST", "customer_delivery_packing_lists"),
+    ("FORM_26_TAX_INVOICE_CUSTOMER", "customer_delivery_invoices"),
+    ("FORM_27_SHIPPING_CLEARANCE", "bills_of_entry"),
+    ("FORM_28_FREIGHT_CHA", "customs_clearances"),
+]
+FORM_REL_DICT = dict(FORM_REL_MAP)
+
+
+# =========================================================================
 # 2. GET CURRENT STEPS FOR A PROJECT (TIMELINE OVERVIEW)
 # =========================================================================
 def sync_project_steps_from_records(project):
@@ -94,40 +131,13 @@ def sync_project_steps_from_records(project):
     Ensures that any forms created directly via their dedicated REST endpoints
     are reflected as completed steps in the project_steps table for this project.
     """
-    form_rel_map = [
-        ("FORM_01_PQB", "pre_qualification_bids"),
-        ("FORM_02_PQB_BID_DOCUMENT", "pqb_bid_documents"),
-        ("FORM_03_CORRIGENDUM", "corrigendums"),
-        ("FORM_04_LTE", "limited_tender_enquiries"),
-        ("FORM_05_NAC", "notification_awards"),
-        ("FORM_06_CONSULTANCY_INVOICE", "consultancy_invoices"),
-        ("FORM_07_EOI", "expressions_of_interest"),
-        ("FORM_08_CUSTOMER_QUERY", "customer_queries"),
-        ("FORM_09_RFQ", "quotation_requests"),
-        ("FORM_10_COST_SHEET", "cost_sheets"),
-        ("FORM_11_SUPPLIER_QUOTATION", "supplier_quotations"),
-        ("FORM_12_CUSTOMER_QUOTATION", "customer_quotations"),
-        ("FORM_13_PAC_TENDER", "customer_tenders"),
-        ("FORM_14_PURCHASE_ORDER", "purchase_orders"),
-        ("FORM_15_BID_DOCUMENT", "bid_submissions"),
-        ("FORM_16_ORDER_CONFIRMATION", "supplier_order_confirmations"),
-        ("FORM_17_PROFORMA_INVOICE", "supplier_proforma_invoices"),
-        ("FORM_18_SUPPLIER_INVOICE", "supplier_invoices"),
-        ("FORM_19_SUPPLIER_PACKING_LIST", "supplier_packing_lists"),
-        ("FORM_20_PAYMENT_TO_SUPPLIER", "supplier_payments"),
-        ("FORM_21_TRANSPORTATION_DETAILS", ["import_logistics", "transport_details"]),
-        ("FORM_22_PAYMENT_FROM_CUSTOMER", "customer_payments"),
-        ("FORM_23_WARRANTY_CERTIFICATE", "warranty_certificates"),
-        ("FORM_24_DELIVERY_CHALLAN", "delivery_challans"),
-        ("FORM_25_CUSTOMER_PACKING_LIST", "customer_delivery_packing_lists"),
-        ("FORM_26_TAX_INVOICE_CUSTOMER", "customer_delivery_invoices"),
-        ("FORM_27_SHIPPING_CLEARANCE", "bills_of_entry"),
-        ("FORM_28_FREIGHT_CHA", "customs_clearances"),
-    ]
+    form_rel_map = FORM_REL_MAP
 
     existing_steps = {s.form_code: s for s in project.steps if s.form_code}
     max_order = max([s.step_order or s.step_number or 0 for s in project.steps], default=0)
+    max_step_num = max([s.step_number or 0 for s in project.steps], default=0)
     changed = False
+    deleted_any = False
 
     try:
         form_defs = {f.form_code: f for f in FormDefinition.query.filter_by(is_active=True).all()}
@@ -144,6 +154,9 @@ def sync_project_steps_from_records(project):
         if has_record:
             if form_code in existing_steps:
                 step = existing_steps[form_code]
+                step_data = dict(step.data or {}) if isinstance(step.data, dict) else {}
+                step_data["_synced_from_record"] = True
+                step.data = step_data
                 if step.status != "completed" or step.progress_percentage != 100:
                     step.status = "completed"
                     step.progress_percentage = 100
@@ -153,25 +166,64 @@ def sync_project_steps_from_records(project):
             else:
                 fdef = form_defs.get(form_code)
                 max_order += 1
+                max_step_num = max(max_order, max_step_num) + 1
                 new_step = ProjectStep(
                     project_id=project.id,
                     step_order=max_order,
-                    step_number=max_order,
+                    step_number=max_step_num,
                     form_code=form_code,
                     step_name=fdef.name if fdef else form_code,
                     description=fdef.description if fdef else "",
                     status="completed",
                     progress_percentage=100,
                     completed_at=datetime.utcnow(),
-                    data={},
+                    data={"_auto_created": True, "_synced_from_record": True},
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow(),
                 )
                 db.session.add(new_step)
                 existing_steps[form_code] = new_step
                 changed = True
+        else:
+            if form_code in existing_steps:
+                step = existing_steps[form_code]
+                step_data = dict(step.data or {}) if isinstance(step.data, dict) else {}
+                # Do not revert if the step was explicitly completed by user via Step API
+                if step_data.get("_manually_completed"):
+                    continue
 
-    if changed:
+                if step_data.get("_auto_created"):
+                    db.session.delete(step)
+                    del existing_steps[form_code]
+                    changed = True
+                    deleted_any = True
+                else:
+                    if step.status == "completed" or (step.progress_percentage or 0) > 0:
+                        step.progress_percentage = 0
+                        step.completed_at = None
+                        step_data.pop("_synced_from_record", None)
+                        if step_data.get("_is_attached"):
+                            step.status = "in_progress"
+                            step.data = step_data
+                        else:
+                            step.status = "pending"
+                            step.data = {}
+                        changed = True
+
+    if deleted_any:
+        db.session.flush()
+        remaining_steps = (
+            ProjectStep.query.filter_by(project_id=project.id)
+            .order_by(ProjectStep.step_order.asc(), ProjectStep.id.asc())
+            .all()
+        )
+        for idx, s in enumerate(remaining_steps, start=1):
+            if s.step_order != idx:
+                s.step_order = idx
+        project.updated_at = datetime.utcnow()
+        db.session.commit()
+    elif changed:
+        project.updated_at = datetime.utcnow()
         db.session.commit()
 
 
@@ -241,15 +293,24 @@ def handle_add_project_step(*args, **kwargs):
         else (form_def.description or "")
     )
     initial_data = payload.get("data") or {}
+    if isinstance(initial_data, dict):
+        initial_data["_is_attached"] = True
 
-    # Compute next step_order
+    # Compute next step_order and safe step_number
     max_order = (
         db.session.query(db.func.max(ProjectStep.step_order))
         .filter_by(project_id=project_id)
         .scalar()
         or 0
     )
+    max_step_num = (
+        db.session.query(db.func.max(ProjectStep.step_number))
+        .filter_by(project_id=project_id)
+        .scalar()
+        or 0
+    )
     next_order = max_order + 1
+    next_step_num = max(next_order, max_step_num + 1)
 
     status = payload.get("status") or "in_progress"
     progress_percentage = (
@@ -258,11 +319,13 @@ def handle_add_project_step(*args, **kwargs):
         else (100 if status == "completed" else 0)
     )
     completed_at = datetime.utcnow() if status == "completed" else None
+    if status == "completed":
+        initial_data["_manually_completed"] = True
 
     new_step = ProjectStep(
         project_id=project_id,
         step_order=next_order,
-        step_number=next_order,
+        step_number=next_step_num,
         form_code=form_code,
         step_name=step_name,
         description=description,
@@ -342,10 +405,10 @@ def handle_update_step(*args, **kwargs):
 
     user_id, user_name = _get_current_user_info()
 
+    current_data = dict(step.data or {}) if isinstance(step.data, dict) else {}
     if "data" in payload and payload["data"] is not None:
-        current_data = dict(step.data or {})
-        current_data.update(payload["data"])
-        step.data = current_data
+        if isinstance(payload["data"], dict):
+            current_data.update(payload["data"])
 
     if "status" in payload and payload["status"] is not None:
         step.status = payload["status"]
@@ -354,8 +417,12 @@ def handle_update_step(*args, **kwargs):
                 step.completed_at = datetime.utcnow()
             if "progress_percentage" not in payload:
                 step.progress_percentage = 100
+            current_data["_manually_completed"] = True
         elif step.status != "completed":
             step.completed_at = None
+            current_data.pop("_manually_completed", None)
+
+    step.data = current_data
 
     if (
         "progress_percentage" in payload
@@ -409,20 +476,76 @@ def handle_delete_step(project_id: int, step_id: int):
             },
         }, 404
 
+    project = db.session.get(Project, project_id)
+    form_code = step.form_code
+
+    # 1. If this step corresponds to a form, delete all underlying form records for this project
+    if form_code and project and form_code in FORM_REL_DICT:
+        attrs = FORM_REL_DICT[form_code]
+        attr_list = attrs if isinstance(attrs, list) else [attrs]
+        for attr in attr_list:
+            records = getattr(project, attr, [])
+            if records:
+                for rec in list(records):
+                    # Clear any nullable foreign keys pointing to this record
+                    try:
+                        if hasattr(rec, "__tablename__"):
+                            if rec.__tablename__ == "customer_tenders":
+                                from app.models.bid_submission import BidSubmission
+                                from app.models.purchase_order import PurchaseOrder
+                                BidSubmission.query.filter_by(tender_id=rec.id).update({"tender_id": None})
+                                PurchaseOrder.query.filter_by(tender_id=rec.id).update({"tender_id": None})
+                            elif rec.__tablename__ == "purchase_orders":
+                                from app.models.supplier_order_confirmation import SupplierOrderConfirmation
+                                SupplierOrderConfirmation.query.filter_by(purchase_order_id=rec.id).update({"purchase_order_id": None})
+                            elif rec.__tablename__ == "bills_of_entry":
+                                from app.models.customs_clearance import CustomsClearance
+                                CustomsClearance.query.filter_by(bill_of_entry_id=rec.id).update({"bill_of_entry_id": None})
+                    except Exception:
+                        pass
+
+                    # Delete attachments and files for this record
+                    try:
+                        from app.models.attachment import Attachment
+                        from app.services.storage import get_storage
+                        storage = get_storage()
+                        atts = Attachment.query.filter_by(entity_id=rec.id).all()
+                        for att in atts:
+                            try:
+                                if storage.exists(att.storage_key):
+                                    storage.delete(att.storage_key)
+                            except Exception:
+                                pass
+                            db.session.delete(att)
+                    except Exception:
+                        pass
+
+                    # Delete remarks for this entity
+                    try:
+                        from app.models.step_remark import StepRemark
+                        StepRemark.query.filter_by(
+                            project_id=project_id,
+                            entity_id=rec.id,
+                        ).delete(synchronize_session=False)
+                    except Exception:
+                        pass
+
+                    db.session.delete(rec)
+
+    # 2. Delete the step itself
     db.session.delete(step)
     db.session.flush()
 
-    # Reorder remaining steps
+    # 3. Reorder remaining steps
     remaining = (
         ProjectStep.query.filter_by(project_id=project_id)
         .order_by(ProjectStep.step_order.asc(), ProjectStep.id.asc())
         .all()
     )
     for idx, s in enumerate(remaining, start=1):
-        s.step_order = idx
-        s.step_number = idx
+        if s.step_order != idx:
+            s.step_order = idx
 
-    project = db.session.get(Project, project_id)
     if project:
         project.updated_at = datetime.utcnow()
 

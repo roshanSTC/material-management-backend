@@ -544,6 +544,11 @@ def _project_response(project):
 
 
 def _project_summary_response(project):
+    try:
+        from app.routes.project_step import sync_project_steps_from_records
+        sync_project_steps_from_records(project)
+    except Exception:
+        pass
     steps = project.steps if hasattr(project, "steps") and project.steps else []
 
     saved_steps = [s for s in steps if getattr(s, "id", None) is not None]

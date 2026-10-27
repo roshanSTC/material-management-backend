@@ -119,6 +119,15 @@ class ProjectStep(db.Model):
     def to_dict(self) -> dict:
         order_val = self.step_order or self.step_number or 1
         fdef = self.form_definition
+        if self.data is None:
+            clean_data = None
+        else:
+            clean_data = dict(self.data) if isinstance(self.data, dict) else self.data
+            if isinstance(clean_data, dict):
+                clean_data.pop("_auto_created", None)
+                clean_data.pop("_is_attached", None)
+                clean_data.pop("_synced_from_record", None)
+                clean_data.pop("_manually_completed", None)
         return {
             "id": self.id,
             "project_id": self.project_id,
@@ -133,7 +142,7 @@ class ProjectStep(db.Model):
             "status": self.status or "in_progress",
             "progress_percentage": self.progress_percentage if self.progress_percentage is not None else 0,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
-            "data": self.data or {},
+            "data": clean_data,
             "remarks": [r.to_dict() for r in (self.remarks or [])],
             "attachments": [a.to_dict() for a in (self.step_attachments or [])],
         }

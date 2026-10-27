@@ -1165,15 +1165,50 @@ def upsert_project_step_record(
         data,
     )
 
-    step = ProjectStep.query.filter_by(
-        project_id=project_id,
-        step_number=step_number,
-    ).first()
+    legacy_form_code_map = {
+        1: "FORM_08_CUSTOMER_QUERY",
+        2: "FORM_09_RFQ",
+        3: "FORM_11_SUPPLIER_QUOTATION",
+        4: "FORM_10_COST_SHEET",
+        5: "FORM_12_CUSTOMER_QUOTATION",
+        6: "FORM_13_PAC_TENDER",
+        7: "FORM_15_BID_DOCUMENT",
+        8: "FORM_14_PURCHASE_ORDER",
+        9: "FORM_16_ORDER_CONFIRMATION",
+        10: "FORM_17_PROFORMA_INVOICE",
+        12: "FORM_18_SUPPLIER_INVOICE",
+        14: "FORM_22_PAYMENT_FROM_CUSTOMER",
+        15: "FORM_20_PAYMENT_TO_SUPPLIER",
+    }
+    target_code = legacy_form_code_map.get(step_number)
+
+    step = None
+    if target_code:
+        step = ProjectStep.query.filter_by(
+            project_id=project_id,
+            form_code=target_code,
+        ).first()
+
+    if step is None:
+        step = (
+            ProjectStep.query.filter_by(
+                project_id=project_id,
+                step_number=step_number,
+            )
+            .filter(
+                db.or_(
+                    ProjectStep.form_code == None,
+                    ProjectStep.form_code == target_code,
+                )
+            )
+            .first()
+        )
 
     if step is None:
         step = ProjectStep(
             project_id=project_id,
             step_number=step_number,
+            form_code=target_code,
             step_name=definition["name"],
             description=definition["description"],
             status=status,
@@ -1187,11 +1222,16 @@ def upsert_project_step_record(
         )
         db.session.add(step)
     else:
+        if not step.form_code and target_code:
+            step.form_code = target_code
         step.step_name = definition["name"]
         step.description = definition["description"]
         step.status = status
         step.progress_percentage = int(progress_percentage)
-        step.data = data
+        merged_data = dict(step.data or {}) if isinstance(step.data, dict) else {}
+        if isinstance(data, dict):
+            merged_data.update(data)
+        step.data = merged_data
         step.completed_at = (
             datetime.now(timezone.utc)
             if status == "completed"
@@ -1219,11 +1259,25 @@ def sync_customer_query_step(project_id: int) -> ProjectStep | None:
     if customer_query is None:
         existing_step = ProjectStep.query.filter_by(
             project_id=project_id,
-            step_number=1,
+            form_code="FORM_08_CUSTOMER_QUERY",
         ).first()
+        if existing_step is None:
+            existing_step = (
+                ProjectStep.query.filter_by(
+                    project_id=project_id,
+                    step_number=1,
+                )
+                .filter(ProjectStep.form_code == None)
+                .first()
+            )
 
         if existing_step is not None:
-            db.session.delete(existing_step)
+            if existing_step.data and isinstance(existing_step.data, dict) and existing_step.data.get("_is_attached"):
+                existing_step.status = "in_progress"
+                existing_step.progress_percentage = 0
+                existing_step.completed_at = None
+            else:
+                db.session.delete(existing_step)
             db.session.flush()
         return None
 

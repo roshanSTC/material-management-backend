@@ -115,6 +115,9 @@ def create_app(config_class=Config):
     from app.routes.step_remark import (
         step_remarks_bp,
     )
+    from app.ai_assistant.routes.ai_assistant_routes import (
+        ai_assistant_bp,
+    )
     
     from app.routes.phase1_routes import PHASE1_BLUEPRINTS
     from app.routes.cost_sheet import cost_sheet_v1_bp, cost_sheet_v1_singular_bp
@@ -158,6 +161,7 @@ def create_app(config_class=Config):
     api.register_blueprint(cost_sheet_v1_singular_bp)
     api.register_blueprint(bill_of_entry_alias_bp)
     api.register_blueprint(bill_of_entry_singular_bp)
+    api.register_blueprint(ai_assistant_bp)
     return app
 
 

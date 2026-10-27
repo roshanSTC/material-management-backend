@@ -1176,38 +1176,53 @@ def upsert_project_step_record(
         8: "FORM_14_PURCHASE_ORDER",
         9: "FORM_16_ORDER_CONFIRMATION",
         10: "FORM_17_PROFORMA_INVOICE",
-        12: "FORM_18_SUPPLIER_INVOICE",
+        11: "FORM_27_SHIPPING_CLEARANCE",
+        12: "FORM_28_FREIGHT_CHA",
+        13: "FORM_24_DELIVERY_CHALLAN",
         14: "FORM_22_PAYMENT_FROM_CUSTOMER",
         15: "FORM_20_PAYMENT_TO_SUPPLIER",
     }
     target_code = legacy_form_code_map.get(step_number)
 
     step = None
+    # 1. Match by form_code first if target_code is known
     if target_code:
         step = ProjectStep.query.filter_by(
             project_id=project_id,
             form_code=target_code,
         ).first()
 
+    # 2. Check if a step with this step_number exists and can be reused
+    # (i.e. has no form_code, empty form_code, or matches target_code)
     if step is None:
-        step = (
-            ProjectStep.query.filter_by(
-                project_id=project_id,
-                step_number=step_number,
-            )
-            .filter(
-                db.or_(
-                    ProjectStep.form_code == None,
-                    ProjectStep.form_code == target_code,
-                )
-            )
-            .first()
-        )
-
-    if step is None:
-        step = ProjectStep(
+        candidate = ProjectStep.query.filter_by(
             project_id=project_id,
             step_number=step_number,
+        ).first()
+        if candidate is not None:
+            c_code = (candidate.form_code or "").strip()
+            if not c_code or (target_code and c_code == target_code):
+                step = candidate
+
+    # 3. If step still not found, create a new step, ensuring step_number never collides
+    if step is None:
+        all_steps = ProjectStep.query.filter_by(project_id=project_id).all()
+        used_step_nums = {s.step_number for s in all_steps if s.step_number is not None}
+        max_order = max([s.step_order or s.step_number or 0 for s in all_steps], default=0)
+        max_step_num = max(used_step_nums, default=0)
+
+        if step_number not in used_step_nums:
+            assigned_step_num = step_number
+            assigned_order = max_order + 1 if max_order else step_number
+        else:
+            # step_number is already occupied by another form, safely allocate next unique step number
+            assigned_step_num = max(max_order, max_step_num) + 1
+            assigned_order = max_order + 1
+
+        step = ProjectStep(
+            project_id=project_id,
+            step_number=assigned_step_num,
+            step_order=assigned_order,
             form_code=target_code,
             step_name=definition["name"],
             description=definition["description"],

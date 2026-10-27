@@ -210,6 +210,47 @@ def sync_project_steps_from_records(project):
                             step.data = {}
                         changed = True
 
+    # Clean up legacy steps without a form_code
+    legacy_step_map = {
+        1: ("FORM_08_CUSTOMER_QUERY", "customer_queries"),
+        2: ("FORM_09_RFQ", "quotation_requests"),
+        3: ("FORM_11_SUPPLIER_QUOTATION", "supplier_quotations"),
+        4: ("FORM_10_COST_SHEET", "cost_sheets"),
+        5: ("FORM_12_CUSTOMER_QUOTATION", "customer_quotations"),
+        6: ("FORM_13_PAC_TENDER", "customer_tenders"),
+        7: ("FORM_15_BID_DOCUMENT", "bid_submissions"),
+        8: ("FORM_14_PURCHASE_ORDER", "purchase_orders"),
+        9: ("FORM_16_ORDER_CONFIRMATION", "supplier_order_confirmations"),
+        10: ("FORM_18_SUPPLIER_INVOICE", ["supplier_proforma_invoices", "supplier_invoices"]),
+        11: ("FORM_27_SHIPPING_CLEARANCE", ["import_logistics", "bills_of_entry"]),
+        12: ("FORM_28_FREIGHT_CHA", "customs_clearances"),
+        13: ("FORM_26_TAX_INVOICE_CUSTOMER", ["customer_delivery_invoices", "customer_delivery_packing_lists", "delivery_challans", "transport_details", "warranty_certificates"]),
+        14: ("FORM_22_PAYMENT_FROM_CUSTOMER", "customer_payments"),
+        15: ("FORM_20_PAYMENT_TO_SUPPLIER", "supplier_payments"),
+    }
+
+    for s in list(project.steps):
+        if not s.form_code:
+            legacy_info = legacy_step_map.get(s.step_number)
+            has_rec = False
+            if legacy_info:
+                fcode, attrs = legacy_info
+                if isinstance(attrs, list):
+                    has_rec = any(bool(getattr(project, a, None)) for a in attrs)
+                else:
+                    has_rec = bool(getattr(project, attrs, None))
+                if has_rec and fcode and fcode not in existing_steps:
+                    s.form_code = fcode
+                    s.status = "completed"
+                    s.progress_percentage = 100
+                    existing_steps[fcode] = s
+                    changed = True
+                    continue
+            if not has_rec:
+                db.session.delete(s)
+                changed = True
+                deleted_any = True
+
     if deleted_any:
         db.session.flush()
         remaining_steps = (

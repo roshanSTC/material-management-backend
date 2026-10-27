@@ -80,6 +80,15 @@ def _normalize_cost_sheet_payload(data: dict) -> dict:
         return {}
     normalized = dict(data)
 
+    def _pct_to_rate(val, default=None):
+        if val is None or val == "":
+            return default
+        try:
+            f = float(val)
+            return f / 100.0 if f > 1.0 else f
+        except (ValueError, TypeError):
+            return default
+
     # 1. Project ID resolution
     pid = normalized.get("project_id") or normalized.get("product_id") or normalized.get("projectId")
     if pid is not None:
@@ -101,15 +110,6 @@ def _normalize_cost_sheet_payload(data: dict) -> dict:
             or normalized.get("eurToInr")
             or 90.0
         )
-
-        def _pct_to_rate(val, default):
-            if val is None or val == "":
-                return default
-            try:
-                f = float(val)
-                return f / 100.0 if f > 1.0 else f
-            except (ValueError, TypeError):
-                return default
 
         gp = {
             "eurToInr": float(eur_to_inr),
@@ -135,40 +135,83 @@ def _normalize_cost_sheet_payload(data: dict) -> dict:
     for idx, it in enumerate(raw_items, start=1):
         if not isinstance(it, dict):
             continue
+        icode = (it.get("itemCode") or it.get("item_code") or "").strip()
+        if not icode:
+            icode = f"ITEM-{idx}"
+
+        idesc = (
+            it.get("itemDescription")
+            or it.get("item_description")
+            or it.get("description")
+            or it.get("material_name")
+            or f"Item {idx}"
+        ).strip()
+
+        # Resolve prices (supporting pricePerUnitEur, pricePerUnitInr, unit_price, price, etc.)
+        p_eur = (
+            float(it["pricePerUnitEur"])
+            if it.get("pricePerUnitEur") is not None and str(it.get("pricePerUnitEur")).strip() != ""
+            else (
+                float(it["price_per_unit_eur"])
+                if it.get("price_per_unit_eur") is not None and str(it.get("price_per_unit_eur")).strip() != ""
+                else None
+            )
+        )
+        p_inr = (
+            float(it["pricePerUnitInr"])
+            if it.get("pricePerUnitInr") is not None and str(it.get("pricePerUnitInr")).strip() != ""
+            else (
+                float(it["price_per_unit_inr"])
+                if it.get("price_per_unit_inr") is not None and str(it.get("price_per_unit_inr")).strip() != ""
+                else None
+            )
+        )
+        gen_price = (
+            float(it["unit_price"])
+            if it.get("unit_price") is not None and str(it.get("unit_price")).strip() != ""
+            else (
+                float(it["unitPrice"])
+                if it.get("unitPrice") is not None and str(it.get("unitPrice")).strip() != ""
+                else (
+                    float(it["price"])
+                    if it.get("price") is not None and str(it.get("price")).strip() != ""
+                    else None
+                )
+            )
+        )
+        if p_eur is None and p_inr is None and gen_price is not None:
+            p_eur = gen_price
+
+        raw_cd = (
+            it.get("customsDutyRate")
+            if it.get("customsDutyRate") is not None and str(it.get("customsDutyRate")).strip() != ""
+            else (
+                it.get("customs_duty_rate")
+                if it.get("customs_duty_rate") is not None and str(it.get("customs_duty_rate")).strip() != ""
+                else (
+                    it.get("custom_duty_rate")
+                    if it.get("custom_duty_rate") is not None and str(it.get("custom_duty_rate")).strip() != ""
+                    else (
+                        it.get("custom_duty_pct")
+                        if it.get("custom_duty_pct") is not None and str(it.get("custom_duty_pct")).strip() != ""
+                        else None
+                    )
+                )
+            )
+        )
+        cd_rate = _pct_to_rate(raw_cd, None)
+        if cd_rate is not None and cd_rate > 1.0:
+            cd_rate = cd_rate / 100.0
+
         clean_it = {
             "quotationNumber": it.get("quotationNumber") or it.get("quotation_number") or "",
             "quotationIndex": it.get("quotationIndex") or it.get("quotation_index") or f"{idx}",
-            "itemDescription": (
-                it.get("itemDescription")
-                or it.get("item_description")
-                or it.get("description")
-                or f"Item {idx}"
-            ),
-            "itemCode": it.get("itemCode") or it.get("item_code") or "",
+            "itemDescription": idesc,
+            "itemCode": icode,
             "quantity": float(it.get("quantity") or 1.0),
-            "pricePerUnitEur": (
-                float(it["pricePerUnitEur"])
-                if it.get("pricePerUnitEur") is not None and str(it.get("pricePerUnitEur")).strip() != ""
-                else None
-            ),
-            "pricePerUnitInr": (
-                float(it["pricePerUnitInr"])
-                if it.get("pricePerUnitInr") is not None and str(it.get("pricePerUnitInr")).strip() != ""
-                else (
-                    float(it["price_per_unit_inr"])
-                    if it.get("price_per_unit_inr") is not None and str(it.get("price_per_unit_inr")).strip() != ""
-                    else None
-                )
-            ),
-            "customsDutyRate": (
-                float(it["customsDutyRate"])
-                if it.get("customsDutyRate") is not None and str(it.get("customsDutyRate")).strip() != ""
-                else (
-                    float(it["customs_duty_rate"])
-                    if it.get("customs_duty_rate") is not None and str(it.get("customs_duty_rate")).strip() != ""
-                    else None
-                )
-            ),
+            "pricePerUnitEur": p_eur,
+            "pricePerUnitInr": p_inr,
+            "customsDutyRate": cd_rate,
         }
         clean_items.append(clean_it)
     normalized["items"] = clean_items

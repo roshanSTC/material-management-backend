@@ -39,7 +39,7 @@ class CostSheetItem(db.Model):
 
     __table_args__ = (
         db.CheckConstraint(
-            "price_per_unit_eur > 0",
+            "price_per_unit_eur >= 0",
             name="ck_cost_sheet_items_positive_price",
         ),
         db.CheckConstraint(
@@ -47,7 +47,7 @@ class CostSheetItem(db.Model):
             name="ck_cost_sheet_items_positive_quantity",
         ),
         db.CheckConstraint(
-            "customs_duty_rate IS NULL OR customs_duty_rate BETWEEN 0 AND 1",
+            "customs_duty_rate IS NULL OR (customs_duty_rate >= 0 AND customs_duty_rate <= 100)",
             name="ck_cost_sheet_items_duty_rate",
         ),
     )

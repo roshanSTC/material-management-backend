@@ -85,6 +85,21 @@ def create_cost_sheet(
                 else 0.0
             )
         )
+        cd_rate = item_data.get("customsDutyRate")
+        if cd_rate is not None:
+            try:
+                cd_f = float(cd_rate)
+                if cd_f > 1.0:
+                    cd_rate = cd_f / 100.0
+                else:
+                    cd_rate = cd_f
+            except (ValueError, TypeError):
+                cd_rate = None
+
+        icode = (item_data.get("itemCode") or "").strip()
+        if not icode:
+            icode = f"ITEM-{len(cost_sheet.items) + 1}"
+
         cost_sheet.items.append(
             CostSheetItem(
                 quotation_number=(
@@ -95,11 +110,11 @@ def create_cost_sheet(
                     item_data.get("quotationIndex")
                     or item_data.get("quotation_index")
                 ),
-                item_code=item_data["itemCode"].strip(),
+                item_code=icode,
                 item_description=item_data["itemDescription"].strip(),
                 price_per_unit_eur=price_per_unit_eur,
                 quantity=item_data["quantity"],
-                customs_duty_rate=item_data.get("customsDutyRate"),
+                customs_duty_rate=cd_rate,
             )
         )
     db.session.add(cost_sheet)

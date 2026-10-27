@@ -68,11 +68,19 @@ def _customer_query_response(customer_query):
         entity_id=customer_query.id,
     )
 
+    customer_name = ""
+    if customer_query.customer and customer_query.customer.name:
+        customer_name = customer_query.customer.name
+    elif customer_query.project and customer_query.project.customer and customer_query.project.customer.name:
+        customer_name = customer_query.project.customer.name
+
     return {
         "id": customer_query.id,
         "project_id": customer_query.project_id,
         "customer_id": customer_query.customer_id,
+        "customer_name": customer_name,
         "qo_date": customer_query.qo_date,
+        "query_date": customer_query.qo_date,
         "remarks": remarks_arr,
         "created_at": customer_query.created_at,
         "updated_at": customer_query.updated_at,
@@ -210,11 +218,22 @@ def create():
         if not project:
             return _error("PROJECT_NOT_FOUND", f"Project with id {project_id} was not found.", 404)
 
+        req_cust_name = (data.get("customer_name") or "").strip()
+
         if not customer_id:
-            if project.customer_id:
+            if req_cust_name:
+                customer = Customer.query.filter_by(name=req_cust_name).first()
+                if not customer:
+                    customer = Customer(name=req_cust_name)
+                    db.session.add(customer)
+                    db.session.flush()
+                customer_id = customer.id
+                project.customer_id = customer.id
+                db.session.flush()
+            elif project.customer_id:
                 customer_id = project.customer_id
             else:
-                cust_name = data.get("customer_name") or "Default Customer"
+                cust_name = "Default Customer"
                 customer = Customer.query.filter_by(name=cust_name).first()
                 if not customer:
                     customer = Customer(name=cust_name)
@@ -223,9 +242,15 @@ def create():
                 customer_id = customer.id
                 project.customer_id = customer.id
                 db.session.flush()
-        elif not project.customer_id:
-            project.customer_id = customer_id
-            db.session.flush()
+        else:
+            if req_cust_name:
+                cust_obj = db.session.get(Customer, customer_id)
+                if cust_obj:
+                    cust_obj.name = req_cust_name
+                    db.session.flush()
+            if not project.customer_id:
+                project.customer_id = customer_id
+                db.session.flush()
 
         customer_query = create_customer_query_transaction(
             project_id=project_id,
@@ -494,16 +519,31 @@ def update(customer_query_id):
         has_remark = ("remark" in data) or ("remarks" in data)
         remark_input = data.get("remark") if "remark" in data else data.get("remarks")
 
+        qo_date_input = data.get("qo_date") or data.get("query_date")
+
         customer_query = update_customer_query_transaction(
             customer_query_id=customer_query_id,
             project_id=data.get("project_id"),
             customer_id=data.get("customer_id"),
-            qo_date=data.get("qo_date"),
+            qo_date=qo_date_input,
             remark=remark_input,
             items=data.get("items"),
             user_id=user_id,
             sync_remarks=has_remark,
         )
+
+        req_cust_name = (data.get("customer_name") or "").strip()
+        if req_cust_name:
+            from app.models import Customer
+            cust = Customer.query.filter_by(name=req_cust_name).first()
+            if not cust:
+                cust = Customer(name=req_cust_name)
+                db.session.add(cust)
+                db.session.flush()
+            customer_query.customer_id = cust.id
+            if customer_query.project:
+                customer_query.project.customer_id = cust.id
+            db.session.flush()
 
         for file in files:
 

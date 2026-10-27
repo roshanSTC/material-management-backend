@@ -108,8 +108,10 @@ class QuotationRequestResponseSchema(Schema):
     id = fields.Integer()
     project_id = fields.Integer()
     supplier_id = fields.Integer()
+    supplier_name = fields.String(allow_none=True)
 
     quotation_requested_date = fields.Date()
+    rfq_date = fields.Date(allow_none=True)
     supplier_contacted = fields.Boolean()
 
     remarks = fields.Raw(

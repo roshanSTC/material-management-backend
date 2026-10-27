@@ -47,12 +47,22 @@ def _quotation_request_response(
         entity_id=quotation_request.id,
     )
 
+    supplier_name = ""
+    if quotation_request.supplier and quotation_request.supplier.name:
+        supplier_name = quotation_request.supplier.name
+    elif quotation_request.project and quotation_request.project.supplier and quotation_request.project.supplier.name:
+        supplier_name = quotation_request.project.supplier.name
+
     return {
         "id": quotation_request.id,
         "project_id": quotation_request.project_id,
         "supplier_id": quotation_request.supplier_id,
+        "supplier_name": supplier_name,
 
         "quotation_requested_date": (
+            quotation_request.quotation_requested_date
+        ),
+        "rfq_date": (
             quotation_request.quotation_requested_date
         ),
 
@@ -188,11 +198,22 @@ def create():
             return _error("PROJECT_NOT_FOUND", f"Project with id {pid} was not found.", 404)
 
         supplier_id = validated_data.get("supplier_id")
+        req_supp_name = (data.get("supplier_name") or "").strip()
+
         if not supplier_id:
-            if project.supplier_id:
+            if req_supp_name:
+                supp = Supplier.query.filter_by(name=req_supp_name).first()
+                if not supp:
+                    supp = Supplier(name=req_supp_name)
+                    db.session.add(supp)
+                    db.session.flush()
+                supplier_id = supp.id
+                project.supplier_id = supp.id
+                db.session.flush()
+            elif project.supplier_id:
                 supplier_id = project.supplier_id
             else:
-                s_name = data.get("supplier_name") or "Default Supplier"
+                s_name = "Default Supplier"
                 supp = Supplier.query.filter_by(name=s_name).first()
                 if not supp:
                     supp = Supplier(name=s_name)
@@ -201,9 +222,15 @@ def create():
                 supplier_id = supp.id
                 project.supplier_id = supp.id
                 db.session.flush()
-        elif not project.supplier_id:
-            project.supplier_id = supplier_id
-            db.session.flush()
+        else:
+            if req_supp_name:
+                supp_obj = db.session.get(Supplier, supplier_id)
+                if supp_obj:
+                    supp_obj.name = req_supp_name
+                    db.session.flush()
+            if not project.supplier_id:
+                project.supplier_id = supplier_id
+                db.session.flush()
 
         quotation_request = create_quotation_request_transaction(
             project_id=pid,
@@ -459,14 +486,14 @@ def update(quotation_request_id):
 
         try:
 
+            qo_date_input = data.get("quotation_requested_date") or data.get("rfq_date")
+
             quotation_request = (
                 update_quotation_request_transaction(
                     quotation_request_id=quotation_request_id,
                     project_id=data.get("project_id"),
                     supplier_id=data.get("supplier_id"),
-                    quotation_requested_date=data.get(
-                        "quotation_requested_date"
-                    ),
+                    quotation_requested_date=qo_date_input,
                     supplier_contacted=data.get(
                         "supplier_contacted"
                     ),
@@ -475,6 +502,19 @@ def update(quotation_request_id):
                     user_id=user_id,
                 )
             )
+
+            req_supp_name = (data.get("supplier_name") or "").strip()
+            if req_supp_name:
+                from app.models import Supplier
+                supp = Supplier.query.filter_by(name=req_supp_name).first()
+                if not supp:
+                    supp = Supplier(name=req_supp_name)
+                    db.session.add(supp)
+                    db.session.flush()
+                quotation_request.supplier_id = supp.id
+                if quotation_request.project:
+                    quotation_request.project.supplier_id = supp.id
+                db.session.flush()
 
             # Add new attachments
             for file in files:

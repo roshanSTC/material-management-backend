@@ -49,7 +49,7 @@ class CostSheet(db.Model):
             name="uq_cost_sheets_project_version",
         ),
         db.CheckConstraint(
-            "status IN ('Draft', 'Approved', 'Archived')",
+            "status IN ('Draft', 'Approved', 'Archived', 'completed', 'in_progress', 'pending', 'draft', 'approved', 'archived')",
             name="ck_cost_sheets_status",
         ),
         db.CheckConstraint(

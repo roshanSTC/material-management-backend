@@ -165,6 +165,22 @@ class PurchaseOrder(db.Model):
         self.gst_rate = val
 
     @property
+    def gst_rate_pct(self):
+        return self.gst_rate
+
+    @gst_rate_pct.setter
+    def gst_rate_pct(self, val):
+        self.gst_rate = val
+
+    @property
+    def gst_pct(self):
+        return self.gst_rate
+
+    @gst_pct.setter
+    def gst_pct(self, val):
+        self.gst_rate = val
+
+    @property
     def delivery_terms(self):
         return self.delivery_term
 

@@ -63,6 +63,41 @@ def _purchase_order_response(purchase_order):
     if not customer_name:
         customer_name = purchase_order.poc_name
 
+    del_date = purchase_order.delivery_date
+    if del_date is None and getattr(purchase_order, "items", None):
+        for it in purchase_order.items:
+            if getattr(it, "delivery_date", None):
+                del_date = it.delivery_date
+                break
+
+    tot_net = purchase_order.total_net_amount
+    if tot_net is None and getattr(purchase_order, "items", None):
+        try:
+            from decimal import Decimal
+            tot = sum(
+                (Decimal(str(it.net_amount)) if it.net_amount is not None else (Decimal(str(it.quantity or 0)) * Decimal(str(it.unit_price or 0))))
+                for it in purchase_order.items
+            )
+            tot_net = tot.quantize(Decimal("0.01"))
+        except Exception:
+            pass
+
+    gst_amt = purchase_order.gst_amount
+    if gst_amt is None and purchase_order.gst_rate is not None and tot_net is not None:
+        try:
+            from decimal import Decimal
+            gst_amt = (Decimal(str(tot_net)) * Decimal(str(purchase_order.gst_rate)) / Decimal("100")).quantize(Decimal("0.01"))
+        except Exception:
+            pass
+
+    tot_gross = purchase_order.total_gross_amount
+    if tot_gross is None and tot_net is not None:
+        try:
+            from decimal import Decimal
+            tot_gross = (Decimal(str(tot_net)) + (Decimal(str(gst_amt)) if gst_amt is not None else Decimal("0.00"))).quantize(Decimal("0.01"))
+        except Exception:
+            pass
+
     return {
         "id": purchase_order.id,
         "project_id": purchase_order.project_id,
@@ -76,7 +111,7 @@ def _purchase_order_response(purchase_order):
         "po_number": purchase_order.po_number,
         "po_title": purchase_order.po_title,
         "po_date": purchase_order.po_date,
-        "delivery_date": purchase_order.delivery_date,
+        "delivery_date": del_date,
         "delivery_term": purchase_order.delivery_term,
         "delivery_terms": purchase_order.delivery_term,
         "payment_terms": purchase_order.payment_terms,
@@ -85,9 +120,9 @@ def _purchase_order_response(purchase_order):
         "gst_rate": purchase_order.gst_rate,
         "gst_rate_pct": purchase_order.gst_rate,
         "gst": purchase_order.gst_rate,
-        "gst_amount": purchase_order.gst_amount,
-        "total_net_amount": purchase_order.total_net_amount,
-        "total_gross_amount": purchase_order.total_gross_amount,
+        "gst_amount": gst_amt,
+        "total_net_amount": tot_net,
+        "total_gross_amount": tot_gross,
         "remarks": get_step_remarks_for_response(
             project_id=purchase_order.project_id,
             step_number=8,
@@ -110,7 +145,7 @@ def _purchase_order_response(purchase_order):
                 "unit_price": item.unit_price,
                 "net_amount": item.net_amount,
                 "total_price": item.net_amount,
-                "delivery_date": getattr(item, "delivery_date", None) or purchase_order.delivery_date,
+                "delivery_date": getattr(item, "delivery_date", None) or del_date,
                 "created_at": item.created_at,
             }
             for idx, item in enumerate(purchase_order.items)

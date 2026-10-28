@@ -1689,15 +1689,26 @@ def sync_purchase_order_step(project_id: int):
         po_amount_str = str(purchase_order.total_net_amount)
 
     del_date_str = None
-    if purchase_order.delivery_date:
+    resolved_del_date = purchase_order.delivery_date
+    if resolved_del_date is None and getattr(purchase_order, "items", None):
+        for it in purchase_order.items:
+            if getattr(it, "delivery_date", None):
+                resolved_del_date = it.delivery_date
+                break
+
+    if resolved_del_date:
         del_date_str = (
-            purchase_order.delivery_date.isoformat()
-            if hasattr(purchase_order.delivery_date, "isoformat")
-            else str(purchase_order.delivery_date)[:10]
+            resolved_del_date.isoformat()
+            if hasattr(resolved_del_date, "isoformat")
+            else str(resolved_del_date)[:10]
         )
+
+    gst_rate_str = str(purchase_order.gst_rate) if purchase_order.gst_rate is not None else None
+    gst_rate_num = float(purchase_order.gst_rate) if purchase_order.gst_rate is not None else None
 
     step_data = {
         "po_number": purchase_order.po_number,
+        "po_no": purchase_order.po_number,
         "po_title": purchase_order.po_title,
         "po_date": po_date_str,
         "delivery_date": del_date_str,
@@ -1705,7 +1716,13 @@ def sync_purchase_order_step(project_id: int):
         "delivery_terms": purchase_order.delivery_term,
         "payment_terms": purchase_order.payment_terms,
         "warranty_period": purchase_order.warranty_period,
-        "gst_rate": str(purchase_order.gst_rate) if purchase_order.gst_rate is not None else None,
+        "gst_rate": gst_rate_str,
+        "gst_rate_pct": gst_rate_num,
+        "gst_pct": gst_rate_num,
+        "gst": gst_rate_str,
+        "gst_amount": str(purchase_order.gst_amount) if purchase_order.gst_amount is not None else None,
+        "total_net_amount": str(purchase_order.total_net_amount) if purchase_order.total_net_amount is not None else None,
+        "total_gross_amount": str(purchase_order.total_gross_amount) if purchase_order.total_gross_amount is not None else None,
         "po_amount": po_amount_str,
         "remarks": purchase_order.remark,
         "remark": purchase_order.remark,

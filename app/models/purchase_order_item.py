@@ -48,6 +48,17 @@ class PurchaseOrderItem(db.Model):
         nullable=True,
     )
 
+    unit = db.Column(
+        db.String(50),
+        nullable=True,
+        default="NOS",
+    )
+
+    delivery_date = db.Column(
+        db.Date,
+        nullable=True,
+    )
+
     created_at = db.Column(
         db.DateTime,
         nullable=False,
@@ -66,6 +77,14 @@ class PurchaseOrderItem(db.Model):
     @hsn_sac.setter
     def hsn_sac(self, val):
         self.hsn_code = val
+
+    @property
+    def total_price(self):
+        return self.net_amount
+
+    @total_price.setter
+    def total_price(self, val):
+        self.net_amount = val
 
     def __repr__(self) -> str:
         return f"<PurchaseOrderItem {self.id}>"

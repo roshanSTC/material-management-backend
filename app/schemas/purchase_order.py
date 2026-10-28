@@ -31,7 +31,7 @@ def _clean_email(val: str | None) -> str | None:
 
 
 def _parse_date(val):
-    if val is None:
+    if val is None or val == "":
         return None
     if isinstance(val, date) and not isinstance(val, datetime):
         return val
@@ -41,11 +41,15 @@ def _parse_date(val):
     if not s:
         return None
     try:
-        if "T" in s:
-            return datetime.fromisoformat(s.replace("Z", "+00:00")).date()
-        return date.fromisoformat(s)
+        from app.utils.date_utils import parse_date_input
+        return parse_date_input(s)
     except Exception:
-        raise ValidationError(f"Invalid date format: {val}")
+        try:
+            if "T" in s:
+                return datetime.fromisoformat(s.replace("Z", "+00:00")).date()
+            return date.fromisoformat(s)
+        except Exception:
+            raise ValidationError(f"Invalid date format: {val}")
 
 
 class PurchaseOrderItemCreateSchema(Schema):
@@ -74,6 +78,11 @@ class PurchaseOrderItemCreateSchema(Schema):
         allow_none=True,
         validate=validate.Length(max=50),
     )
+    unit = fields.String(
+        required=False,
+        allow_none=True,
+        load_default="NOS",
+    )
     quantity = fields.Decimal(
         required=True,
         as_string=True,
@@ -92,6 +101,21 @@ class PurchaseOrderItemCreateSchema(Schema):
         as_string=True,
         places=2,
     )
+    total_price = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    delivery_date = fields.Raw(
+        required=False,
+        allow_none=True,
+    )
+    delivery_period = fields.String(
+        required=False,
+        allow_none=True,
+        validate=validate.Length(max=100),
+    )
 
     @pre_load
     def normalize_item(self, data, **kwargs):
@@ -109,12 +133,24 @@ class PurchaseOrderItemCreateSchema(Schema):
         elif "hsn_code" in normalized and not normalized.get("hsn_sac"):
             normalized["hsn_sac"] = normalized["hsn_code"]
 
+        if "deliveryDate" in normalized and not normalized.get("delivery_date"):
+            normalized["delivery_date"] = normalized["deliveryDate"]
+
+        if "total_price" in normalized and not normalized.get("net_amount"):
+            normalized["net_amount"] = normalized["total_price"]
+        elif "totalPrice" in normalized and not normalized.get("net_amount"):
+            normalized["net_amount"] = normalized["totalPrice"]
+        if "net_amount" in normalized and not normalized.get("total_price"):
+            normalized["total_price"] = normalized["net_amount"]
+
         if "quantity" in normalized and normalized["quantity"] is not None:
             normalized["quantity"] = str(normalized["quantity"]).strip()
         if "unit_price" in normalized and normalized["unit_price"] is not None:
             normalized["unit_price"] = str(normalized["unit_price"]).strip()
         if "net_amount" in normalized and normalized["net_amount"] is not None:
             normalized["net_amount"] = str(normalized["net_amount"]).strip()
+        if "total_price" in normalized and normalized["total_price"] is not None:
+            normalized["total_price"] = str(normalized["total_price"]).strip()
 
         return normalized
 
@@ -144,6 +180,11 @@ class PurchaseOrderItemUpdateSchema(Schema):
         allow_none=True,
         validate=validate.Length(max=50),
     )
+    unit = fields.String(
+        required=False,
+        allow_none=True,
+        load_default="NOS",
+    )
     quantity = fields.Decimal(
         required=False,
         allow_none=True,
@@ -163,6 +204,21 @@ class PurchaseOrderItemUpdateSchema(Schema):
         as_string=True,
         places=2,
     )
+    total_price = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    delivery_date = fields.Raw(
+        required=False,
+        allow_none=True,
+    )
+    delivery_period = fields.String(
+        required=False,
+        allow_none=True,
+        validate=validate.Length(max=100),
+    )
 
     @pre_load
     def normalize_item(self, data, **kwargs):
@@ -180,12 +236,24 @@ class PurchaseOrderItemUpdateSchema(Schema):
         elif "hsn_code" in normalized and not normalized.get("hsn_sac"):
             normalized["hsn_sac"] = normalized["hsn_code"]
 
+        if "deliveryDate" in normalized and not normalized.get("delivery_date"):
+            normalized["delivery_date"] = normalized["deliveryDate"]
+
+        if "total_price" in normalized and not normalized.get("net_amount"):
+            normalized["net_amount"] = normalized["total_price"]
+        elif "totalPrice" in normalized and not normalized.get("net_amount"):
+            normalized["net_amount"] = normalized["totalPrice"]
+        if "net_amount" in normalized and not normalized.get("total_price"):
+            normalized["total_price"] = normalized["net_amount"]
+
         if "quantity" in normalized and normalized["quantity"] is not None:
             normalized["quantity"] = str(normalized["quantity"]).strip()
         if "unit_price" in normalized and normalized["unit_price"] is not None:
             normalized["unit_price"] = str(normalized["unit_price"]).strip()
         if "net_amount" in normalized and normalized["net_amount"] is not None:
             normalized["net_amount"] = str(normalized["net_amount"]).strip()
+        if "total_price" in normalized and normalized["total_price"] is not None:
+            normalized["total_price"] = str(normalized["total_price"]).strip()
 
         return normalized
 
@@ -202,6 +270,10 @@ class PurchaseOrderCreateSchema(Schema):
         required=False,
         allow_none=True,
         validate=validate.Range(min=1),
+    )
+    customer_name = fields.String(
+        required=False,
+        allow_none=True,
     )
     tender_id = fields.Integer(
         required=False,
@@ -248,6 +320,11 @@ class PurchaseOrderCreateSchema(Schema):
         required=False,
         allow_none=True,
     )
+    delivery_period = fields.String(
+        required=False,
+        allow_none=True,
+        validate=validate.Length(max=100),
+    )
     delivery_term = fields.String(
         required=False,
         allow_none=True,
@@ -280,6 +357,18 @@ class PurchaseOrderCreateSchema(Schema):
         places=2,
     )
     gst = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    gst_rate_pct = fields.Decimal(
+        required=False,
+        allow_none=True,
+        as_string=True,
+        places=2,
+    )
+    gst_pct = fields.Decimal(
         required=False,
         allow_none=True,
         as_string=True,
@@ -381,8 +470,20 @@ class PurchaseOrderCreateSchema(Schema):
             normalized["po_date"] = normalized["poDate"]
 
         # delivery_date / deliveryDate
-        if "deliveryDate" in normalized and not normalized.get("delivery_date"):
-            normalized["delivery_date"] = normalized["deliveryDate"]
+        resolved_del_date = (
+            normalized.get("delivery_date")
+            if normalized.get("delivery_date") is not None
+            else normalized.get("deliveryDate")
+        )
+        if resolved_del_date is not None and str(resolved_del_date).strip() != "":
+            normalized["delivery_date"] = resolved_del_date
+        elif "items" in normalized and isinstance(normalized["items"], list):
+            for it in normalized["items"]:
+                if isinstance(it, dict):
+                    it_del_date = it.get("delivery_date") or it.get("deliveryDate")
+                    if it_del_date is not None and str(it_del_date).strip() != "":
+                        normalized["delivery_date"] = it_del_date
+                        break
 
         # delivery_term / delivery_terms / deliveryTerm / deliveryTerms
         resolved_del_term = (
@@ -416,17 +517,30 @@ class PurchaseOrderCreateSchema(Schema):
         if "warrantyPeriod" in normalized and not normalized.get("warranty_period"):
             normalized["warranty_period"] = normalized["warrantyPeriod"]
 
-        # gst_rate / gst / gstRate
+        # gst_rate / gst / gst_rate_pct / gst_pct / gstRate / gstRatePct / gstPct
         resolved_gst = (
-            normalized.get("gst_rate")
+            normalized.get("gst_rate_pct")
+            if normalized.get("gst_rate_pct") is not None
+            else normalized.get("gstRatePct")
+            if normalized.get("gstRatePct") is not None
+            else normalized.get("gst_pct")
+            if normalized.get("gst_pct") is not None
+            else normalized.get("gstPct")
+            if normalized.get("gstPct") is not None
+            else normalized.get("gst_rate")
             if normalized.get("gst_rate") is not None
             else normalized.get("gstRate")
             if normalized.get("gstRate") is not None
+            else normalized.get("gst_percentage")
+            if normalized.get("gst_percentage") is not None
             else normalized.get("gst")
         )
-        if resolved_gst is not None:
-            normalized["gst_rate"] = str(resolved_gst).strip()
-            normalized["gst"] = str(resolved_gst).strip()
+        if resolved_gst is not None and str(resolved_gst).strip() != "":
+            gst_str = str(resolved_gst).strip()
+            normalized["gst_rate"] = gst_str
+            normalized["gst_rate_pct"] = gst_str
+            normalized["gst"] = gst_str
+            normalized["gst_pct"] = gst_str
 
         # gst_amount / gstAmount
         resolved_gst_amt = (
@@ -470,6 +584,7 @@ class PurchaseOrderUpdateSchema(Schema):
 
     project_id = fields.Integer(required=False, allow_none=True)
     customer_id = fields.Integer(required=False, allow_none=True)
+    customer_name = fields.String(required=False, allow_none=True)
     tender_id = fields.Integer(required=False, allow_none=True)
     poc_name = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
     email = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
@@ -486,6 +601,8 @@ class PurchaseOrderUpdateSchema(Schema):
     warranty_period = fields.String(required=False, allow_none=True, validate=validate.Length(max=100))
     gst_rate = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
     gst = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
+    gst_rate_pct = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
+    gst_pct = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
     gst_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
     total_net_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
     total_gross_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
@@ -531,8 +648,22 @@ class PurchaseOrderUpdateSchema(Schema):
             normalized["email"] = _clean_email(normalized["email"])
         if "poDate" in normalized and not normalized.get("po_date"):
             normalized["po_date"] = normalized["poDate"]
-        if "deliveryDate" in normalized and not normalized.get("delivery_date"):
-            normalized["delivery_date"] = normalized["deliveryDate"]
+
+        # delivery_date / deliveryDate
+        resolved_del_date = (
+            normalized.get("delivery_date")
+            if normalized.get("delivery_date") is not None
+            else normalized.get("deliveryDate")
+        )
+        if resolved_del_date is not None and str(resolved_del_date).strip() != "":
+            normalized["delivery_date"] = resolved_del_date
+        elif "items" in normalized and isinstance(normalized["items"], list):
+            for it in normalized["items"]:
+                if isinstance(it, dict):
+                    it_del_date = it.get("delivery_date") or it.get("deliveryDate")
+                    if it_del_date is not None and str(it_del_date).strip() != "":
+                        normalized["delivery_date"] = it_del_date
+                        break
 
         if "deliveryTerms" in normalized and not normalized.get("delivery_term"):
             normalized["delivery_term"] = normalized["deliveryTerms"]
@@ -551,16 +682,30 @@ class PurchaseOrderUpdateSchema(Schema):
         if "warrantyPeriod" in normalized and not normalized.get("warranty_period"):
             normalized["warranty_period"] = normalized["warrantyPeriod"]
 
+        # gst_rate / gst / gst_rate_pct / gst_pct / gstRate / gstRatePct / gstPct
         resolved_gst = (
-            normalized.get("gst_rate")
+            normalized.get("gst_rate_pct")
+            if normalized.get("gst_rate_pct") is not None
+            else normalized.get("gstRatePct")
+            if normalized.get("gstRatePct") is not None
+            else normalized.get("gst_pct")
+            if normalized.get("gst_pct") is not None
+            else normalized.get("gstPct")
+            if normalized.get("gstPct") is not None
+            else normalized.get("gst_rate")
             if normalized.get("gst_rate") is not None
             else normalized.get("gstRate")
             if normalized.get("gstRate") is not None
+            else normalized.get("gst_percentage")
+            if normalized.get("gst_percentage") is not None
             else normalized.get("gst")
         )
-        if resolved_gst is not None:
-            normalized["gst_rate"] = str(resolved_gst).strip()
-            normalized["gst"] = str(resolved_gst).strip()
+        if resolved_gst is not None and str(resolved_gst).strip() != "":
+            gst_str = str(resolved_gst).strip()
+            normalized["gst_rate"] = gst_str
+            normalized["gst_rate_pct"] = gst_str
+            normalized["gst"] = gst_str
+            normalized["gst_pct"] = gst_str
 
         resolved_gst_amt = (
             normalized.get("gst_amount")

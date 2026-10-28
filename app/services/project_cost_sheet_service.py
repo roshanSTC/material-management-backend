@@ -260,12 +260,65 @@ def serialize_cost_sheet_metadata(cost_sheet: CostSheet) -> dict:
     else:
         total_price_inr = float(total_price_inr)
 
+    try:
+        from app.services.attachment_service import list_attachments
+        attachments = list_attachments(entity_type="cost_sheet", entity_id=cost_sheet.id)
+        serialized_attachments = [
+            {
+                "id": a.id,
+                "entity_type": a.entity_type,
+                "entity_id": a.entity_id,
+                "file_name": a.file_name,
+                "storage_key": a.storage_key,
+                "content_type": a.content_type,
+                "file_size": a.file_size,
+                "uploaded_by": a.uploaded_by,
+                "created_at": a.created_at,
+            }
+            for a in attachments
+        ]
+    except Exception:
+        serialized_attachments = []
+
+    proj_title = None
+    if getattr(cost_sheet, "project", None) and cost_sheet.project:
+        proj_title = getattr(cost_sheet.project, "project_title", None) or getattr(cost_sheet.project, "title", None)
+    if not proj_title:
+        proj_title = cost_sheet.title
+
+    freight_rate = float(global_params.get("insuranceFreightRate", 0.0))
+    custom_duty_rate = float(global_params.get("defaultCustomsDutyRate", 0.0))
+    igst_rate = float(global_params.get("igstRate", 0.0))
+    transportation_rate = float(global_params.get("transportationRate", 0.0))
+    finance_charges_rate = float(global_params.get("financeChargesRate", 0.0))
+    margin_rate = float(global_params.get("marginRate", 0.0))
+    gst_rate = float(global_params.get("gstRate", 0.0))
+
     return {
         "id": cost_sheet.id,
         "project_id": cost_sheet.project_id,
         "product_id": cost_sheet.project_id,
         "versionNumber": cost_sheet.version_number,
         "title": cost_sheet.title,
+        "project_title": proj_title,
+        "total_amount_eur": float(column_totals.get("totalPriceEur", 0.0)),
+        "eur_to_inr_rate_prep": float(global_params.get("eurToInr", 1.0)),
+        "eur_to_inr_rate_buffer": float(global_params.get("eurToInrBuffer") or global_params.get("eur_to_inr_rate_buffer") or global_params.get("eurToInr", 1.0)),
+        "freight_insurance_pct": round(freight_rate * 100.0, 4) if freight_rate <= 1.0 else freight_rate,
+        "freight_insurance_amount": float(column_totals.get("insuranceFreightInr", 0.0)),
+        "custom_duty_pct": round(custom_duty_rate * 100.0, 4) if custom_duty_rate <= 1.0 else custom_duty_rate,
+        "custom_duty_amount": float(column_totals.get("customsDutyInr", 0.0)),
+        "igst_pct": round(igst_rate * 100.0, 4) if igst_rate <= 1.0 else igst_rate,
+        "igst_amount": float(column_totals.get("igstInr", 0.0)),
+        "transportation_pct": round(transportation_rate * 100.0, 4) if transportation_rate <= 1.0 else transportation_rate,
+        "transportation_amount": float(column_totals.get("transportationInr", 0.0)),
+        "finance_charges_pct": round(finance_charges_rate * 100.0, 4) if finance_charges_rate <= 1.0 else finance_charges_rate,
+        "finance_charges_amount": float(column_totals.get("financingChargesInr", 0.0)),
+        "margin_pct": round(margin_rate * 100.0, 4) if margin_rate <= 1.0 else margin_rate,
+        "margin_amount": float(column_totals.get("marginInr", 0.0)),
+        "gst_pct": round(gst_rate * 100.0, 4) if gst_rate <= 1.0 else gst_rate,
+        "gst_amount": float(output.get("totalGst", 0.0)) if isinstance(output, dict) else 0.0,
+        "attachments": serialized_attachments,
         "totalPriceInr": total_price_inr,
         "cumulativeProjectCostInr": cumulative_cost,
         "grandTotalInclGst": (
@@ -373,10 +426,42 @@ def serialize_latest_cost_sheet(cost_sheet: CostSheet) -> dict:
             Decimal(str(total_selling_excl)) * (Decimal("1") + Decimal(str(gst_rate)))
         )
 
+    column_totals = output.get("columnTotals", {}) if isinstance(output, dict) else {}
+    freight_rate = float(global_params.get("insuranceFreightRate", 0.0))
+    custom_duty_rate = float(global_params.get("defaultCustomsDutyRate", 0.0))
+    igst_rate_val = float(global_params.get("igstRate", 0.0))
+    transportation_rate = float(global_params.get("transportationRate", 0.0))
+    finance_charges_rate = float(global_params.get("financeChargesRate", 0.0))
+    margin_rate = float(global_params.get("marginRate", 0.0))
+
+    proj_title = None
+    if getattr(cost_sheet, "project", None) and cost_sheet.project:
+        proj_title = getattr(cost_sheet.project, "project_title", None) or getattr(cost_sheet.project, "title", None)
+    if not proj_title:
+        proj_title = cost_sheet.title
+
     return {
         "id": cost_sheet.id,
         "project_id": cost_sheet.project_id,
         "title": cost_sheet.title,
+        "project_title": proj_title,
+        "total_amount_eur": float(column_totals.get("totalPriceEur", 0.0)),
+        "eur_to_inr_rate_prep": float(global_params.get("eurToInr", 1.0)),
+        "eur_to_inr_rate_buffer": float(global_params.get("eurToInrBuffer") or global_params.get("eur_to_inr_rate_buffer") or global_params.get("eurToInr", 1.0)),
+        "freight_insurance_pct": round(freight_rate * 100.0, 4) if freight_rate <= 1.0 else freight_rate,
+        "freight_insurance_amount": float(column_totals.get("insuranceFreightInr", 0.0)),
+        "custom_duty_pct": round(custom_duty_rate * 100.0, 4) if custom_duty_rate <= 1.0 else custom_duty_rate,
+        "custom_duty_amount": float(column_totals.get("customsDutyInr", 0.0)),
+        "igst_pct": round(igst_rate_val * 100.0, 4) if igst_rate_val <= 1.0 else igst_rate_val,
+        "igst_amount": float(column_totals.get("igstInr", 0.0)),
+        "transportation_pct": round(transportation_rate * 100.0, 4) if transportation_rate <= 1.0 else transportation_rate,
+        "transportation_amount": float(column_totals.get("transportationInr", 0.0)),
+        "finance_charges_pct": round(finance_charges_rate * 100.0, 4) if finance_charges_rate <= 1.0 else finance_charges_rate,
+        "finance_charges_amount": float(column_totals.get("financingChargesInr", 0.0)),
+        "margin_pct": round(margin_rate * 100.0, 4) if margin_rate <= 1.0 else margin_rate,
+        "margin_amount": float(column_totals.get("marginInr", 0.0)),
+        "gst_pct": round(gst_rate * 100.0, 4) if gst_rate <= 1.0 else gst_rate,
+        "gst_amount": float(output.get("totalGst", 0.0)) if isinstance(output, dict) else 0.0,
         "sellingPriceExclGst": total_selling_excl,
         "sellingPriceInclGst": grand_total_incl,
         "gstRate": gst_rate,

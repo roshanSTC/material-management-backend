@@ -80,6 +80,7 @@ def _supplier_packing_list_response(packing_list):
         "items": [
             {
                 "id": item.id,
+                "sr_no": idx + 1,
                 "packing_list_id": item.packing_list_id,
                 "supplier_packing_list_id": item.packing_list_id,
                 "material_name": item.material_name or item.description,
@@ -97,7 +98,7 @@ def _supplier_packing_list_response(packing_list):
                 "total_weight": item.total_weight,
                 "created_at": item.created_at,
             }
-            for item in packing_list.items
+            for idx, item in enumerate(packing_list.items)
         ],
         "attachments": [
             {

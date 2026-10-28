@@ -363,6 +363,7 @@ class SupplierPackingListItemResponseSchema(Schema):
         unknown = EXCLUDE
 
     id = fields.Integer(required=True)
+    sr_no = fields.Integer(required=False, allow_none=True)
     packing_list_id = fields.Integer(required=True)
     supplier_packing_list_id = fields.Integer(dump_only=True)
     material_name = fields.String(allow_none=True)

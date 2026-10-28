@@ -340,6 +340,7 @@ class CustomerDeliveryPackingListItemUpdateSchema(Schema):
 
 class CustomerDeliveryPackingListItemResponseSchema(Schema):
     id = fields.Integer(dump_only=True)
+    sr_no = fields.Integer(dump_only=True)
     packing_list_id = fields.Integer(dump_only=True)
     material_name = fields.String(dump_only=True)
     material_description = fields.String(dump_only=True, attribute="material_name")

@@ -30,6 +30,11 @@ class BidSubmission(db.Model):
         nullable=True,
     )
 
+    tender_issue_date = db.Column(
+        db.Date,
+        nullable=True,
+    )
+
     submission_date = db.Column(
         db.DateTime,
         nullable=True,

@@ -88,10 +88,12 @@ def _customer_query_response(customer_query):
         "items": [
             {
                 "id": item.id,
+                "sr_no": idx,
+                "description": item.material_name,
                 "material_name": item.material_name,
                 "quantity": item.quantity,
             }
-            for item in customer_query.items
+            for idx, item in enumerate(customer_query.items, start=1)
         ],
 
         "attachments": [

@@ -52,15 +52,23 @@ def _supplier_invoice_response(invoice):
         entity_id=invoice.id,
     )
 
+    supplier_name = None
+    if getattr(invoice, "supplier", None) and invoice.supplier:
+        supplier_name = getattr(invoice.supplier, "supplier_name", None) or getattr(invoice.supplier, "name", None)
+    if not supplier_name and getattr(invoice, "project", None) and getattr(invoice.project, "supplier", None):
+        supplier_name = getattr(invoice.project.supplier, "supplier_name", None) or getattr(invoice.project.supplier, "name", None)
+
     return {
         "id": invoice.id,
         "project_id": invoice.project_id,
         "supplier_id": invoice.supplier_id,
+        "supplier_name": supplier_name,
         "invoice_no": invoice.invoice_no,
         "invoice_number": invoice.invoice_no,
         "invoice_date": invoice.invoice_date,
         "delivery_terms": invoice.delivery_terms,
         "delivery_term": invoice.delivery_terms,
+        "incoterms": invoice.delivery_terms,
         "delivery_period": invoice.delivery_period,
         "payment_terms": invoice.payment_terms,
         "payment_term": invoice.payment_terms,
@@ -78,6 +86,7 @@ def _supplier_invoice_response(invoice):
         "items": [
             {
                 "id": item.id,
+                "sr_no": idx + 1,
                 "supplier_invoice_id": item.supplier_invoice_id,
                 "material_name": item.material_name or item.description,
                 "description": item.description,
@@ -88,9 +97,10 @@ def _supplier_invoice_response(invoice):
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
                 "net_amount": item.net_amount,
+                "total_amount": item.net_amount,
                 "created_at": item.created_at,
             }
-            for item in invoice.items
+            for idx, item in enumerate(invoice.items)
         ],
         "attachments": [
             {

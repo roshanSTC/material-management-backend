@@ -70,6 +70,13 @@ def _customs_clearance_response(record):
         "igst_amount": record.igst_amount,
         "other_customs_charges": record.other_customs_charges,
         "total_customs_amount": record.total_customs_amount,
+        "freight_forwarder_name": record.cha_name,
+        "invoice_no": record.bill_of_entry_no,
+        "invoice_date": record.boe_date,
+        "invoice_amount": record.total_customs_amount,
+        "payment_date": record.duty_paid_date,
+        "payment_amount": record.duty_amount,
+        "items": [],
         "remarks": get_step_remarks_for_response(
             project_id=record.project_id,
             step_number=12,

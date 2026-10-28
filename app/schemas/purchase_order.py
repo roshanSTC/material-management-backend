@@ -646,14 +646,18 @@ class PurchaseOrderItemResponseSchema(Schema):
         unknown = EXCLUDE
 
     id = fields.Integer(required=True)
+    sr_no = fields.Integer(required=False, allow_none=True)
     purchase_order_id = fields.Integer(required=True)
     material_name = fields.String(allow_none=True)
     description = fields.String(required=True)
     hsn_code = fields.String(allow_none=True)
     hsn_sac = fields.String(allow_none=True, dump_only=True)
+    unit = fields.String(allow_none=True, dump_default="NOS")
     quantity = fields.Decimal(as_string=True, places=3, required=True)
     unit_price = fields.Decimal(as_string=True, places=2, allow_none=True)
     net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+    total_price = fields.Decimal(as_string=True, places=2, allow_none=True, dump_only=True)
+    delivery_date = fields.Date(allow_none=True)
     created_at = fields.DateTime(required=True)
 
 
@@ -664,6 +668,7 @@ class PurchaseOrderResponseSchema(Schema):
     id = fields.Integer(required=True)
     project_id = fields.Integer(required=True)
     customer_id = fields.Integer(required=True)
+    customer_name = fields.String(allow_none=True)
     tender_id = fields.Integer(allow_none=True)
     poc_name = fields.String(allow_none=True)
     email = fields.String(allow_none=True)
@@ -679,6 +684,7 @@ class PurchaseOrderResponseSchema(Schema):
     payment_term = fields.String(allow_none=True, dump_only=True)
     warranty_period = fields.String(allow_none=True)
     gst_rate = fields.Decimal(as_string=True, places=2, allow_none=True)
+    gst_rate_pct = fields.Decimal(as_string=True, places=2, allow_none=True, dump_only=True)
     gst = fields.Decimal(as_string=True, places=2, allow_none=True, dump_only=True)
     gst_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)

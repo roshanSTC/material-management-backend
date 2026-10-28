@@ -62,6 +62,9 @@ def _quotation_request_response(
         "quotation_requested_date": (
             quotation_request.quotation_requested_date
         ),
+        "request_date": (
+            quotation_request.quotation_requested_date
+        ),
         "rfq_date": (
             quotation_request.quotation_requested_date
         ),
@@ -83,10 +86,12 @@ def _quotation_request_response(
         "items": [
             {
                 "id": item.id,
+                "sr_no": idx,
+                "description": item.material_name,
                 "material_name": item.material_name,
                 "quantity": item.quantity,
             }
-            for item in quotation_request.items
+            for idx, item in enumerate(quotation_request.items, start=1)
         ],
 
         "attachments": [

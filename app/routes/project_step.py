@@ -399,6 +399,7 @@ def handle_add_project_step(*args, **kwargs):
     completed = ProjectStep.query.filter_by(
         project_id=project_id, status="completed"
     ).count()
+    project.progress_percentage = int((completed / total_steps) * 100) if total_steps > 0 else 0
     project.updated_at = datetime.utcnow()
 
     db.session.commit()
@@ -493,8 +494,13 @@ def handle_update_step(*args, **kwargs):
     step.updated_at = datetime.utcnow()
 
     # Recalculate project progress
+    total_steps = ProjectStep.query.filter_by(project_id=project_id).count()
+    completed = ProjectStep.query.filter_by(
+        project_id=project_id, status="completed"
+    ).count()
     project = db.session.get(Project, project_id)
     if project:
+        project.progress_percentage = int((completed / total_steps) * 100) if total_steps > 0 else 0
         project.updated_at = datetime.utcnow()
 
     db.session.commit()
@@ -588,6 +594,9 @@ def handle_delete_step(project_id: int, step_id: int):
             s.step_order = idx
 
     if project:
+        total_steps = len(remaining)
+        completed = sum(1 for s in remaining if s.status == "completed")
+        project.progress_percentage = int((completed / total_steps) * 100) if total_steps > 0 else 0
         project.updated_at = datetime.utcnow()
 
     db.session.commit()

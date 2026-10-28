@@ -69,9 +69,37 @@ def _bill_of_entry_response(record):
         entity_id=record.id,
     )
 
+    from app.models import CustomsClearance, ImportLogistics
+    cc = CustomsClearance.query.filter_by(project_id=record.project_id).order_by(CustomsClearance.id.desc()).first()
+    il = ImportLogistics.query.filter_by(project_id=record.project_id).order_by(ImportLogistics.id.desc()).first()
+
+    logistic_mode = None
+    shipment_date = None
+    awb_bl_no = None
+    flight_vessel_name = None
+    flight_vessel_no = None
+    port_loading = None
+    port_discharge = None
+
+    if il:
+        logistic_mode = il.logistic_type
+        shipment_date = il.date
+        awb_bl_no = il.airway_bill_no if il.logistic_type == "air" else il.bill_of_lading_no
+        flight_vessel_name = il.flight_name if il.logistic_type == "air" else il.vessel_name
+        flight_vessel_no = il.flight_no if il.logistic_type == "air" else il.voyage_no
+        port_loading = il.airport_of_loading if il.logistic_type == "air" else il.port_of_loading
+        port_discharge = il.port_of_discharge
+
     return {
         "id": record.id,
         "project_id": record.project_id,
+        "logistic_mode": logistic_mode,
+        "shipment_date": shipment_date,
+        "awb_bl_no": awb_bl_no,
+        "flight_vessel_name": flight_vessel_name,
+        "flight_vessel_no": flight_vessel_no,
+        "port_loading": port_loading,
+        "port_discharge": port_discharge,
         "bill_of_entry_no": record.bill_of_entry_no,
         "bill_of_entry_number": record.bill_of_entry_no,
         "boe_no": record.bill_of_entry_no,
@@ -84,6 +112,11 @@ def _bill_of_entry_response(record):
         "basic_custom_duty_bcd": record.bcd,
         "sws": record.sws,
         "igst": record.igst,
+        "duty_paid_date": cc.duty_paid_date if cc else None,
+        "challan_no": cc.challan_no if cc else None,
+        "payment_ref_no": (cc.transaction_ref_no if cc else None),
+        "customs_location": cc.customs_location if cc else None,
+        "cfs_name": cc.cfs_name if cc else None,
         "total_duty": record.total_duty,
         "duty": record.total_duty,
         "duty_amount": record.total_duty,

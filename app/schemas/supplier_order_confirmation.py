@@ -829,6 +829,7 @@ class SupplierOrderConfirmationItemResponseSchema(Schema):
         unknown = EXCLUDE
 
     id = fields.Integer(required=True)
+    sr_no = fields.Integer(required=False, allow_none=True)
     supplier_order_confirmation_id = fields.Integer(required=True)
     material_name = fields.String(allow_none=True)
     description = fields.String(required=True)
@@ -849,6 +850,7 @@ class SupplierOrderConfirmationResponseSchema(Schema):
     id = fields.Integer(required=True)
     project_id = fields.Integer(required=True)
     supplier_id = fields.Integer(required=False, allow_none=True)
+    supplier_name = fields.String(allow_none=True)
     purchase_order_id = fields.Integer(allow_none=True)
     order_confirmation_date = fields.Date(required=True)
     confirmation_date = fields.Date(dump_only=True)

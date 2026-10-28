@@ -71,6 +71,7 @@ def _delivery_challan_response(delivery_challan):
         "items": [
             {
                 "id": item.id,
+                "sr_no": idx + 1,
                 "delivery_challan_id": item.delivery_challan_id,
                 "material_name": item.material_name,
                 "material_description": item.material_name,
@@ -86,7 +87,7 @@ def _delivery_challan_response(delivery_challan):
                 "created_at": item.created_at,
                 "updated_at": item.updated_at,
             }
-            for item in delivery_challan.items
+            for idx, item in enumerate(delivery_challan.items)
         ],
         "attachments": [
             {

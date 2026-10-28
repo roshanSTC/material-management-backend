@@ -59,10 +59,17 @@ def _order_confirmation_response(confirmation):
             entity_id=confirmation.id,
         )
 
+    supplier_name = None
+    if getattr(confirmation, "supplier", None) and confirmation.supplier:
+        supplier_name = getattr(confirmation.supplier, "supplier_name", None) or getattr(confirmation.supplier, "name", None)
+    if not supplier_name and getattr(confirmation, "project", None) and getattr(confirmation.project, "supplier", None):
+        supplier_name = getattr(confirmation.project.supplier, "supplier_name", None) or getattr(confirmation.project.supplier, "name", None)
+
     return {
         "id": confirmation.id,
         "project_id": confirmation.project_id,
         "supplier_id": confirmation.supplier_id,
+        "supplier_name": supplier_name,
         "purchase_order_id": confirmation.purchase_order_id,
         "order_confirmation_date": confirmation.order_confirmation_date,
         "confirmation_date": confirmation.order_confirmation_date,
@@ -93,6 +100,7 @@ def _order_confirmation_response(confirmation):
         "items": [
             {
                 "id": item.id,
+                "sr_no": idx + 1,
                 "order_confirmation_id": item.supplier_order_confirmation_id,
                 "supplier_order_confirmation_id": item.supplier_order_confirmation_id,
                 "material_name": item.material_name or item.description,
@@ -107,7 +115,7 @@ def _order_confirmation_response(confirmation):
                 "total_amount": item.net_amount,
                 "created_at": item.created_at,
             }
-            for item in confirmation.items
+            for idx, item in enumerate(confirmation.items)
         ],
         "attachments": [
             {

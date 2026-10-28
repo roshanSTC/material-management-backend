@@ -55,10 +55,19 @@ def _purchase_order_response(purchase_order):
         entity_type="purchase_order",
         entity_id=purchase_order.id,
     )
+    customer_name = None
+    if getattr(purchase_order, "customer", None) and purchase_order.customer:
+        customer_name = getattr(purchase_order.customer, "customer_name", None) or getattr(purchase_order.customer, "name", None)
+    if not customer_name and getattr(purchase_order, "project", None) and getattr(purchase_order.project, "customer", None):
+        customer_name = getattr(purchase_order.project.customer, "customer_name", None) or getattr(purchase_order.project.customer, "name", None)
+    if not customer_name:
+        customer_name = purchase_order.poc_name
+
     return {
         "id": purchase_order.id,
         "project_id": purchase_order.project_id,
         "customer_id": purchase_order.customer_id,
+        "customer_name": customer_name,
         "tender_id": purchase_order.tender_id,
         "poc_name": purchase_order.poc_name,
         "email": purchase_order.email,
@@ -74,6 +83,7 @@ def _purchase_order_response(purchase_order):
         "payment_term": purchase_order.payment_terms,
         "warranty_period": purchase_order.warranty_period,
         "gst_rate": purchase_order.gst_rate,
+        "gst_rate_pct": purchase_order.gst_rate,
         "gst": purchase_order.gst_rate,
         "gst_amount": purchase_order.gst_amount,
         "total_net_amount": purchase_order.total_net_amount,
@@ -89,17 +99,21 @@ def _purchase_order_response(purchase_order):
         "items": [
             {
                 "id": item.id,
+                "sr_no": idx + 1,
                 "purchase_order_id": item.purchase_order_id,
                 "material_name": item.material_name or item.description,
                 "description": item.description,
                 "hsn_code": item.hsn_code,
                 "hsn_sac": item.hsn_code,
+                "unit": getattr(item, "unit", None) or "NOS",
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
                 "net_amount": item.net_amount,
+                "total_price": item.net_amount,
+                "delivery_date": getattr(item, "delivery_date", None) or purchase_order.delivery_date,
                 "created_at": item.created_at,
             }
-            for item in purchase_order.items
+            for idx, item in enumerate(purchase_order.items)
         ],
         "attachments": [
             {

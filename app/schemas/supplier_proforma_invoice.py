@@ -209,6 +209,7 @@ class SupplierProformaInvoiceItemResponseSchema(Schema):
         unknown = EXCLUDE
 
     id = fields.Integer(required=True)
+    sr_no = fields.Integer(required=False, allow_none=True)
     proforma_invoice_id = fields.Integer(required=True)
     material_name = fields.String(allow_none=True)
     description = fields.String(required=True)
@@ -219,6 +220,7 @@ class SupplierProformaInvoiceItemResponseSchema(Schema):
     quantity = fields.Decimal(as_string=True, places=3, required=True)
     unit_price = fields.Decimal(as_string=True, places=2, required=True)
     net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+    total_amount = fields.Decimal(attribute="net_amount", as_string=True, places=2, allow_none=True, dump_only=True)
     created_at = fields.DateTime(required=True)
 
 
@@ -595,6 +597,7 @@ class SupplierProformaInvoiceResponseSchema(Schema):
     id = fields.Integer(required=True)
     project_id = fields.Integer(required=True)
     supplier_id = fields.Integer(required=True)
+    supplier_name = fields.String(allow_none=True)
     order_confirmation_id = fields.Integer(allow_none=True)
     proforma_invoice_no = fields.String(required=True)
     proforma_invoice_number = fields.String(dump_only=True)
@@ -602,6 +605,7 @@ class SupplierProformaInvoiceResponseSchema(Schema):
     invoice_date = fields.Date(dump_only=True)
     delivery_terms = fields.String(allow_none=True)
     delivery_term = fields.String(dump_only=True)
+    incoterms = fields.String(attribute="delivery_terms", dump_only=True)
     delivery_period = fields.String(allow_none=True)
     delivery_date = fields.Date(allow_none=True)
     payment_terms = fields.String(allow_none=True)

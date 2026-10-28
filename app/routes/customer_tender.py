@@ -58,10 +58,19 @@ def _customer_tender_response(customer_tender):
         entity_type="customer_tender",
         entity_id=customer_tender.id,
     )
+    customer_name = None
+    if getattr(customer_tender, "customer", None) and customer_tender.customer:
+        customer_name = getattr(customer_tender.customer, "customer_name", None) or getattr(customer_tender.customer, "name", None)
+    if not customer_name and getattr(customer_tender, "project", None) and getattr(customer_tender.project, "customer", None):
+        customer_name = getattr(customer_tender.project.customer, "customer_name", None) or getattr(customer_tender.project.customer, "name", None)
+    if not customer_name:
+        customer_name = customer_tender.officer_name
+
     return {
         "id": customer_tender.id,
         "project_id": customer_tender.project_id,
         "customer_id": customer_tender.customer_id,
+        "customer_name": customer_name,
         "officer_name": customer_tender.officer_name,
         "company_business_name": customer_tender.officer_name,
         "email": customer_tender.email,
@@ -70,7 +79,9 @@ def _customer_tender_response(customer_tender):
         "contact_number": customer_tender.contact_number,
         "tender_title": customer_tender.tender_title,
         "tender_number": customer_tender.tender_number,
+        "tender_no": customer_tender.tender_number,
         "tender_date": customer_tender.tender_date,
+        "tender_issue_date": customer_tender.tender_date,
         "opening_date_time": customer_tender.opening_date_time,
         "closing_date_time": customer_tender.closing_date_time,
         "tender_fee": customer_tender.tender_fee,
@@ -91,14 +102,16 @@ def _customer_tender_response(customer_tender):
         "items": [
             {
                 "id": item.id,
+                "sr_no": idx + 1,
                 "customer_tender_id": item.customer_tender_id,
                 "item_code": item.item_code,
                 "description": item.description,
                 "material_name": item.description,
+                "unit": getattr(item, "unit", None) or "NOS",
                 "quantity": item.quantity,
                 "created_at": item.created_at,
             }
-            for item in customer_tender.items
+            for idx, item in enumerate(customer_tender.items)
         ],
         "attachments": [
             {

@@ -52,9 +52,14 @@ def _customer_delivery_invoice_response(invoice):
         entity_type="customer_delivery_invoice",
         entity_id=invoice.id,
     )
+    customer_name = None
+    if getattr(invoice, "project", None) and getattr(invoice.project, "customer", None):
+        customer_name = getattr(invoice.project.customer, "customer_name", None) or getattr(invoice.project.customer, "name", None)
+
     return {
         "id": invoice.id,
         "project_id": invoice.project_id,
+        "customer_name": customer_name,
         "invoice_no": invoice.invoice_no,
         "invoice_number": invoice.invoice_no,
         "invoice_date": invoice.invoice_date,
@@ -73,9 +78,11 @@ def _customer_delivery_invoice_response(invoice):
         "items": [
             {
                 "id": item.id,
+                "sr_no": idx + 1,
                 "invoice_id": item.invoice_id,
                 "material_name": item.material_name,
                 "material_description": item.material_name,
+                "description": item.material_name,
                 "hsn_code": item.hsn_code,
                 "hsn_sac": item.hsn_code,
                 "quantity": item.quantity,
@@ -83,10 +90,11 @@ def _customer_delivery_invoice_response(invoice):
                 "rate_per_unit": item.unit_price,
                 "net_amount": item.net_amount,
                 "amount": item.net_amount,
+                "total_amount": item.net_amount,
                 "created_at": item.created_at,
                 "updated_at": item.updated_at,
             }
-            for item in invoice.items
+            for idx, item in enumerate(invoice.items)
         ],
         "attachments": [
             {

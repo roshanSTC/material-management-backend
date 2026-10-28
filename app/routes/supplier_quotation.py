@@ -50,16 +50,25 @@ def _supplier_quotation_response(supplier_quotation):
         entity_type="supplier_quotation",
         entity_id=supplier_quotation.id,
     )
+    supplier_name = None
+    if getattr(supplier_quotation, "supplier", None) and supplier_quotation.supplier:
+        supplier_name = getattr(supplier_quotation.supplier, "supplier_name", None) or getattr(supplier_quotation.supplier, "name", None)
+    if not supplier_name and getattr(supplier_quotation, "project", None) and getattr(supplier_quotation.project, "supplier", None):
+        supplier_name = getattr(supplier_quotation.project.supplier, "supplier_name", None) or getattr(supplier_quotation.project.supplier, "name", None)
+
     return {
         "id": supplier_quotation.id,
         "project_id": supplier_quotation.project_id,
         "supplier_id": supplier_quotation.supplier_id,
+        "supplier_name": supplier_name,
+        "quotation_no": supplier_quotation.quotation_number,
         "quotation_number": supplier_quotation.quotation_number,
         "quotation_date": supplier_quotation.quotation_date,
         "quotation_value": supplier_quotation.quotation_value,
         "total_net_amount": supplier_quotation.quotation_value,
         "currency_unit": supplier_quotation.currency_unit,
         "currency_symbol": supplier_quotation.currency_unit,
+        "quotation_validity": supplier_quotation.validity,
         "validity": supplier_quotation.validity,
         "incoterms": supplier_quotation.incoterms,
         "payment_terms": supplier_quotation.payment_terms,
@@ -76,13 +85,17 @@ def _supplier_quotation_response(supplier_quotation):
         "items": [
             {
                 "id": item.id,
+                "sr_no": idx + 1,
                 "material_name": item.material_name,
+                "description": item.material_name,
                 "hsn_code": item.hsn_code,
+                "hsn_sac": item.hsn_code,
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
                 "net_amount": item.net_amount,
+                "total_amount": item.net_amount,
             }
-            for item in supplier_quotation.items
+            for idx, item in enumerate(supplier_quotation.items)
         ],
         "attachments": [
             {

@@ -286,6 +286,10 @@ class BidSubmissionCreateSchema(Schema):
             _not_blank,
         ),
     )
+    tender_issue_date = fields.Raw(
+        required=False,
+        allow_none=True,
+    )
     submission_date = fields.Raw(
         required=False,
         allow_none=True,
@@ -418,17 +422,24 @@ class BidSubmissionCreateSchema(Schema):
         if val is not None and str(val).strip() != "":
             normalized["validity"] = str(val).strip()
 
-        # submission_date / bid_submission_date / tender_issue_date
+        # submission_date / bid_submission_date
         sub_date = (
             normalized.get("submission_date")
             or normalized.get("submissionDate")
             or normalized.get("bid_submission_date")
             or normalized.get("bidSubmissionDate")
-            or normalized.get("tender_issue_date")
-            or normalized.get("tenderIssueDate")
         )
         if sub_date is not None and str(sub_date).strip() != "":
             normalized["submission_date"] = sub_date
+
+        # tender_issue_date
+        t_issue_date = (
+            normalized.get("tender_issue_date")
+            or normalized.get("tenderIssueDate")
+            or normalized.get("tender_date")
+        )
+        if t_issue_date is not None and str(t_issue_date).strip() != "":
+            normalized["tender_issue_date"] = t_issue_date
 
         # gst_rate decimal / gst_pct
         gst = (
@@ -470,6 +481,7 @@ class BidSubmissionUpdateSchema(Schema):
     tender_id = fields.Integer(required=False, allow_none=True)
     tender_title = fields.String(required=False, allow_none=True)
     tender_number = fields.String(required=False, allow_none=True)
+    tender_issue_date = fields.Raw(required=False, allow_none=True)
     submission_date = fields.Raw(required=False, allow_none=True)
     delivery_term = fields.String(required=False, allow_none=True)
     delivery_period = fields.String(required=False, allow_none=True)
@@ -534,16 +546,24 @@ class BidSubmissionUpdateSchema(Schema):
         if val is not None and str(val).strip() != "":
             normalized["validity"] = str(val).strip()
 
+        # submission_date / bid_submission_date
         sub_date = (
             normalized.get("submission_date")
             or normalized.get("submissionDate")
             or normalized.get("bid_submission_date")
             or normalized.get("bidSubmissionDate")
-            or normalized.get("tender_issue_date")
-            or normalized.get("tenderIssueDate")
         )
         if sub_date is not None and str(sub_date).strip() != "":
             normalized["submission_date"] = sub_date
+
+        # tender_issue_date
+        t_issue_date = (
+            normalized.get("tender_issue_date")
+            or normalized.get("tenderIssueDate")
+            or normalized.get("tender_date")
+        )
+        if t_issue_date is not None and str(t_issue_date).strip() != "":
+            normalized["tender_issue_date"] = t_issue_date
 
         gst = (
             normalized.get("gst_rate")
@@ -599,12 +619,14 @@ class BidSubmissionItemResponseSchema(Schema):
         unknown = EXCLUDE
 
     id = fields.Integer(required=True)
+    sr_no = fields.Integer(allow_none=True)
     bid_submission_id = fields.Integer(required=True)
     description = fields.String(required=True)
     material_name = fields.String(attribute="description", required=True, dump_only=True)
     hsn_sac = fields.String(allow_none=True)
     unit_price = fields.Decimal(as_string=True, places=2, allow_none=True)
     quantity = fields.Decimal(as_string=True, places=3, required=True)
+    total_amount = fields.Decimal(attribute="net_total", as_string=True, places=2, allow_none=True, dump_only=True)
     net_total = fields.Decimal(as_string=True, places=2, allow_none=True)
     net_amount = fields.Decimal(attribute="net_total", as_string=True, places=2, allow_none=True, dump_only=True)
     created_at = fields.DateTime(required=True)
@@ -616,11 +638,16 @@ class BidSubmissionResponseSchema(Schema):
 
     id = fields.Integer(required=True)
     project_id = fields.Integer(required=True)
+    customer_name = fields.String(allow_none=True)
     tender_id = fields.Integer(allow_none=True)
     tender_title = fields.String(allow_none=True)
     tender_name = fields.String(attribute="tender_title", allow_none=True, dump_only=True)
-    submission_date = fields.Date(allow_none=True)
+    tender_no = fields.String(attribute="tender_number", allow_none=True, dump_only=True)
     tender_number = fields.String(required=True)
+    tender_issue_date = fields.String(allow_none=True)
+    total_no_corrigendum_issued = fields.Integer(allow_none=True)
+    submission_date = fields.Date(allow_none=True)
+    bid_submission_date = fields.Raw(attribute="submission_date", allow_none=True, dump_only=True)
     submission_number = fields.String(attribute="tender_number", allow_none=True, dump_only=True)
     delivery_term = fields.String(allow_none=True)
     delivery_terms = fields.String(attribute="delivery_term", allow_none=True, dump_only=True)
@@ -629,8 +656,10 @@ class BidSubmissionResponseSchema(Schema):
     payment_term = fields.String(allow_none=True)
     payment_terms = fields.String(attribute="payment_term", allow_none=True, dump_only=True)
     validity = fields.String(allow_none=True)
+    bid_validity = fields.String(attribute="validity", allow_none=True, dump_only=True)
     warranty_period = fields.String(allow_none=True)
     gst_rate = fields.Decimal(as_string=True, places=2, allow_none=True)
+    gst_pct = fields.Raw(attribute="gst_rate", allow_none=True, dump_only=True)
     remarks = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)

@@ -55,6 +55,27 @@ def _parse_datetime_val(val) -> datetime | None:
     return datetime.fromisoformat(s)
 
 
+def _parse_date_val(val) -> date | None:
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val.date()
+    if isinstance(val, date):
+        return val
+    s = str(val).strip()
+    if not s:
+        return None
+    if "T" in s:
+        try:
+            return datetime.fromisoformat(s.replace("Z", "+00:00")).date()
+        except Exception:
+            return None
+    try:
+        return date.fromisoformat(s)
+    except Exception:
+        return None
+
+
 def _parse_decimal_val(val) -> Decimal | None:
     if val is None:
         return None
@@ -95,12 +116,23 @@ def _replace_items(bid_submission: BidSubmission, items: list[dict]) -> None:
 
 
 def create_bid_submission(*, data: dict) -> BidSubmission:
+    t_issue_date = _parse_date_val(data.get("tender_issue_date") or data.get("tender_date"))
+    if t_issue_date is None and data.get("project_id"):
+        latest_tender = get_latest_customer_tender_for_project(data["project_id"])
+        if latest_tender and getattr(latest_tender, "tender_date", None):
+            t_issue_date = latest_tender.tender_date
+        elif latest_tender and getattr(latest_tender, "tender_issue_date", None):
+            t_issue_date = latest_tender.tender_issue_date
+    if t_issue_date is None and data.get("submission_date"):
+        t_issue_date = _parse_date_val(data.get("submission_date"))
+
     submission = BidSubmission(
         project_id=data["project_id"],
         tender_id=data.get("tender_id"),
         tender_title=_normalize_optional_string(
             data.get("tender_title") or data.get("tender_name")
         ),
+        tender_issue_date=t_issue_date,
         submission_date=_parse_datetime_val(data.get("submission_date")),
         tender_number=str(
             data.get("tender_number") or data.get("submission_number") or ""
@@ -179,6 +211,8 @@ def update_bid_submission(
         bid_submission.tender_title = _normalize_optional_string(
             data.get("tender_title") or data.get("tender_name")
         )
+    if "tender_issue_date" in data or "tender_date" in data:
+        bid_submission.tender_issue_date = _parse_date_val(data.get("tender_issue_date") or data.get("tender_date"))
     if "submission_date" in data:
         bid_submission.submission_date = _parse_datetime_val(data["submission_date"])
     if "tender_number" in data or "submission_number" in data:

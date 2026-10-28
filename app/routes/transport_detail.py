@@ -63,6 +63,7 @@ def _transport_detail_response(detail: TransportDetail) -> dict:
         .all()
     )
 
+    awb_val = detail.lr_no or detail.rr_no or detail.awb_no
     return {
         "id": detail.id,
         "project_id": detail.project_id,
@@ -70,13 +71,16 @@ def _transport_detail_response(detail: TransportDetail) -> dict:
         "transportation_mode": detail.transport_mode,
         "date": detail.date,
         "transport_date": detail.date,
+        "lr_rr_awb_date": detail.date,
         "from_location": detail.from_location,
         "to_location": detail.to_location,
         "lr_no": detail.lr_no,
         "lr_number": detail.lr_no,
         "rr_no": detail.rr_no,
         "awb_no": detail.awb_no,
+        "lr_rr_awb_no": awb_val,
         "transport_charges": detail.transport_charges,
+        "total_transportation_charges": detail.transport_charges,
         "remarks": get_step_remarks_for_response(
             project_id=detail.project_id,
             step_number=13,

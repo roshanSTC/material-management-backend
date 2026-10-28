@@ -180,12 +180,16 @@ class CustomerDeliveryInvoiceItemUpdateSchema(Schema):
 
 class CustomerDeliveryInvoiceItemResponseSchema(Schema):
     id = fields.Integer(dump_only=True)
+    sr_no = fields.Integer(dump_only=True)
     invoice_id = fields.Integer(dump_only=True)
     material_name = fields.String(dump_only=True)
+    description = fields.String(dump_only=True, attribute="material_name")
     hsn_code = fields.String(dump_only=True)
+    hsn_sac = fields.String(dump_only=True, attribute="hsn_code")
     quantity = fields.Decimal(dump_only=True, as_string=True, places=3)
     unit_price = fields.Decimal(dump_only=True, as_string=True, places=2)
     net_amount = fields.Decimal(dump_only=True, as_string=True, places=2)
+    total_amount = fields.Decimal(dump_only=True, attribute="net_amount", as_string=True, places=2)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
 
@@ -448,6 +452,7 @@ class CustomerDeliveryInvoiceUpdateSchema(Schema):
 class CustomerDeliveryInvoiceResponseSchema(Schema):
     id = fields.Integer(dump_only=True)
     project_id = fields.Integer(dump_only=True)
+    customer_name = fields.String(dump_only=True)
     invoice_no = fields.String(dump_only=True)
     invoice_number = fields.String(dump_only=True)
     invoice_date = fields.Date(dump_only=True)

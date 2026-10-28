@@ -73,6 +73,7 @@ def _customer_delivery_packing_list_response(packing_list):
         "items": [
             {
                 "id": item.id,
+                "sr_no": idx + 1,
                 "packing_list_id": item.packing_list_id,
                 "material_name": item.material_name,
                 "material_description": item.material_name,
@@ -88,7 +89,7 @@ def _customer_delivery_packing_list_response(packing_list):
                 "created_at": item.created_at,
                 "updated_at": item.updated_at,
             }
-            for item in packing_list.items
+            for idx, item in enumerate(packing_list.items)
         ],
         "attachments": [
             {

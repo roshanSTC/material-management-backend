@@ -59,10 +59,18 @@ def _customer_quotation_response(customer_quotation):
     quotation_number = (
         customer_quotation.quotation_number or customer_quotation.qo_number
     )
+    customer_name = None
+    if getattr(customer_quotation, "customer", None) and customer_quotation.customer:
+        customer_name = getattr(customer_quotation.customer, "customer_name", None) or getattr(customer_quotation.customer, "name", None)
+    if not customer_name and getattr(customer_quotation, "project", None) and getattr(customer_quotation.project, "customer", None):
+        customer_name = getattr(customer_quotation.project.customer, "customer_name", None) or getattr(customer_quotation.project.customer, "name", None)
+
     return {
         "id": customer_quotation.id,
         "project_id": customer_quotation.project_id,
         "customer_id": customer_quotation.customer_id,
+        "customer_name": customer_name,
+        "quotation_no": quotation_number,
         "quotation_number": quotation_number,
         "qo_number": quotation_number,
         "quotation_date": customer_quotation.quotation_date,
@@ -70,6 +78,7 @@ def _customer_quotation_response(customer_quotation):
         "currency_unit": customer_quotation.currency_unit,
         "currency_symbol": customer_quotation.currency_symbol,
         "total_net_amount": customer_quotation.total_net_amount,
+        "quotation_validity": customer_quotation.validity,
         "validity": customer_quotation.validity,
         "remarks": get_step_remarks_for_response(
             customer_quotation.project_id,
@@ -82,14 +91,18 @@ def _customer_quotation_response(customer_quotation):
         "items": [
             {
                 "id": item.id,
+                "sr_no": idx + 1,
                 "customer_quotation_id": item.customer_quotation_id,
                 "cost_sheet_item_id": item.cost_sheet_item_id,
                 "quotation_number": item.quotation_number,
                 "item_code": item.item_code,
                 "material_name": item.material_name,
+                "description": item.material_name or item.item_code,
+                "hsn_sac": getattr(item, "hsn_code", None) or getattr(item, "hsn_sac", None),
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
                 "net_amount": item.net_amount,
+                "total_amount": item.net_amount,
                 "customs_duty_rate": (
                     float(item.customs_duty_rate)
                     if item.customs_duty_rate is not None
@@ -97,7 +110,7 @@ def _customer_quotation_response(customer_quotation):
                 ),
                 "created_at": item.created_at,
             }
-            for item in customer_quotation.items
+            for idx, item in enumerate(customer_quotation.items)
         ],
         "attachments": [
             {

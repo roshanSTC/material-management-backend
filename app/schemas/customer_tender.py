@@ -412,10 +412,12 @@ class CustomerTenderItemResponseSchema(Schema):
         unknown = EXCLUDE
 
     id = fields.Integer(required=True)
+    sr_no = fields.Integer(required=False, allow_none=True)
     customer_tender_id = fields.Integer(required=True)
     item_code = fields.String(allow_none=True)
     description = fields.String(required=True)
     material_name = fields.String(attribute="description", required=True, dump_only=True)
+    unit = fields.String(required=False, allow_none=True, dump_default="NOS")
     quantity = fields.Decimal(as_string=True, places=3, required=True)
     created_at = fields.DateTime(required=True)
 
@@ -427,6 +429,7 @@ class CustomerTenderResponseSchema(Schema):
     id = fields.Integer(required=True)
     project_id = fields.Integer(required=True)
     customer_id = fields.Integer(allow_none=True)
+    customer_name = fields.String(allow_none=True)
     officer_name = fields.String(allow_none=True)
     company_business_name = fields.String(attribute="officer_name", allow_none=True, dump_only=True)
     email = fields.String(allow_none=True)
@@ -435,7 +438,9 @@ class CustomerTenderResponseSchema(Schema):
     contact_number = fields.String(allow_none=True)
     tender_title = fields.String(allow_none=True)
     tender_number = fields.String(required=True)
+    tender_no = fields.String(allow_none=True)
     tender_date = fields.Date(allow_none=True)
+    tender_issue_date = fields.Date(allow_none=True)
     opening_date_time = fields.DateTime(allow_none=True)
     closing_date_time = fields.DateTime(allow_none=True)
     tender_fee = fields.Decimal(as_string=True, places=2, allow_none=True)

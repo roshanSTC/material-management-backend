@@ -348,11 +348,15 @@ class SupplierQuotationItemResponseSchema(Schema):
         unknown = EXCLUDE
 
     id = fields.Integer(required=True)
+    sr_no = fields.Integer(required=False, allow_none=True)
     material_name = fields.String(required=True)
+    description = fields.String(required=False, allow_none=True)
     hsn_code = fields.String(required=False, allow_none=True)
+    hsn_sac = fields.String(required=False, allow_none=True)
     quantity = fields.Decimal(required=True, as_string=True, places=3)
     unit_price = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
     net_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
+    total_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
 
 
 class SupplierQuotationResponseSchema(Schema):
@@ -361,14 +365,17 @@ class SupplierQuotationResponseSchema(Schema):
 
     id = fields.Integer(required=True)
     project_id = fields.Integer(required=True)
-    supplier_id = fields.Integer(required=True)
+    supplier_id = fields.Integer(required=False, allow_none=True)
+    supplier_name = fields.String(required=False, allow_none=True)
     quotation_number = fields.String(required=True)
+    quotation_no = fields.String(required=False, allow_none=True)
     quotation_date = fields.Date(required=True)
     quotation_value = fields.Decimal(required=True, as_string=True, places=2)
     total_net_amount = fields.Decimal(allow_none=True, as_string=True, places=2)
     currency_unit = fields.String(allow_none=True)
     currency_symbol = fields.String(allow_none=True)
     validity = fields.String(allow_none=True)
+    quotation_validity = fields.String(allow_none=True)
     incoterms = fields.String(allow_none=True)
     payment_terms = fields.String(allow_none=True)
     delivery_period = fields.String(allow_none=True)

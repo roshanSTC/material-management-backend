@@ -62,10 +62,17 @@ def _proforma_invoice_response(invoice):
             entity_id=invoice.id,
         )
 
+    supplier_name = None
+    if getattr(invoice, "supplier", None) and invoice.supplier:
+        supplier_name = getattr(invoice.supplier, "supplier_name", None) or getattr(invoice.supplier, "name", None)
+    if not supplier_name and getattr(invoice, "project", None) and getattr(invoice.project, "supplier", None):
+        supplier_name = getattr(invoice.project.supplier, "supplier_name", None) or getattr(invoice.project.supplier, "name", None)
+
     return {
         "id": invoice.id,
         "project_id": invoice.project_id,
         "supplier_id": invoice.supplier_id,
+        "supplier_name": supplier_name,
         "order_confirmation_id": invoice.order_confirmation_id,
         "proforma_invoice_no": invoice.proforma_invoice_no,
         "proforma_invoice_number": invoice.proforma_invoice_no,
@@ -73,6 +80,7 @@ def _proforma_invoice_response(invoice):
         "invoice_date": invoice.proforma_invoice_date,
         "delivery_terms": invoice.delivery_terms,
         "delivery_term": invoice.delivery_terms,
+        "incoterms": invoice.delivery_terms,
         "delivery_period": invoice.delivery_period,
         "delivery_date": invoice.delivery_date,
         "payment_terms": invoice.payment_terms,
@@ -91,6 +99,7 @@ def _proforma_invoice_response(invoice):
         "items": [
             {
                 "id": item.id,
+                "sr_no": idx + 1,
                 "proforma_invoice_id": item.proforma_invoice_id,
                 "material_name": item.material_name or item.description,
                 "description": item.description,
@@ -101,9 +110,10 @@ def _proforma_invoice_response(invoice):
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
                 "net_amount": item.net_amount,
+                "total_amount": item.net_amount,
                 "created_at": item.created_at,
             }
-            for item in invoice.items
+            for idx, item in enumerate(invoice.items)
         ],
         "attachments": [
             {

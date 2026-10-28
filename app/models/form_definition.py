@@ -104,6 +104,11 @@ FORM_DEFINITIONS_SEED = [
     (24, 'FORM_24_DELIVERY_CHALLAN', 'Delivery Challan to Customer', 'Customer & Supplier Settlement', 'phase-4', 'pi pi-send', 'Dispatch challan with material items and consignee acknowledgement proof', True),
     (25, 'FORM_25_CUSTOMER_PACKING_LIST', 'Packing List to Customer', 'Customer & Supplier Settlement', 'phase-4', 'pi pi-box', 'Final packing list delivered to the customer with tare and box specifications', True),
     (26, 'FORM_26_TAX_INVOICE_CUSTOMER', 'Tax Invoice to Customer', 'Customer & Supplier Settlement', 'phase-4', 'pi pi-file', 'Final sales tax invoice billed to the customer for complete supply and service', True),
+
+    # 29..31: Additional Pre-Bidding & Tender Forms
+    (29, 'FORM_29_BID_DOC_TECHNO_COMMERCIAL', 'Bid Document (Techno-Commercial)', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-file-edit', 'Techno-commercial bid document submission, terms, corrigendum count, and items', True),
+    (30, 'FORM_30_TECHNO_COMMERCIAL_TENDER', 'Techno-Commercial Tender', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-briefcase', 'Techno-commercial tender enquiry terms, tender fee, EMD, schedule, and items', True),
+    (31, 'FORM_31_BID_DOC_LTE', 'Bid Document for LTE', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-book', 'Limited Tender Enquiry (LTE) bid document submission, terms, corrigendum, and items', True),
 ]
 
 

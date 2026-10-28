@@ -268,6 +268,27 @@ class Project(db.Model):
         lazy="select",
     )
 
+    bid_document_techno_commercials = db.relationship(
+        "BidDocumentTechnoCommercial",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    techno_commercial_tenders = db.relationship(
+        "TechnoCommercialTender",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    bid_document_ltes = db.relationship(
+        "BidDocumentLte",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
     steps = db.relationship(
         "ProjectStep",
         back_populates="project",

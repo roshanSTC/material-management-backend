@@ -61,6 +61,18 @@ from app.models.notification_award_item import NotificationAwardItem
 from app.models.consultancy_invoice import ConsultancyInvoice
 from app.models.expression_of_interest import ExpressionOfInterest
 from app.models.expression_of_interest_item import ExpressionOfInterestItem
+from app.models.bid_document_techno_commercial import (
+    BidDocumentTechnoCommercial,
+    BidDocumentTechnoCommercialItem,
+)
+from app.models.techno_commercial_tender import (
+    TechnoCommercialTender,
+    TechnoCommercialTenderItem,
+)
+from app.models.bid_document_lte import (
+    BidDocumentLte,
+    BidDocumentLteItem,
+)
 
 
 __all__ = [
@@ -126,4 +138,10 @@ __all__ = [
     "ConsultancyInvoice",
     "ExpressionOfInterest",
     "ExpressionOfInterestItem",
+    "BidDocumentTechnoCommercial",
+    "BidDocumentTechnoCommercialItem",
+    "TechnoCommercialTender",
+    "TechnoCommercialTenderItem",
+    "BidDocumentLte",
+    "BidDocumentLteItem",
 ]

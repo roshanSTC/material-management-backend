@@ -131,141 +131,158 @@ def sync_project_steps_from_records(project):
     Ensures that any forms created directly via their dedicated REST endpoints
     are reflected as completed steps in the project_steps table for this project.
     """
-    form_rel_map = FORM_REL_MAP
-
-    existing_steps = {s.form_code: s for s in project.steps if s.form_code}
-    max_order = max([s.step_order or s.step_number or 0 for s in project.steps], default=0)
-    max_step_num = max([s.step_number or 0 for s in project.steps], default=0)
-    changed = False
-    deleted_any = False
-
     try:
-        form_defs = {f.form_code: f for f in FormDefinition.query.filter_by(is_active=True).all()}
-    except Exception:
-        form_defs = {}
+        form_rel_map = FORM_REL_MAP
 
-    for form_code, attrs in form_rel_map:
-        has_record = False
-        if isinstance(attrs, list):
-            has_record = any(bool(getattr(project, a, None)) for a in attrs)
-        else:
-            has_record = bool(getattr(project, attrs, None))
+        existing_steps = {s.form_code: s for s in project.steps if s.form_code}
+        max_order = max([s.step_order or s.step_number or 0 for s in project.steps], default=0)
+        max_step_num = max([s.step_number or 0 for s in project.steps], default=0)
+        changed = False
+        deleted_any = False
 
-        if has_record:
-            if form_code in existing_steps:
-                step = existing_steps[form_code]
-                step_data = dict(step.data or {}) if isinstance(step.data, dict) else {}
-                step_data["_synced_from_record"] = True
-                step.data = step_data
-                if step.status != "completed" or step.progress_percentage != 100:
-                    step.status = "completed"
-                    step.progress_percentage = 100
-                    if not step.completed_at:
-                        step.completed_at = datetime.utcnow()
+        try:
+            form_defs = {f.form_code: f for f in FormDefinition.query.filter_by(is_active=True).all()}
+        except Exception:
+            db.session.rollback()
+            form_defs = {}
+
+        for form_code, attrs in form_rel_map:
+            has_record = False
+            try:
+                if isinstance(attrs, list):
+                    has_record = any(bool(getattr(project, a, None)) for a in attrs)
+                else:
+                    has_record = bool(getattr(project, attrs, None))
+            except Exception:
+                db.session.rollback()
+                has_record = False
+
+            if has_record:
+                if form_code in existing_steps:
+                    step = existing_steps[form_code]
+                    step_data = dict(step.data or {}) if isinstance(step.data, dict) else {}
+                    step_data["_synced_from_record"] = True
+                    step.data = step_data
+                    if step.status != "completed" or step.progress_percentage != 100:
+                        step.status = "completed"
+                        step.progress_percentage = 100
+                        if not step.completed_at:
+                            step.completed_at = datetime.utcnow()
+                        changed = True
+                else:
+                    fdef = form_defs.get(form_code)
+                    max_order += 1
+                    max_step_num = max(max_order, max_step_num) + 1
+                    new_step = ProjectStep(
+                        project_id=project.id,
+                        step_order=max_order,
+                        step_number=max_step_num,
+                        form_code=form_code,
+                        step_name=fdef.name if fdef else form_code,
+                        description=fdef.description if fdef else "",
+                        status="completed",
+                        progress_percentage=100,
+                        completed_at=datetime.utcnow(),
+                        data={"_auto_created": True, "_synced_from_record": True},
+                        created_at=datetime.utcnow(),
+                        updated_at=datetime.utcnow(),
+                    )
+                    db.session.add(new_step)
+                    existing_steps[form_code] = new_step
                     changed = True
             else:
-                fdef = form_defs.get(form_code)
-                max_order += 1
-                max_step_num = max(max_order, max_step_num) + 1
-                new_step = ProjectStep(
-                    project_id=project.id,
-                    step_order=max_order,
-                    step_number=max_step_num,
-                    form_code=form_code,
-                    step_name=fdef.name if fdef else form_code,
-                    description=fdef.description if fdef else "",
-                    status="completed",
-                    progress_percentage=100,
-                    completed_at=datetime.utcnow(),
-                    data={"_auto_created": True, "_synced_from_record": True},
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow(),
-                )
-                db.session.add(new_step)
-                existing_steps[form_code] = new_step
-                changed = True
-        else:
-            if form_code in existing_steps:
-                step = existing_steps[form_code]
-                step_data = dict(step.data or {}) if isinstance(step.data, dict) else {}
-                # Do not revert if the step was explicitly completed by user via Step API
-                if step_data.get("_manually_completed"):
-                    continue
+                if form_code in existing_steps:
+                    step = existing_steps[form_code]
+                    step_data = dict(step.data or {}) if isinstance(step.data, dict) else {}
+                    # Do not revert if the step was explicitly completed by user via Step API
+                    if step_data.get("_manually_completed"):
+                        continue
 
-                if step_data.get("_auto_created"):
-                    db.session.delete(step)
-                    del existing_steps[form_code]
+                    if step_data.get("_auto_created"):
+                        db.session.delete(step)
+                        del existing_steps[form_code]
+                        changed = True
+                        deleted_any = True
+                    else:
+                        if step.status == "completed" or (step.progress_percentage or 0) > 0:
+                            step.progress_percentage = 0
+                            step.completed_at = None
+                            step_data.pop("_synced_from_record", None)
+                            if step_data.get("_is_attached"):
+                                step.status = "in_progress"
+                                step.data = step_data
+                            else:
+                                step.status = "pending"
+                                step.data = {}
+                            changed = True
+
+        # Clean up legacy steps without a form_code
+        legacy_step_map = {
+            1: ("FORM_08_CUSTOMER_QUERY", "customer_queries"),
+            2: ("FORM_09_RFQ", "quotation_requests"),
+            3: ("FORM_11_SUPPLIER_QUOTATION", "supplier_quotations"),
+            4: ("FORM_10_COST_SHEET", "cost_sheets"),
+            5: ("FORM_12_CUSTOMER_QUOTATION", "customer_quotations"),
+            6: ("FORM_13_PAC_TENDER", "customer_tenders"),
+            7: ("FORM_15_BID_DOCUMENT", "bid_submissions"),
+            8: ("FORM_14_PURCHASE_ORDER", "purchase_orders"),
+            9: ("FORM_16_ORDER_CONFIRMATION", "supplier_order_confirmations"),
+            10: ("FORM_18_SUPPLIER_INVOICE", ["supplier_proforma_invoices", "supplier_invoices"]),
+            11: ("FORM_27_SHIPPING_CLEARANCE", ["import_logistics", "bills_of_entry"]),
+            12: ("FORM_28_FREIGHT_CHA", "customs_clearances"),
+            13: ("FORM_26_TAX_INVOICE_CUSTOMER", ["customer_delivery_invoices", "customer_delivery_packing_lists", "delivery_challans", "transport_details", "warranty_certificates"]),
+            14: ("FORM_22_PAYMENT_FROM_CUSTOMER", "customer_payments"),
+            15: ("FORM_20_PAYMENT_TO_SUPPLIER", "supplier_payments"),
+        }
+
+        for s in list(project.steps):
+            if not s.form_code:
+                legacy_info = legacy_step_map.get(s.step_number)
+                has_rec = False
+                if legacy_info:
+                    fcode, attrs = legacy_info
+                    try:
+                        if isinstance(attrs, list):
+                            has_rec = any(bool(getattr(project, a, None)) for a in attrs)
+                        else:
+                            has_rec = bool(getattr(project, attrs, None))
+                    except Exception:
+                        db.session.rollback()
+                        has_rec = False
+                    if has_rec and fcode and fcode not in existing_steps:
+                        s.form_code = fcode
+                        s.status = "completed"
+                        s.progress_percentage = 100
+                        existing_steps[fcode] = s
+                        changed = True
+                        continue
+                if not has_rec:
+                    db.session.delete(s)
                     changed = True
                     deleted_any = True
-                else:
-                    if step.status == "completed" or (step.progress_percentage or 0) > 0:
-                        step.progress_percentage = 0
-                        step.completed_at = None
-                        step_data.pop("_synced_from_record", None)
-                        if step_data.get("_is_attached"):
-                            step.status = "in_progress"
-                            step.data = step_data
-                        else:
-                            step.status = "pending"
-                            step.data = {}
-                        changed = True
 
-    # Clean up legacy steps without a form_code
-    legacy_step_map = {
-        1: ("FORM_08_CUSTOMER_QUERY", "customer_queries"),
-        2: ("FORM_09_RFQ", "quotation_requests"),
-        3: ("FORM_11_SUPPLIER_QUOTATION", "supplier_quotations"),
-        4: ("FORM_10_COST_SHEET", "cost_sheets"),
-        5: ("FORM_12_CUSTOMER_QUOTATION", "customer_quotations"),
-        6: ("FORM_13_PAC_TENDER", "customer_tenders"),
-        7: ("FORM_15_BID_DOCUMENT", "bid_submissions"),
-        8: ("FORM_14_PURCHASE_ORDER", "purchase_orders"),
-        9: ("FORM_16_ORDER_CONFIRMATION", "supplier_order_confirmations"),
-        10: ("FORM_18_SUPPLIER_INVOICE", ["supplier_proforma_invoices", "supplier_invoices"]),
-        11: ("FORM_27_SHIPPING_CLEARANCE", ["import_logistics", "bills_of_entry"]),
-        12: ("FORM_28_FREIGHT_CHA", "customs_clearances"),
-        13: ("FORM_26_TAX_INVOICE_CUSTOMER", ["customer_delivery_invoices", "customer_delivery_packing_lists", "delivery_challans", "transport_details", "warranty_certificates"]),
-        14: ("FORM_22_PAYMENT_FROM_CUSTOMER", "customer_payments"),
-        15: ("FORM_20_PAYMENT_TO_SUPPLIER", "supplier_payments"),
-    }
-
-    for s in list(project.steps):
-        if not s.form_code:
-            legacy_info = legacy_step_map.get(s.step_number)
-            has_rec = False
-            if legacy_info:
-                fcode, attrs = legacy_info
-                if isinstance(attrs, list):
-                    has_rec = any(bool(getattr(project, a, None)) for a in attrs)
-                else:
-                    has_rec = bool(getattr(project, attrs, None))
-                if has_rec and fcode and fcode not in existing_steps:
-                    s.form_code = fcode
-                    s.status = "completed"
-                    s.progress_percentage = 100
-                    existing_steps[fcode] = s
-                    changed = True
-                    continue
-            if not has_rec:
-                db.session.delete(s)
-                changed = True
-                deleted_any = True
-
-    if deleted_any:
-        db.session.flush()
-        remaining_steps = (
-            ProjectStep.query.filter_by(project_id=project.id)
-            .order_by(ProjectStep.step_order.asc(), ProjectStep.id.asc())
-            .all()
+        if deleted_any:
+            db.session.flush()
+            remaining_steps = (
+                ProjectStep.query.filter_by(project_id=project.id)
+                .order_by(ProjectStep.step_order.asc(), ProjectStep.id.asc())
+                .all()
+            )
+            for idx, s in enumerate(remaining_steps, start=1):
+                if s.step_order != idx:
+                    s.step_order = idx
+            project.updated_at = datetime.utcnow()
+            db.session.commit()
+        elif changed:
+            project.updated_at = datetime.utcnow()
+            db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.warning(
+            "Failed to sync project steps for project %s: %s",
+            getattr(project, "id", None),
+            exc,
         )
-        for idx, s in enumerate(remaining_steps, start=1):
-            if s.step_order != idx:
-                s.step_order = idx
-        project.updated_at = datetime.utcnow()
-        db.session.commit()
-    elif changed:
-        project.updated_at = datetime.utcnow()
-        db.session.commit()
 
 
 def handle_get_project_steps(project_id: int):

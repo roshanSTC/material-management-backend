@@ -2,6 +2,7 @@ from flask import current_app, jsonify
 from flask_jwt_extended import jwt_required
 from flask_smorest import Blueprint
 
+from app.extensions.database import db
 from app.models import (
     BidSubmission,
     CostSheet,
@@ -153,8 +154,9 @@ def _get_project_margin_info(project_id):
                                 margin_percentage = int(pct) if pct == int(pct) else pct
                         except (ValueError, TypeError):
                             pass
-    except Exception:
-        pass
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.warning("Failed to calculate margin info for project %s: %s", project_id, exc)
     return total_margin, margin_percentage
 
 
@@ -229,7 +231,7 @@ def _get_project_latest_items(project_id):
                     for item in cdpl.items
                 ]
     except Exception:
-        pass
+        db.session.rollback()
 
     # Step 10: Supplier Invoice / Packing List / Proforma
     try:
@@ -296,7 +298,7 @@ def _get_project_latest_items(project_id):
                     for item in spi.items
                 ]
     except Exception:
-        pass
+        db.session.rollback()
 
     # Step 9: Order Confirmation to Supplier
     try:
@@ -321,7 +323,7 @@ def _get_project_latest_items(project_id):
                     for item in soc.items
                 ]
     except Exception:
-        pass
+        db.session.rollback()
 
     # Step 8: Purchase Order (PO)
     try:
@@ -346,7 +348,7 @@ def _get_project_latest_items(project_id):
                     for item in po.items
                 ]
     except Exception:
-        pass
+        db.session.rollback()
 
     # Step 7: Bid Submission
     try:
@@ -371,7 +373,7 @@ def _get_project_latest_items(project_id):
                     for item in bs.items
                 ]
     except Exception:
-        pass
+        db.session.rollback()
 
     # Step 6: Customer Tender
     try:
@@ -396,7 +398,7 @@ def _get_project_latest_items(project_id):
                     for item in ct.items
                 ]
     except Exception:
-        pass
+        db.session.rollback()
 
     # Step 5: Customer Quotation
     try:
@@ -421,7 +423,7 @@ def _get_project_latest_items(project_id):
                     for item in cq.items
                 ]
     except Exception:
-        pass
+        db.session.rollback()
 
     # Step 4: Cost Sheet
     try:
@@ -446,7 +448,7 @@ def _get_project_latest_items(project_id):
                     for item in cs.items
                 ]
     except Exception:
-        pass
+        db.session.rollback()
 
     # Step 3: Supplier Quotation
     try:
@@ -471,7 +473,7 @@ def _get_project_latest_items(project_id):
                     for item in sq.items
                 ]
     except Exception:
-        pass
+        db.session.rollback()
 
     # Step 2: Request Supplier Quotation (RFQ)
     try:
@@ -496,7 +498,7 @@ def _get_project_latest_items(project_id):
                     for item in qr.items
                 ]
     except Exception:
-        pass
+        db.session.rollback()
 
     # Step 1: Customer Query
     try:
@@ -521,7 +523,7 @@ def _get_project_latest_items(project_id):
                     for item in c_query.items
                 ]
     except Exception:
-        pass
+        db.session.rollback()
 
     return None, None, []
 
@@ -547,8 +549,9 @@ def _project_summary_response(project):
     try:
         from app.routes.project_step import sync_project_steps_from_records
         sync_project_steps_from_records(project)
-    except Exception:
-        pass
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.warning("sync_project_steps_from_records failed for project %s: %s", getattr(project, "id", None), exc)
     steps = project.steps if hasattr(project, "steps") and project.steps else []
 
     saved_steps = [s for s in steps if getattr(s, "id", None) is not None]
@@ -598,8 +601,9 @@ def _project_summary_response(project):
             .order_by(PurchaseOrder.id.desc())
             .first()
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.warning("Failed to fetch po for project %s: %s", project.id, exc)
 
     if po and po.delivery_date:
         target_delivery_date = (
@@ -621,8 +625,9 @@ def _project_summary_response(project):
                     if hasattr(order_conf.expected_delivery_date, "isoformat")
                     else str(order_conf.expected_delivery_date)[:10]
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            db.session.rollback()
+            current_app.logger.warning("Failed to fetch order_conf for project %s: %s", project.id, exc)
 
     if not target_delivery_date:
         for s in reversed(steps):
@@ -670,8 +675,9 @@ def _project_summary_response(project):
                             total_value = net_sum
                     else:
                         total_value = net_sum
-        except Exception:
-            pass
+        except Exception as exc:
+            db.session.rollback()
+            current_app.logger.warning("Failed to fetch bid for project %s: %s", project.id, exc)
 
     # Priority 3: Quotation submitted to the customer
     if total_value is None:
@@ -688,8 +694,9 @@ def _project_summary_response(project):
                     total_value = float(cq.quotation_value)
                 if cq.currency_unit:
                     currency = cq.currency_unit
-        except Exception:
-            pass
+        except Exception as exc:
+            db.session.rollback()
+            current_app.logger.warning("Failed to fetch cq for project %s: %s", project.id, exc)
 
     # Priority 4: Default value - 0
     if total_value is not None:
@@ -728,7 +735,9 @@ def _project_summary_response(project):
                 customer_payment_status = "completed"
             elif paid_sum > 0:
                 customer_payment_status = "partial"
-    except Exception:
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.warning("Failed to fetch cust_payments for project %s: %s", project.id, exc)
         cust_payments = []
 
     if not cust_payments:
@@ -764,7 +773,9 @@ def _project_summary_response(project):
                 supplier_payment_status = "completed"
             elif paid_sum > 0:
                 supplier_payment_status = "partial"
-    except Exception:
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.warning("Failed to fetch supp_payments for project %s: %s", project.id, exc)
         supp_payments = []
 
     if not supp_payments:

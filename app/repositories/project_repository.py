@@ -1,4 +1,6 @@
 
+from sqlalchemy.orm import joinedload
+
 from app.extensions.database import db
 from app.models import Project
 
@@ -26,14 +28,25 @@ def create_project(
 
 
 def get_project(project_id: int) -> Project | None:
-    return db.session.get(Project, project_id)
+    return db.session.execute(
+        db.select(Project)
+        .options(
+            joinedload(Project.customer),
+            joinedload(Project.supplier),
+        )
+        .filter_by(id=project_id)
+    ).scalars().first()
 
 
 def list_projects() -> list[Project]:
     return db.session.execute(
         db.select(Project)
+        .options(
+            joinedload(Project.customer),
+            joinedload(Project.supplier),
+        )
         .order_by(Project.id.desc())
-    ).scalars().all()
+    ).scalars().unique().all()
 
 
 def update_project(project: Project) -> Project:

@@ -185,6 +185,17 @@ class PreQualificationBidUpdateSchema(BasePhase1Schema):
 # =========================================================================
 # 2. BID DOCUMENT FOR PQB (FORM_02_PQB_BID_DOCUMENT)
 # =========================================================================
+class PqbBidDocumentItemSchema(BasePhase1Schema):
+    id = fields.Int(dump_only=True)
+    sr_no = FlexibleInt(allow_none=True)
+    description = fields.Str(allow_none=True)
+    material_name = fields.Str(allow_none=True)
+    hsn_sac = fields.Str(allow_none=True)
+    quantity = FlexibleFloat(allow_none=True)
+    unit_price = FlexibleFloat(allow_none=True)
+    total_amount = FlexibleFloat(allow_none=True)
+
+
 class PqbBidDocumentCreateSchema(BasePhase1Schema):
     project_id = FlexibleInt(required=True)
     pqb_title = fields.Str(allow_none=True)
@@ -193,8 +204,13 @@ class PqbBidDocumentCreateSchema(BasePhase1Schema):
     pqb_closing_date_time = FlexibleDateTime(allow_none=True)
     pqb_opening_date_time = FlexibleDateTime(allow_none=True)
     total_corrigendum_issued = FlexibleInt(allow_none=True)
+    total_no_corrigendum_issued = FlexibleInt(allow_none=True)
+    status = fields.Str(allow_none=True)
     remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
+    items = fields.List(fields.Nested(PqbBidDocumentItemSchema), allow_none=True)
+    form_code = fields.Str(allow_none=True)
+    attachments_count = FlexibleInt(allow_none=True)
 
 
 class PqbBidDocumentUpdateSchema(BasePhase1Schema):
@@ -204,8 +220,13 @@ class PqbBidDocumentUpdateSchema(BasePhase1Schema):
     pqb_closing_date_time = FlexibleDateTime(allow_none=True)
     pqb_opening_date_time = FlexibleDateTime(allow_none=True)
     total_corrigendum_issued = FlexibleInt(allow_none=True)
+    total_no_corrigendum_issued = FlexibleInt(allow_none=True)
+    status = fields.Str(allow_none=True)
     remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
+    items = fields.List(fields.Nested(PqbBidDocumentItemSchema), allow_none=True)
+    form_code = fields.Str(allow_none=True)
+    attachments_count = FlexibleInt(allow_none=True)
 
 
 # =========================================================================

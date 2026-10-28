@@ -52,7 +52,7 @@ from app.models.step_remark import StepRemark
 from app.models.form_definition import FormDefinition
 from app.models.pre_qualification_bid import PreQualificationBid
 from app.models.pre_qualification_bid_item import PreQualificationBidItem
-from app.models.pqb_bid_document import PqbBidDocument
+from app.models.pqb_bid_document import PqbBidDocument, PqbBidDocumentItem
 from app.models.corrigendum import Corrigendum
 from app.models.limited_tender_enquiry import LimitedTenderEnquiry
 from app.models.limited_tender_enquiry_item import LimitedTenderEnquiryItem
@@ -130,6 +130,7 @@ __all__ = [
     "PreQualificationBid",
     "PreQualificationBidItem",
     "PqbBidDocument",
+    "PqbBidDocumentItem",
     "Corrigendum",
     "LimitedTenderEnquiry",
     "LimitedTenderEnquiryItem",

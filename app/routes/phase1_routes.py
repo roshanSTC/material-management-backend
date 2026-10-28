@@ -17,6 +17,7 @@ from app.models import (
     NotificationAward,
     NotificationAwardItem,
     PqbBidDocument,
+    PqbBidDocumentItem,
     PreQualificationBid,
     PreQualificationBidItem,
     Project,
@@ -61,6 +62,13 @@ pqb_bid_document_bp = Blueprint(
     description="PQB Bid Documents APIs",
 )
 
+pqb_bid_document_singular_bp = Blueprint(
+    "pqb_bid_document_singular",
+    __name__,
+    url_prefix="/api/v1/pqb-bid-document",
+    description="PQB Bid Document APIs (Singular)",
+)
+
 corrigendum_bp = Blueprint(
     "corrigendums",
     __name__,
@@ -99,6 +107,7 @@ expression_of_interest_bp = Blueprint(
 PHASE1_BLUEPRINTS = [
     pre_qualification_bid_bp,
     pqb_bid_document_bp,
+    pqb_bid_document_singular_bp,
     corrigendum_bp,
     limited_tender_enquiry_bp,
     notification_award_bp,
@@ -132,8 +141,12 @@ def _extract_payload_and_files():
         else:
             raw_payload = request.form.to_dict()
 
-        if "file" in request.files:
-            files = request.files.getlist("file")
+        for key in ("file", "files", "attachments", "upload_bid_document", "upload_tender_document"):
+            if key in request.files:
+                files.extend(request.files.getlist(key))
+        for k in request.files:
+            if k not in ("file", "files", "attachments", "upload_bid_document", "upload_tender_document"):
+                files.extend(request.files.getlist(k))
     else:
         raw_payload = request.get_json(silent=True) or {}
 
@@ -194,6 +207,7 @@ def _serialize_attachments(entity_type: str, entity_id: int):
             "entity_id": a.entity_id,
             "upload_key": getattr(a, "upload_key", None),
             "file_name": a.file_name,
+            "filename": a.file_name,
             "file_size": a.to_dict()["file_size"] if hasattr(a, "to_dict") else a.file_size,
             "file_size_bytes": a.file_size,
             "storage_key": a.storage_key,
@@ -354,6 +368,7 @@ def delete_pqb(rec_id):
 # 2. BID DOCUMENT FOR PQB (FORM_02_PQB_BID_DOCUMENT)
 # =========================================================================
 def _serialize_pqb_doc(rec):
+    atts = _serialize_attachments("pqb_bid_document", rec.id)
     return {
         "id": rec.id,
         "project_id": rec.project_id,
@@ -366,14 +381,31 @@ def _serialize_pqb_doc(rec):
         "total_no_corrigendum_issued": rec.total_corrigendum_issued,
         "remark": rec.remark,
         "remarks": get_step_remarks_for_response(rec.project_id, 2, fallback_raw=rec.remark, entity_id=rec.id),
-        "attachments": _serialize_attachments("pqb_bid_document", rec.id),
+        "attachments": atts,
+        "attachments_count": len(atts),
+        "status": getattr(rec, "status", "completed") or "completed",
+        "form_code": "FORM_02_PQB_BID_DOCUMENT",
+        "items": [
+            {
+                "id": it.id,
+                "pqb_bid_document_id": it.pqb_bid_document_id,
+                "sr_no": it.sr_no,
+                "description": it.description,
+                "material_name": it.material_name or it.description,
+                "hsn_sac": it.hsn_sac,
+                "quantity": float(it.quantity) if it.quantity is not None else None,
+                "unit_price": float(it.unit_price) if it.unit_price is not None else None,
+                "total_amount": float(it.total_amount) if it.total_amount is not None else None,
+                "created_at": it.created_at.isoformat() if it.created_at else None,
+                "updated_at": it.updated_at.isoformat() if it.updated_at else None,
+            }
+            for it in (rec.items or [])
+        ],
         "created_at": rec.created_at.isoformat() if rec.created_at else None,
         "updated_at": rec.updated_at.isoformat() if rec.updated_at else None,
     }
 
 
-@pqb_bid_document_bp.get("")
-@jwt_required()
 def list_pqb_docs():
     project_id = request.args.get("project_id", type=int)
     query = PqbBidDocument.query
@@ -383,8 +415,6 @@ def list_pqb_docs():
     return jsonify([_serialize_pqb_doc(r) for r in records]), 200
 
 
-@pqb_bid_document_bp.get("/<int:rec_id>")
-@jwt_required()
 def get_pqb_doc(rec_id):
     rec = db.session.get(PqbBidDocument, rec_id)
     if not rec:
@@ -392,8 +422,6 @@ def get_pqb_doc(rec_id):
     return jsonify(_serialize_pqb_doc(rec)), 200
 
 
-@pqb_bid_document_bp.post("")
-@jwt_required()
 def create_pqb_doc():
     user_id = _get_user_id()
     try:
@@ -406,19 +434,38 @@ def create_pqb_doc():
     if not project:
         return _error("PROJECT_NOT_FOUND", f"Project {data['project_id']} not found.", 404)
 
+    items_data = data.pop("items", None) or []
     remarks_data = data.pop("remarks", None) or data.get("remark")
+
+    if "total_no_corrigendum_issued" in data and data["total_no_corrigendum_issued"] is not None:
+        if not data.get("total_corrigendum_issued"):
+            data["total_corrigendum_issued"] = data["total_no_corrigendum_issued"]
+
     rec = PqbBidDocument(**{k: v for k, v in data.items() if hasattr(PqbBidDocument, k)})
+    for idx, it in enumerate(items_data, start=1):
+        rec.items.append(PqbBidDocumentItem(
+            sr_no=it.get("sr_no") or idx,
+            description=it.get("description", ""),
+            material_name=it.get("material_name") or it.get("description", ""),
+            hsn_sac=it.get("hsn_sac"),
+            quantity=it.get("quantity"),
+            unit_price=it.get("unit_price"),
+            total_amount=it.get("total_amount") or ((float(it.get("unit_price") or 0) * float(it.get("quantity") or 0)) if it.get("unit_price") and it.get("quantity") else None),
+        ))
+
     db.session.add(rec)
     db.session.flush()
 
     _save_attachments(files, "pqb_bid_document", rec.id, user_id)
     _save_remarks(rec.project_id, 2, rec.id, remarks_data, user_id)
     db.session.commit()
+
+    from app.routes.project_step import sync_project_steps_from_records
+    sync_project_steps_from_records(project)
+
     return jsonify(_serialize_pqb_doc(rec)), 201
 
 
-@pqb_bid_document_bp.patch("/<int:rec_id>")
-@jwt_required()
 def update_pqb_doc(rec_id):
     user_id = _get_user_id()
     rec = db.session.get(PqbBidDocument, rec_id)
@@ -432,11 +479,30 @@ def update_pqb_doc(rec_id):
         return _error("VALIDATION_ERROR", err.messages, 422)
 
     remarks_data = data.pop("remarks", None) if "remarks" in data else data.get("remark")
+    items_data = data.pop("items", None)
+
+    if "total_no_corrigendum_issued" in data and data["total_no_corrigendum_issued"] is not None:
+        if not data.get("total_corrigendum_issued"):
+            data["total_corrigendum_issued"] = data["total_no_corrigendum_issued"]
+
     for k, v in data.items():
         if hasattr(rec, k):
             setattr(rec, k, v)
     if "bid_number" in data and data["bid_number"]:
         rec.pqb_no = data["bid_number"]
+
+    if items_data is not None:
+        rec.items.clear()
+        for idx, it in enumerate(items_data, start=1):
+            rec.items.append(PqbBidDocumentItem(
+                sr_no=it.get("sr_no") or idx,
+                description=it.get("description", ""),
+                material_name=it.get("material_name") or it.get("description", ""),
+                hsn_sac=it.get("hsn_sac"),
+                quantity=it.get("quantity"),
+                unit_price=it.get("unit_price"),
+                total_amount=it.get("total_amount") or ((float(it.get("unit_price") or 0) * float(it.get("quantity") or 0)) if it.get("unit_price") and it.get("quantity") else None),
+            ))
 
     _save_attachments(files, "pqb_bid_document", rec.id, user_id)
     if remarks_data is not None:
@@ -444,18 +510,43 @@ def update_pqb_doc(rec_id):
 
     rec.updated_at = datetime.utcnow()
     db.session.commit()
+
+    from app.routes.project_step import sync_project_steps_from_records
+    proj = db.session.get(Project, rec.project_id)
+    if proj:
+        sync_project_steps_from_records(proj)
+
     return jsonify(_serialize_pqb_doc(rec)), 200
 
 
-@pqb_bid_document_bp.delete("/<int:rec_id>")
-@jwt_required()
 def delete_pqb_doc(rec_id):
     rec = db.session.get(PqbBidDocument, rec_id)
     if not rec:
         return _error("NOT_FOUND", f"PqbBidDocument {rec_id} not found.", 404)
+    project_id = rec.project_id
+    atts = list_attachments(entity_type="pqb_bid_document", entity_id=rec_id)
+    for a in atts:
+        try:
+            delete_attachment(a.id)
+        except Exception:
+            pass
     db.session.delete(rec)
     db.session.commit()
+
+    from app.routes.project_step import sync_project_steps_from_records
+    proj = db.session.get(Project, project_id)
+    if proj:
+        sync_project_steps_from_records(proj)
+
     return jsonify({"success": True, "message": "PQB Bid document deleted successfully."}), 200
+
+
+for bp in (pqb_bid_document_bp, pqb_bid_document_singular_bp):
+    bp.route("", methods=["GET"])(jwt_required()(list_pqb_docs))
+    bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(get_pqb_doc))
+    bp.route("", methods=["POST"])(jwt_required()(create_pqb_doc))
+    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(jwt_required()(update_pqb_doc))
+    bp.route("/<int:rec_id>", methods=["DELETE"])(jwt_required()(delete_pqb_doc))
 
 
 # =========================================================================

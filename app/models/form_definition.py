@@ -69,7 +69,7 @@ class FormDefinition(db.Model):
 FORM_DEFINITIONS_SEED = [
     # 1..7: Pre-Bidding & Tenders (phase-1)
     (1, 'FORM_01_PQB', 'National Pre-Qualification Bid (PQB)', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-file-edit', 'Pre-qualification bid terms, submission schedule, supply locations, and requirements', True),
-    (2, 'FORM_02_PQB_BID_DOCUMENT', 'Bid Document for PQB', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-book', 'Documentation for PQB submission, dates, and recorded corrigendum count', False),
+    (2, 'FORM_02_PQB_BID_DOCUMENT', 'Bid Document for PQB', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-book', 'Documentation for PQB submission, dates, and recorded corrigendum count', True),
     (3, 'FORM_03_CORRIGENDUM', 'Corrigendum', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-sync', 'Corrigendum amendment notices issued against EOI, PQB, or Tender notices', False),
     (4, 'FORM_04_LTE', 'Limited Tender Enquiry (LTE)', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-briefcase', 'LTE invitation terms, tender fee, EMD amounts, deadlines, and item specifications', True),
     (5, 'FORM_05_NAC', 'Notification of Award of Contract (NAC)', 'Pre-Bidding & Tenders', 'phase-2', 'pi pi-verified', 'Formal contract award notice and itemized awarded material price breakdown', True),

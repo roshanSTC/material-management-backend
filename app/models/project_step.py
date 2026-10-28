@@ -114,6 +114,14 @@ class ProjectStep(db.Model):
             "status IN ('pending', 'in_progress', 'completed', 'skipped')",
             name="ck_project_step_status",
         ),
+        db.Index(
+            "uq_project_steps_project_form_code",
+            "project_id",
+            "form_code",
+            unique=True,
+            postgresql_where=db.text("form_code IS NOT NULL"),
+            sqlite_where=db.text("form_code IS NOT NULL"),
+        ),
     )
 
     def to_dict(self) -> dict:

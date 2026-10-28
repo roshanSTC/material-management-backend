@@ -137,7 +137,27 @@ def sync_project_steps_from_records(project):
     try:
         form_rel_map = FORM_REL_MAP
 
-        existing_steps = {s.form_code: s for s in project.steps if s.form_code}
+        # 1. Deduplicate any existing duplicate steps for the same form_code
+        steps_by_code = {}
+        for s in list(project.steps):
+            if s.form_code:
+                steps_by_code.setdefault(s.form_code, []).append(s)
+
+        existing_steps = {}
+        for fcode, slist in steps_by_code.items():
+            if len(slist) > 1:
+                # Keep best step: prefer completed, then earliest id
+                slist.sort(key=lambda x: (0 if x.status == "completed" else 1, x.id or 0))
+                primary = slist[0]
+                existing_steps[fcode] = primary
+                for dup in slist[1:]:
+                    db.session.delete(dup)
+                    if dup in project.steps:
+                        project.steps.remove(dup)
+                    changed = True
+                    deleted_any = True
+            else:
+                existing_steps[fcode] = slist[0]
         max_order = max([s.step_order or s.step_number or 0 for s in project.steps], default=0)
         max_step_num = max([s.step_number or 0 for s in project.steps], default=0)
         changed = False
@@ -346,6 +366,30 @@ def handle_add_project_step(*args, **kwargs):
                 "message": f"Form definition '{form_code}' does not exist.",
             },
         }, 400
+
+    # Prevent duplicates if a step with this form_code already exists for the project
+    existing_step = ProjectStep.query.filter_by(
+        project_id=project_id, form_code=form_code
+    ).first()
+    if existing_step:
+        if payload.get("step_name"):
+            existing_step.step_name = payload["step_name"]
+        if payload.get("description") is not None:
+            existing_step.description = payload["description"]
+        if payload.get("status"):
+            existing_step.status = payload["status"]
+            if payload["status"] == "completed":
+                existing_step.progress_percentage = 100
+                if not existing_step.completed_at:
+                    existing_step.completed_at = datetime.utcnow()
+        step_data = dict(existing_step.data or {}) if isinstance(existing_step.data, dict) else {}
+        step_data["_is_attached"] = True
+        if payload.get("status") == "completed":
+            step_data["_manually_completed"] = True
+        existing_step.data = step_data
+        existing_step.updated_at = datetime.utcnow()
+        db.session.commit()
+        return existing_step.to_dict(), 200
 
     step_name = payload.get("step_name") or form_def.name
     description = (

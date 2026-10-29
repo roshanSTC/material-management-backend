@@ -122,6 +122,7 @@ def create_app(config_class=Config):
     
     from app.routes.phase1_routes import PHASE1_BLUEPRINTS
     from app.routes.phase1_extra_routes import EXTRA_BLUEPRINTS
+    from app.routes.eway_bill import eway_bill_bp
     from app.routes.cost_sheet import cost_sheet_v1_bp, cost_sheet_v1_singular_bp
     from app.routes.bill_of_entry import bill_of_entry_alias_bp
 
@@ -162,6 +163,7 @@ def create_app(config_class=Config):
         api.register_blueprint(bp)
     for bp in EXTRA_BLUEPRINTS:
         api.register_blueprint(bp)
+    api.register_blueprint(eway_bill_bp)
     api.register_blueprint(cost_sheet_v1_bp)
     api.register_blueprint(cost_sheet_v1_singular_bp)
     api.register_blueprint(bill_of_entry_alias_bp)

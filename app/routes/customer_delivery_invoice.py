@@ -48,6 +48,7 @@ def _error(code: str, message: str, status: int):
 
 
 def _customer_delivery_invoice_response(invoice):
+    from decimal import Decimal
     attachments = list_attachments(
         entity_type="customer_delivery_invoice",
         entity_id=invoice.id,
@@ -55,6 +56,59 @@ def _customer_delivery_invoice_response(invoice):
     customer_name = None
     if getattr(invoice, "project", None) and getattr(invoice.project, "customer", None):
         customer_name = getattr(invoice.project.customer, "customer_name", None) or getattr(invoice.project.customer, "name", None)
+
+    items_list = []
+    items_net = Decimal("0.00")
+    for idx, item in enumerate(invoice.items or []):
+        qty = item.quantity
+        price = item.unit_price
+        net_amt = item.net_amount
+        if net_amt is None and qty is not None and price is not None:
+            try:
+                net_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
+            except Exception:
+                pass
+        if net_amt is not None:
+            try:
+                items_net += Decimal(str(net_amt))
+            except Exception:
+                pass
+        items_list.append({
+            "id": item.id,
+            "sr_no": idx + 1,
+            "invoice_id": item.invoice_id,
+            "material_name": item.material_name,
+            "material_description": item.material_name,
+            "description": item.material_name,
+            "hsn_code": item.hsn_code,
+            "hsn_sac": item.hsn_code,
+            "quantity": item.quantity,
+            "unit_price": item.unit_price,
+            "rate_per_unit": item.unit_price,
+            "net_amount": net_amt,
+            "amount": net_amt,
+            "total_amount": net_amt,
+            "created_at": item.created_at,
+            "updated_at": item.updated_at,
+        })
+
+    tot_gross = invoice.net_total
+    if tot_gross is None:
+        tot_gross = (items_net + Decimal(str(invoice.gst_amount or 0))).quantize(Decimal("0.01"))
+
+    remarks = get_step_remarks_for_response(
+        project_id=invoice.project_id,
+        step_number=26,
+        fallback_raw=invoice.remark,
+        entity_id=invoice.id,
+    )
+    if not remarks:
+        remarks = get_step_remarks_for_response(
+            project_id=invoice.project_id,
+            step_number=13,
+            fallback_raw=invoice.remark,
+            entity_id=invoice.id,
+        )
 
     return {
         "id": invoice.id,
@@ -64,38 +118,21 @@ def _customer_delivery_invoice_response(invoice):
         "invoice_number": invoice.invoice_no,
         "invoice_date": invoice.invoice_date,
         "gst_rate": invoice.gst_rate,
+        "gst_rate_pct": invoice.gst_rate,
+        "gst_pct": invoice.gst_rate,
         "gst_amount": invoice.gst_amount,
         "round_off": invoice.round_off,
-        "net_total": invoice.net_total,
-        "remarks": get_step_remarks_for_response(
-            project_id=invoice.project_id,
-            step_number=13,
-            fallback_raw=invoice.remark,
-            entity_id=invoice.id,
-        ),
+        "net_total": tot_gross,
+        "total_net_amount": items_net,
+        "total_gross_amount": tot_gross,
+        "total_amount": tot_gross,
+        "form_code": "FORM_26_TAX_INVOICE_CUSTOMER",
+        "status": "completed",
+        "attachments_count": len(attachments),
+        "remarks": remarks,
         "created_at": invoice.created_at,
         "updated_at": invoice.updated_at,
-        "items": [
-            {
-                "id": item.id,
-                "sr_no": idx + 1,
-                "invoice_id": item.invoice_id,
-                "material_name": item.material_name,
-                "material_description": item.material_name,
-                "description": item.material_name,
-                "hsn_code": item.hsn_code,
-                "hsn_sac": item.hsn_code,
-                "quantity": item.quantity,
-                "unit_price": item.unit_price,
-                "rate_per_unit": item.unit_price,
-                "net_amount": item.net_amount,
-                "amount": item.net_amount,
-                "total_amount": item.net_amount,
-                "created_at": item.created_at,
-                "updated_at": item.updated_at,
-            }
-            for idx, item in enumerate(invoice.items)
-        ],
+        "items": items_list,
         "attachments": [
             {
                 "id": attachment.id,
@@ -233,7 +270,13 @@ def _handle_create_customer_delivery_invoice():
                 storage_keys.append(storage_key)
 
         db.session.commit()
-        return _customer_delivery_invoice_response(invoice), 201
+        resp = _customer_delivery_invoice_response(invoice)
+        try:
+            from app.routes.eway_bill import _sync_step
+            _sync_step(invoice.project_id, "FORM_26_TAX_INVOICE_CUSTOMER", raw_payload.get("status") or "completed", resp)
+        except Exception as exc:
+            current_app.logger.warning("Failed to sync FORM_26_TAX_INVOICE_CUSTOMER step: %s", exc)
+        return resp, 201
     except ProjectNotFoundError as exc:
         db.session.rollback()
         _cleanup_uploaded_files(storage_keys)
@@ -338,7 +381,13 @@ def _handle_update_customer_delivery_invoice(invoice_id: int):
                 storage_keys.append(storage_key)
 
         db.session.commit()
-        return _customer_delivery_invoice_response(invoice), 200
+        resp = _customer_delivery_invoice_response(invoice)
+        try:
+            from app.routes.eway_bill import _sync_step
+            _sync_step(invoice.project_id, "FORM_26_TAX_INVOICE_CUSTOMER", raw_payload.get("status") or "completed", resp)
+        except Exception as exc:
+            current_app.logger.warning("Failed to sync FORM_26_TAX_INVOICE_CUSTOMER step: %s", exc)
+        return resp, 200
     except CustomerDeliveryInvoiceNotFoundError as exc:
         db.session.rollback()
         _cleanup_uploaded_files(storage_keys)

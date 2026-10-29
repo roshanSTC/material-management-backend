@@ -73,6 +73,10 @@ from app.models.bid_document_lte import (
     BidDocumentLte,
     BidDocumentLteItem,
 )
+from app.models.eway_bill import (
+    EWayBill,
+    EWayBillItem,
+)
 
 
 __all__ = [
@@ -145,4 +149,6 @@ __all__ = [
     "TechnoCommercialTenderItem",
     "BidDocumentLte",
     "BidDocumentLteItem",
+    "EWayBill",
+    "EWayBillItem",
 ]

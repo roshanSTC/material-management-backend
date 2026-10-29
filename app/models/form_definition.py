@@ -109,6 +109,9 @@ FORM_DEFINITIONS_SEED = [
     (29, 'FORM_29_BID_DOC_TECHNO_COMMERCIAL', 'Bid Document (Techno-Commercial)', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-file-edit', 'Techno-commercial bid document submission, terms, corrigendum count, and items', True),
     (30, 'FORM_30_TECHNO_COMMERCIAL_TENDER', 'Techno-Commercial Tender', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-briefcase', 'Techno-commercial tender enquiry terms, tender fee, EMD, schedule, and items', True),
     (31, 'FORM_31_BID_DOC_LTE', 'Bid Document for LTE', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-book', 'Limited Tender Enquiry (LTE) bid document submission, terms, corrigendum, and items', True),
+
+    # 32: Logistics & Customs
+    (32, 'FORM_32_EWAY_BILL', 'E-Way Bill', 'Logistics & Customs', 'phase-3', 'pi pi-truck', 'Electronic waybill for transport of goods, route, and vehicle dispatch details', True),
 ]
 
 

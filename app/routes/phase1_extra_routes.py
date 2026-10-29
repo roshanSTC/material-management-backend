@@ -43,12 +43,6 @@ bid_document_techno_commercial_bp = Blueprint(
     description="Bid Document Techno-Commercial APIs",
 )
 
-bid_document_techno_commercial_plural_bp = Blueprint(
-    "bid_document_techno_commercial_plural",
-    __name__,
-    url_prefix="/api/v1/bid-document-techno-commercials",
-    description="Bid Document Techno-Commercials APIs (Plural)",
-)
 
 # 2. Techno-Commercial Tender
 techno_commercial_tender_bp = Blueprint(
@@ -58,12 +52,6 @@ techno_commercial_tender_bp = Blueprint(
     description="Techno-Commercial Tenders APIs",
 )
 
-techno_commercial_tender_singular_bp = Blueprint(
-    "techno_commercial_tender_singular",
-    __name__,
-    url_prefix="/api/v1/techno-commercial-tender",
-    description="Techno-Commercial Tender APIs (Singular)",
-)
 
 # 3. Bid Document LTE
 bid_document_lte_bp = Blueprint(
@@ -73,21 +61,12 @@ bid_document_lte_bp = Blueprint(
     description="Bid Document LTE APIs",
 )
 
-bid_document_lte_plural_bp = Blueprint(
-    "bid_document_lte_plural",
-    __name__,
-    url_prefix="/api/v1/bid-document-ltes",
-    description="Bid Document LTE APIs (Plural)",
-)
 
 
 EXTRA_BLUEPRINTS = [
     bid_document_techno_commercial_bp,
-    bid_document_techno_commercial_plural_bp,
     techno_commercial_tender_bp,
-    techno_commercial_tender_singular_bp,
     bid_document_lte_bp,
-    bid_document_lte_plural_bp,
 ]
 
 
@@ -424,7 +403,7 @@ def handle_delete_bid_doc_techno_commercial(rec_id: int):
 
 
 # Wire routes to blueprints
-for bp in (bid_document_techno_commercial_bp, bid_document_techno_commercial_plural_bp):
+for bp in (bid_document_techno_commercial_bp,):
     bp.route("", methods=["GET"])(jwt_required()(handle_get_bid_doc_techno_commercial))
     bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_bid_doc_techno_commercial))
     bp.route("", methods=["POST"])(jwt_required()(handle_create_bid_doc_techno_commercial))
@@ -619,7 +598,7 @@ def handle_delete_techno_commercial_tender(rec_id: int):
 
 
 # Wire routes to blueprints
-for bp in (techno_commercial_tender_bp, techno_commercial_tender_singular_bp):
+for bp in (techno_commercial_tender_bp,):
     bp.route("", methods=["GET"])(jwt_required()(handle_get_techno_commercial_tender))
     bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_techno_commercial_tender))
     bp.route("", methods=["POST"])(jwt_required()(handle_create_techno_commercial_tender))
@@ -839,7 +818,7 @@ def handle_delete_bid_doc_lte(rec_id: int):
 
 
 # Wire routes to blueprints
-for bp in (bid_document_lte_bp, bid_document_lte_plural_bp):
+for bp in (bid_document_lte_bp,):
     bp.route("", methods=["GET"])(jwt_required()(handle_get_bid_doc_lte))
     bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_bid_doc_lte))
     bp.route("", methods=["POST"])(jwt_required()(handle_create_bid_doc_lte))

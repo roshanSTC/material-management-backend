@@ -47,6 +47,7 @@ def create_app(config_class=Config):
     
     from app.routes.auth import auth_bp
     from app.routes.customer import customer_bp
+    from app.routes.location import location_bp
     from app.routes.supplier import supplier_bp
     from app.routes.project import project_bp
     from app.routes.customer_query import customer_query_bp
@@ -126,6 +127,7 @@ def create_app(config_class=Config):
 
     api.register_blueprint(auth_bp)
     api.register_blueprint(customer_bp)
+    api.register_blueprint(location_bp)
     api.register_blueprint(supplier_bp)
     api.register_blueprint(project_bp)
     api.register_blueprint(customer_query_bp)

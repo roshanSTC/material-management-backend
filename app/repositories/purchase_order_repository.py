@@ -291,34 +291,46 @@ def update_purchase_order(
         )
         purchase_order.gst_rate = _parse_decimal_val(gst_val)
 
-    if "total_net_amount" in data and data["total_net_amount"] is not None:
+    if "items" in data and data["items"] is not None:
+        _replace_items(purchase_order, data["items"])
+
+    # If items were provided and caller did not pass an explicit total_net_amount, recalculate from items
+    if ("items" in data and data["items"] is not None and ("total_net_amount" not in data or data.get("total_net_amount") is None)) or (
+        purchase_order.total_net_amount is None and purchase_order.items
+    ):
+        items_net = Decimal("0.00")
+        for it in purchase_order.items:
+            items_net += (it.net_amount or Decimal("0.00"))
+        purchase_order.total_net_amount = items_net.quantize(Decimal("0.01"))
+    elif "total_net_amount" in data and data["total_net_amount"] is not None:
         purchase_order.total_net_amount = _parse_decimal_val(data["total_net_amount"])
-    elif purchase_order.total_net_amount is None and data.get("items"):
-        tot = Decimal("0.00")
-        for it in data["items"]:
-            if isinstance(it, dict):
-                it_qty = _parse_decimal_val(it.get("quantity")) or Decimal("1")
-                it_price = _parse_decimal_val(it.get("unit_price")) or Decimal("0.00")
-                it_net = _parse_decimal_val(it.get("net_amount")) or _parse_decimal_val(it.get("total_price")) or (it_qty * it_price)
-                tot += it_net
-        purchase_order.total_net_amount = tot.quantize(Decimal("0.01"))
 
-    if "gst_amount" in data and data["gst_amount"] is not None:
+    # If items or gst were updated and caller did not pass an explicit gst_amount, recalculate
+    if ("items" in data and data["items"] is not None and ("gst_amount" not in data or data.get("gst_amount") is None)) or (
+        purchase_order.gst_amount is None and purchase_order.gst_rate is not None and purchase_order.total_net_amount is not None
+    ):
+        if purchase_order.gst_rate is not None and purchase_order.total_net_amount is not None:
+            purchase_order.gst_amount = (
+                purchase_order.total_net_amount * purchase_order.gst_rate / Decimal("100")
+            ).quantize(Decimal("0.01"))
+    elif "gst_amount" in data and data["gst_amount"] is not None:
         purchase_order.gst_amount = _parse_decimal_val(data["gst_amount"])
-    elif purchase_order.gst_rate is not None and purchase_order.total_net_amount is not None and purchase_order.gst_amount is None:
-        purchase_order.gst_amount = (purchase_order.total_net_amount * purchase_order.gst_rate / Decimal("100")).quantize(Decimal("0.01"))
 
-    if "total_gross_amount" in data and data["total_gross_amount"] is not None:
+    # If items were updated and caller did not pass an explicit total_gross_amount, recalculate
+    if ("items" in data and data["items"] is not None and ("total_gross_amount" not in data or data.get("total_gross_amount") is None)) or (
+        purchase_order.total_gross_amount is None and purchase_order.total_net_amount is not None
+    ):
+        if purchase_order.total_net_amount is not None:
+            purchase_order.total_gross_amount = (
+                purchase_order.total_net_amount + (purchase_order.gst_amount or Decimal("0.00"))
+            ).quantize(Decimal("0.01"))
+    elif "total_gross_amount" in data and data["total_gross_amount"] is not None:
         purchase_order.total_gross_amount = _parse_decimal_val(data["total_gross_amount"])
-    elif purchase_order.total_net_amount is not None and purchase_order.total_gross_amount is None:
-        purchase_order.total_gross_amount = (purchase_order.total_net_amount + (purchase_order.gst_amount or Decimal("0.00"))).quantize(Decimal("0.01"))
+
     if "remark" in data or "remarks" in data:
         purchase_order.remark = normalize_remark_for_db(
             data.get("remark") if "remark" in data else data.get("remarks")
         )
-
-    if "items" in data and data["items"] is not None:
-        _replace_items(purchase_order, data["items"])
 
     return purchase_order
 

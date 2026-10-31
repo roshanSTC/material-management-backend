@@ -129,24 +129,44 @@ DEFAULT_INDIAN_STATES = [
 ]
 
 
-def _get_db_distinct_locations() -> Dict[str, set]:
-    """Dynamically gathers distinct location values recorded in Supplier & Customer tables."""
+def _get_db_distinct_locations(
+    country: Optional[str] = None,
+    state: Optional[str] = None,
+) -> Dict[str, set]:
+    """Dynamically gathers distinct location values recorded in Supplier & Customer tables, scoped by country and state."""
     distinct = {"countries": set(), "states": set(), "cities": set()}
+    clean_country = (country or "").strip()
+    clean_state = (state or "").strip()
+
     try:
         from app.models.supplier import Supplier
         from app.models.customer import Customer
 
         for model in (Supplier, Customer):
-            for field, key in [
-                (model.country, "countries"),
-                (model.state, "states"),
-                (model.city, "cities"),
-            ]:
-                if hasattr(model, field.key):
-                    records = model.query.with_entities(field).filter(field.isnot(None)).distinct().all()
-                    for (val,) in records:
-                        if val and val.strip():
-                            distinct[key].add(val.strip())
+            # Only query distinct countries if no country filter is specified
+            if not clean_country:
+                records = model.query.with_entities(model.country).filter(model.country.isnot(None)).distinct().all()
+                for (val,) in records:
+                    if val and val.strip():
+                        distinct["countries"].add(val.strip())
+
+            # Only query states matching the specified country (or all if country not specified)
+            state_query = model.query.with_entities(model.state).filter(model.state.isnot(None))
+            if clean_country:
+                state_query = state_query.filter(model.country.ilike(clean_country))
+            for (val,) in state_query.distinct().all():
+                if val and val.strip():
+                    distinct["states"].add(val.strip())
+
+            # Only query cities matching country and/or state
+            city_query = model.query.with_entities(model.city).filter(model.city.isnot(None))
+            if clean_country:
+                city_query = city_query.filter(model.country.ilike(clean_country))
+            if clean_state:
+                city_query = city_query.filter(model.state.ilike(clean_state))
+            for (val,) in city_query.distinct().all():
+                if val and val.strip():
+                    distinct["cities"].add(val.strip())
     except Exception as e:
         logger.debug(f"DB distinct locations query skipped: {e}")
 
@@ -224,8 +244,8 @@ def list_states(country: Optional[str] = None, search: Optional[str] = None) -> 
         if not states and clean_country.lower() in ("india", "bharat"):
             states = list(DEFAULT_INDIAN_STATES)
 
-        # Merge DB states
-        db_locs = _get_db_distinct_locations()
+        # Merge DB states for this specific country
+        db_locs = _get_db_distinct_locations(country=clean_country)
         for s in db_locs["states"]:
             if s not in states:
                 states.append(s)
@@ -285,8 +305,8 @@ def list_cities(
             except Exception as e:
                 logger.warning(f"Failed to fetch country cities for {clean_country}: {e}")
 
-        # Augment with any cities already present in DB
-        db_locs = _get_db_distinct_locations()
+        # Augment with any cities already present in DB for this specific country & state
+        db_locs = _get_db_distinct_locations(country=clean_country, state=clean_state)
         for db_city in db_locs["cities"]:
             if db_city not in cities:
                 cities.append(db_city)

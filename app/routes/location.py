@@ -46,7 +46,7 @@ def get_cities():
     country = request.args.get("country", "").strip() or None
     state = request.args.get("state", "").strip() or None
     search = request.args.get("search", "").strip() or request.args.get("q", "").strip() or None
-    limit = int(request.args.get("limit", 200))
+    limit = int(request.args.get("limit", 10000))
 
     cities = location_service.list_cities(
         country=country,
@@ -67,13 +67,15 @@ def get_cities():
 @location_bp.doc(description="Auto-resolve State and Country from City name")
 def lookup():
     city = request.args.get("city", "").strip()
+    country = request.args.get("country", "").strip() or None
+    state = request.args.get("state", "").strip() or None
     if not city:
         return {
             "success": False,
             "error": "City parameter is required"
         }, 400
 
-    match = location_service.lookup_location(city)
+    match = location_service.lookup_location(city, country=country, state=state)
     if not match:
         return {
             "success": False,

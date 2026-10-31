@@ -572,26 +572,40 @@ def _project_summary_response(project):
             curr_s = saved_steps[-1]
 
         current_step_number = curr_s.step_order or curr_s.step_number or 1
-        current_step_name = STEP_NAMES.get(current_step_number) or curr_s.step_name or f"Step {current_step_number}"
+        current_step_name = curr_s.step_name or STEP_NAMES.get(current_step_number) or f"Step {current_step_number}"
+        current_form_code = getattr(curr_s, "form_code", None)
     else:
         total_steps = 0
         completed_steps_count = 0
         progress_percentage = 0
         current_step_number = 0
         current_step_name = "No steps attached"
+        current_form_code = None
         in_progress_steps = []
         active_or_completed_steps = []
 
-    # Project overall status
-    if total_steps > 0 and completed_steps_count == total_steps:
+    # Project overall status in dynamic workflow:
+    # Only mark completed if all attached steps are completed AND a terminal settlement/delivery step is completed
+    terminal_form_codes = {
+        "FORM_20_PAYMENT_TO_SUPPLIER",
+        "FORM_22_PAYMENT_FROM_CUSTOMER",
+        "FORM_23_WARRANTY_CERTIFICATE",
+        "FORM_24_DELIVERY_CHALLAN",
+        "FORM_26_TAX_INVOICE_CUSTOMER",
+    }
+    has_terminal_step = any(
+        getattr(s, "form_code", None) in terminal_form_codes and s.status == "completed"
+        for s in saved_steps
+    )
+
+    if total_steps > 0 and completed_steps_count == total_steps and has_terminal_step:
         status = "completed"
     elif active_or_completed_steps:
         status = "in_progress"
     else:
         status = "pending"
 
-    next_action = STEP_NEXT_ACTIONS.get(current_step_number, "Review project status")
-
+    next_action = None
     # Target delivery date resolution
     target_delivery_date = None
     po = None
@@ -797,7 +811,9 @@ def _project_summary_response(project):
         "supplier_name": project.supplier.name if project.supplier else "",
         "current_step_number": current_step_number,
         "total_steps": total_steps,
+        "completed_steps_count": completed_steps_count,
         "current_step_name": current_step_name,
+        "current_form_code": current_form_code,
         "progress_percentage": progress_percentage,
         "status": status,
         "next_action": next_action,

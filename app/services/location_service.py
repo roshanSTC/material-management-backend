@@ -10,8 +10,36 @@ import logging
 import threading
 from typing import Any, Dict, List, Optional
 import requests
+import unicodedata
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_name(name: str) -> str:
+    """Strips combining diacritics/macrons (e.g. Kolhāpur -> Kolhapur) and strips whitespace."""
+    if not name:
+        return ""
+    nfkd = unicodedata.normalize("NFKD", name)
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).strip()
+
+
+def _deduplicate_names(names: List[str]) -> List[str]:
+    """
+    Normalizes names by stripping diacritical marks and deduplicating case-insensitively.
+    Prioritizes clean ASCII representation.
+    """
+    seen: Dict[str, str] = {}
+    for n in names:
+        if not n or not n.strip():
+            continue
+        cleaned = _normalize_name(n)
+        key = cleaned.lower()
+        if key not in seen:
+            seen[key] = cleaned
+        elif not any(ord(ch) > 127 for ch in cleaned):
+            # Prefer plain ASCII
+            seen[key] = cleaned
+    return sorted(list(seen.values()), key=lambda x: x.lower())
 
 # Dynamic In-Memory Cache
 _LOCK = threading.Lock()
@@ -153,7 +181,7 @@ def list_countries(search: Optional[str] = None) -> List[str]:
                 countries.append(c)
 
         # Clean and sort with India on top
-        unique = sorted(list(set(countries)), key=lambda x: x.lower())
+        unique = _deduplicate_names(countries)
         cached = ["India"] + [c for c in unique if c.lower() != "india"]
 
         with _LOCK:
@@ -161,8 +189,8 @@ def list_countries(search: Optional[str] = None) -> List[str]:
 
     result = cached
     if search and search.strip():
-        q = search.strip().lower()
-        result = [c for c in cached if q in c.lower()]
+        q = _normalize_name(search).lower()
+        result = [c for c in cached if q in _normalize_name(c).lower()]
 
     return result
 
@@ -202,14 +230,14 @@ def list_states(country: Optional[str] = None, search: Optional[str] = None) -> 
             if s not in states:
                 states.append(s)
 
-        cached_states = sorted(list(set(states)), key=lambda x: x.lower())
+        cached_states = _deduplicate_names(states)
         with _LOCK:
             _CACHE["states_by_country"][cache_key] = cached_states
 
     result = cached_states
     if search and search.strip():
-        q = search.strip().lower()
-        result = [s for s in cached_states if q in s.lower()]
+        q = _normalize_name(search).lower()
+        result = [s for s in cached_states if q in _normalize_name(s).lower()]
 
     return result
 
@@ -263,14 +291,14 @@ def list_cities(
             if db_city not in cities:
                 cities.append(db_city)
 
-        cached_cities = sorted(list(set(cities)), key=lambda x: x.lower())
+        cached_cities = _deduplicate_names(cities)
         with _LOCK:
             _CACHE["cities_by_state"][cache_key] = cached_cities
 
     result = cached_cities
     if search and search.strip():
-        q = search.strip().lower()
-        result = [c for c in cached_cities if q in c.lower()]
+        q = _normalize_name(search).lower()
+        result = [c for c in cached_cities if q in _normalize_name(c).lower()]
 
     if limit and isinstance(limit, int) and limit > 0:
         result = result[:limit]
@@ -278,16 +306,23 @@ def list_cities(
     return result
 
 
-def lookup_location(city: str) -> Optional[Dict[str, str]]:
+def lookup_location(
+    city: str,
+    country: Optional[str] = None,
+    state: Optional[str] = None,
+) -> Optional[Dict[str, str]]:
     """
     Dynamically resolves state and country for a given city name
     using OpenStreetMap Nominatim reverse lookup with English language response and caching.
+    Supports contextual country and state filtering and exact name matching.
     """
     if not city or not city.strip():
         return None
 
     clean_city = city.strip()
-    cache_key = clean_city.lower()
+    clean_country = (country or "").strip()
+    clean_state = (state or "").strip()
+    cache_key = f"{clean_city.lower()}|{clean_country.lower()}|{clean_state.lower()}"
 
     with _LOCK:
         if cache_key in _CACHE["lookups"]:
@@ -296,23 +331,92 @@ def lookup_location(city: str) -> Optional[Dict[str, str]]:
     # Try OpenStreetMap Nominatim live search in English
     resolved: Optional[Dict[str, str]] = None
     try:
+        params: Dict[str, Any] = {
+            "city": clean_city,
+            "format": "json",
+            "addressdetails": 1,
+            "limit": 10,
+        }
+        if clean_country:
+            params["country"] = clean_country
+        if clean_state:
+            params["state"] = clean_state
+
         resp = requests.get(
             "https://nominatim.openstreetmap.org/search",
-            params={"city": clean_city, "format": "json", "addressdetails": 1, "limit": 1},
+            params=params,
             headers={"User-Agent": "MaterialManagementBackend/1.0", "Accept-Language": "en"},
-            timeout=4,
+            timeout=5,
         )
         if resp.status_code == 200:
             results = resp.json()
             if results and len(results) > 0:
-                addr = results[0].get("address", {})
-                res_city = addr.get("city") or addr.get("town") or addr.get("village") or clean_city
-                res_state = addr.get("state") or addr.get("county") or ""
-                res_country = addr.get("country") or "India"
+                best_item = None
+                clean_city_lower = clean_city.lower()
+                clean_country_lower = clean_country.lower()
+
+                for item in results:
+                    addr = item.get("address", {})
+                    item_name = (item.get("name") or "").strip().lower()
+                    addr_city = (
+                        addr.get("city")
+                        or addr.get("town")
+                        or addr.get("village")
+                        or addr.get("municipality")
+                        or ""
+                    ).strip().lower()
+                    addr_country = (addr.get("country") or "").strip().lower()
+
+                    name_exact = (item_name == clean_city_lower or addr_city == clean_city_lower)
+                    country_matches = (
+                        not clean_country_lower
+                        or clean_country_lower == addr_country
+                        or clean_country_lower in addr_country
+                        or addr_country in clean_country_lower
+                    )
+
+                    if name_exact and country_matches:
+                        best_item = item
+                        break
+                    elif name_exact and not best_item:
+                        best_item = item
+                    elif country_matches and not best_item:
+                        best_item = item
+
+                if not best_item:
+                    best_item = results[0]
+
+                addr = best_item.get("address", {})
+                res_city = (
+                    addr.get("city")
+                    or addr.get("town")
+                    or addr.get("village")
+                    or addr.get("municipality")
+                    or best_item.get("name")
+                    or clean_city
+                )
+                res_country = addr.get("country") or clean_country or "India"
+                raw_state = (
+                    addr.get("state")
+                    or addr.get("state_district")
+                    or addr.get("county")
+                    or clean_state
+                )
+                res_state = raw_state
+                if res_country and raw_state:
+                    try:
+                        avail_states = list_states(res_country)
+                        for st in avail_states:
+                            if st.lower() in raw_state.lower() or raw_state.lower() in st.lower():
+                                res_state = st
+                                break
+                    except Exception:
+                        pass
+
                 resolved = {
-                    "city": res_city,
-                    "state": res_state,
-                    "country": res_country,
+                    "city": _normalize_name(res_city) or clean_city,
+                    "state": _normalize_name(res_state) or clean_state,
+                    "country": _normalize_name(res_country) or (clean_country or "India"),
                 }
     except Exception as e:
         logger.warning(f"Dynamic lookup failed for {clean_city}: {e}")
@@ -324,12 +428,15 @@ def lookup_location(city: str) -> Optional[Dict[str, str]]:
             from app.models.customer import Customer
 
             for model in (Supplier, Customer):
-                record = model.query.filter(model.city.ilike(clean_city)).first()
+                query = model.query.filter(model.city.ilike(clean_city))
+                if clean_country:
+                    query = query.filter(model.country.ilike(clean_country))
+                record = query.first()
                 if record and record.state:
                     resolved = {
                         "city": record.city or clean_city,
                         "state": record.state or "",
-                        "country": record.country or "India",
+                        "country": record.country or (clean_country or "India"),
                     }
                     break
         except Exception:

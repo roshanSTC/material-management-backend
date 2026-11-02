@@ -4,7 +4,12 @@ from flask_smorest import Blueprint
 
 from app.extensions.database import db
 from app.models import (
+    BidDocumentLte,
+    BidDocumentTechnoCommercial,
     BidSubmission,
+    BillOfEntry,
+    ConsultancyInvoice,
+    Corrigendum,
     CostSheet,
     CustomerDeliveryInvoice,
     CustomerDeliveryPackingList,
@@ -12,7 +17,14 @@ from app.models import (
     CustomerQuery,
     CustomerQuotation,
     CustomerTender,
+    CustomsClearance,
     DeliveryChallan,
+    EWayBill,
+    ExpressionOfInterest,
+    LimitedTenderEnquiry,
+    NotificationAward,
+    PqbBidDocument,
+    PreQualificationBid,
     PurchaseOrder,
     QuotationRequest,
     SupplierInvoice,
@@ -21,6 +33,9 @@ from app.models import (
     SupplierPayment,
     SupplierProformaInvoice,
     SupplierQuotation,
+    TechnoCommercialTender,
+    TransportDetail,
+    WarrantyCertificate,
 )
 from app.schemas.project import (
     ProjectCreateSchema,
@@ -81,7 +96,46 @@ STEP_NEXT_ACTIONS = {
     12: "Customer Invoice",
     13: "Customer Payment",
     14: "Payment to Supplier",
-    
+}
+
+LABEL_BY_KEY = {
+    "pqb_closing_date_time": "PQB Closed",
+    "pqb_closing_date": "PQB Closed",
+    "closing_date_time": "Closing Date",
+    "closing_date": "Closing Date",
+    "submission_deadline": "Due Date",
+    "due_date": "Due Date",
+    "delivery_date": "Delivery Date",
+    "expected_delivery_date": "Delivery Date",
+    "target_delivery_date": "Delivery Date",
+    "qo_date": "Query Date",
+    "query_date": "Query Date",
+    "quotation_requested_date": "RFQ Date",
+    "rfq_date": "RFQ Date",
+    "request_date": "RFQ Date",
+    "quotation_date": "Quotation Date",
+    "quote_date": "Quotation Date",
+    "cost_sheet_date": "Cost Sheet Date",
+    "po_date": "PO Date",
+    "order_confirmation_date": "Confirmation Date",
+    "proforma_invoice_date": "Proforma Date",
+    "invoice_date": "Invoice Date",
+    "delivery_challan_date": "Challan Date",
+    "challan_date": "Challan Date",
+    "packing_list_date": "Packing List Date",
+    "payment_date": "Payment Date",
+    "certificate_date": "Certificate Date",
+    "boe_date": "BOE Date",
+    "duty_paid_date": "Duty Paid Date",
+    "dispatch_date": "Dispatch Date",
+    "eway_bill_date": "E-Way Date",
+    "bid_submission_date": "Submission Date",
+    "submission_date": "Submission Date",
+    "tender_date": "Tender Date",
+    "tender_issue_date": "Tender Date",
+    "pqb_issuing_date": "PQB Issue Date",
+    "pqb_issue_date": "PQB Issue Date",
+    "issue_date": "Issue Date",
 }
 
 
@@ -528,8 +582,481 @@ def _get_project_latest_items(project_id):
     return None, None, []
 
 
+def _format_date_val(val):
+    if not val:
+        return None
+    if hasattr(val, "isoformat"):
+        return val.isoformat()
+    s = str(val).strip()
+    if not s or s.lower() in ("none", "null", "undefined"):
+        return None
+    return s
+
+
+def _get_step_item_date(project, step):
+    """
+    Extracts (formatted_date, date_label) for the step, e.g.:
+    - Customer Query: (qo_date, "Query Date")
+    - Quotations: (quotation_date, "Quotation Date")
+    - PQB: (pqb_closing_date_time, "PQB Closed")
+    - Purchase Order: (po_date, "PO Date") or (delivery_date, "Delivery Date")
+    - Invoices: (invoice_date, "Invoice Date")
+    - Payments: (payment_date, "Payment Date")
+    Explicitly does NOT use created_at / entry creation date.
+    """
+    if not step or not project:
+        return None, None
+
+    form_code = getattr(step, "form_code", None) or ""
+    step_num = getattr(step, "step_number", None) or getattr(step, "step_order", None)
+    step_data = getattr(step, "data", None)
+    if isinstance(step_data, str):
+        try:
+            import json
+            step_data = json.loads(step_data)
+        except Exception:
+            step_data = {}
+    if not isinstance(step_data, dict):
+        step_data = {}
+
+    form_code_upper = form_code.upper()
+
+    # 1. First check explicit business date keys in step.data (if step was saved via dynamic step API)
+    if "PQB" in form_code_upper:
+        priority_keys = [
+            "pqb_closing_date_time", "pqb_closing_date", "closing_date_time", "closing_date",
+            "submission_deadline", "pqb_issuing_date", "pqb_issue_date", "issue_date",
+            "pqb_opening_date_time", "opening_date_time"
+        ]
+    elif "QUERY" in form_code_upper or step_num == 1:
+        priority_keys = ["qo_date", "query_date", "date"]
+    elif "RFQ" in form_code_upper or step_num == 2:
+        priority_keys = ["quotation_requested_date", "rfq_date", "request_date", "date"]
+    elif "QUOTATION" in form_code_upper or step_num in (3, 5):
+        priority_keys = ["quotation_date", "quote_date", "valid_till", "validity_date", "date"]
+    elif "COST_SHEET" in form_code_upper or step_num == 4:
+        priority_keys = ["cost_sheet_date", "effective_date", "date"]
+    elif "TENDER" in form_code_upper or step_num == 6:
+        priority_keys = ["closing_date_time", "closing_date", "tender_date", "tender_issue_date", "opening_date_time", "date"]
+    elif "BID" in form_code_upper or step_num == 7:
+        priority_keys = ["bid_submission_date", "submission_date", "tender_issue_date", "bid_date", "date"]
+    elif "ORDER_CONFIRMATION" in form_code_upper or step_num == 9:
+        priority_keys = ["order_confirmation_date", "expected_delivery_date", "delivery_date", "date"]
+    elif "PROFORMA" in form_code_upper:
+        priority_keys = ["proforma_invoice_date", "invoice_date", "delivery_date", "date"]
+    elif "INVOICE" in form_code_upper or step_num in (10, 13):
+        priority_keys = ["invoice_date", "due_date", "date"]
+    elif "PACKING" in form_code_upper:
+        priority_keys = ["packing_list_date", "date"]
+    elif "PAYMENT" in form_code_upper or step_num in (14, 15):
+        priority_keys = ["payment_date", "date"]
+    elif "CHALLAN" in form_code_upper:
+        priority_keys = ["delivery_challan_date", "challan_date", "dispatch_date", "date"]
+    elif "WARRANTY" in form_code_upper:
+        priority_keys = ["certificate_date", "date"]
+    elif "SHIPPING" in form_code_upper or "CLEARANCE" in form_code_upper or step_num in (11, 12):
+        priority_keys = ["date", "bill_of_entry_date", "boe_date", "duty_paid_date"]
+    elif "PURCHASE_ORDER" in form_code_upper or step_num == 8:
+        priority_keys = ["po_date", "delivery_date", "due_date", "date"]
+    else:
+        priority_keys = [
+            "due_date", "closing_date_time", "closing_date", "quotation_date",
+            "invoice_date", "po_date", "payment_date", "date"
+        ]
+
+    for k in priority_keys:
+        val = step_data.get(k)
+        if val:
+            formatted = _format_date_val(val)
+            if formatted:
+                label = LABEL_BY_KEY.get(k, "Step Date")
+                return formatted, label
+
+    # 2. Check relational database records on project
+    try:
+        if form_code_upper == "FORM_08_CUSTOMER_QUERY" or step_num == 1:
+            cq = CustomerQuery.query.filter_by(project_id=project.id).order_by(CustomerQuery.id.desc()).first()
+            if cq and getattr(cq, "qo_date", None):
+                return _format_date_val(cq.qo_date), "Query Date"
+
+        elif form_code_upper == "FORM_09_RFQ" or step_num == 2:
+            rfq = QuotationRequest.query.filter_by(project_id=project.id).order_by(QuotationRequest.id.desc()).first()
+            if rfq and getattr(rfq, "quotation_requested_date", None):
+                return _format_date_val(rfq.quotation_requested_date), "RFQ Date"
+
+        elif form_code_upper == "FORM_11_SUPPLIER_QUOTATION" or step_num == 3:
+            sq = SupplierQuotation.query.filter_by(project_id=project.id).order_by(SupplierQuotation.id.desc()).first()
+            if sq:
+                if getattr(sq, "quotation_date", None):
+                    return _format_date_val(sq.quotation_date), "Quotation Date"
+                if getattr(sq, "valid_till", None):
+                    return _format_date_val(sq.valid_till), "Valid Till"
+
+        elif form_code_upper == "FORM_10_COST_SHEET" or step_num == 4:
+            cs = CostSheet.query.filter_by(project_id=project.id).order_by(CostSheet.version_number.desc(), CostSheet.id.desc()).first()
+            if cs:
+                gp = cs.global_params if isinstance(cs.global_params, dict) else {}
+                for k in ("date", "cost_sheet_date", "effective_date"):
+                    if gp.get(k):
+                        return _format_date_val(gp.get(k)), "Cost Sheet Date"
+
+        elif form_code_upper == "FORM_12_CUSTOMER_QUOTATION" or step_num == 5:
+            cq = CustomerQuotation.query.filter_by(project_id=project.id).order_by(CustomerQuotation.id.desc()).first()
+            if cq and getattr(cq, "quotation_date", None):
+                return _format_date_val(cq.quotation_date), "Quotation Date"
+
+        elif form_code_upper == "FORM_13_PAC_TENDER" or step_num == 6:
+            ct = CustomerTender.query.filter_by(project_id=project.id).order_by(CustomerTender.id.desc()).first()
+            if ct:
+                if getattr(ct, "closing_date_time", None):
+                    return _format_date_val(ct.closing_date_time), "Closing Date"
+                if getattr(ct, "tender_date", None):
+                    return _format_date_val(ct.tender_date), "Tender Date"
+                if getattr(ct, "opening_date_time", None):
+                    return _format_date_val(ct.opening_date_time), "Opening Date"
+
+        elif form_code_upper == "FORM_15_BID_DOCUMENT" or step_num == 7:
+            bs = BidSubmission.query.filter_by(project_id=project.id).order_by(BidSubmission.id.desc()).first()
+            if bs:
+                if getattr(bs, "submission_date", None):
+                    return _format_date_val(bs.submission_date), "Submission Date"
+                if getattr(bs, "tender_issue_date", None):
+                    return _format_date_val(bs.tender_issue_date), "Tender Date"
+
+        elif form_code_upper == "FORM_14_PURCHASE_ORDER" or step_num == 8:
+            po = PurchaseOrder.query.filter_by(project_id=project.id).order_by(PurchaseOrder.id.desc()).first()
+            if po:
+                if getattr(po, "delivery_date", None):
+                    return _format_date_val(po.delivery_date), "Delivery Date"
+                if getattr(po, "po_date", None):
+                    return _format_date_val(po.po_date), "PO Date"
+
+        elif form_code_upper == "FORM_16_ORDER_CONFIRMATION" or step_num == 9:
+            soc = SupplierOrderConfirmation.query.filter_by(project_id=project.id).order_by(SupplierOrderConfirmation.id.desc()).first()
+            if soc:
+                if getattr(soc, "expected_delivery_date", None):
+                    return _format_date_val(soc.expected_delivery_date), "Delivery Date"
+                if getattr(soc, "order_confirmation_date", None):
+                    return _format_date_val(soc.order_confirmation_date), "Confirmation Date"
+
+        elif form_code_upper == "FORM_18_SUPPLIER_INVOICE" or step_num == 10:
+            si = SupplierInvoice.query.filter_by(project_id=project.id).order_by(SupplierInvoice.id.desc()).first()
+            if si:
+                if getattr(si, "due_date", None):
+                    return _format_date_val(si.due_date), "Due Date"
+                if getattr(si, "invoice_date", None):
+                    return _format_date_val(si.invoice_date), "Invoice Date"
+            spi = SupplierProformaInvoice.query.filter_by(project_id=project.id).order_by(SupplierProformaInvoice.id.desc()).first()
+            if spi and getattr(spi, "proforma_invoice_date", None):
+                return _format_date_val(spi.proforma_invoice_date), "Proforma Date"
+
+        elif form_code_upper == "FORM_17_PROFORMA_INVOICE":
+            spi = SupplierProformaInvoice.query.filter_by(project_id=project.id).order_by(SupplierProformaInvoice.id.desc()).first()
+            if spi and getattr(spi, "proforma_invoice_date", None):
+                return _format_date_val(spi.proforma_invoice_date), "Proforma Date"
+
+        elif form_code_upper == "FORM_19_SUPPLIER_PACKING_LIST":
+            spl = SupplierPackingList.query.filter_by(project_id=project.id).order_by(SupplierPackingList.id.desc()).first()
+            if spl and getattr(spl, "packing_list_date", None):
+                return _format_date_val(spl.packing_list_date), "Packing List Date"
+
+        elif form_code_upper == "FORM_20_PAYMENT_TO_SUPPLIER" or step_num == 15:
+            sp = SupplierPayment.query.filter_by(project_id=project.id).order_by(SupplierPayment.id.desc()).first()
+            if sp and getattr(sp, "payment_date", None):
+                return _format_date_val(sp.payment_date), "Payment Date"
+
+        elif form_code_upper == "FORM_22_PAYMENT_FROM_CUSTOMER" or step_num == 14:
+            cp = CustomerPayment.query.filter_by(project_id=project.id).order_by(CustomerPayment.id.desc()).first()
+            if cp:
+                if getattr(cp, "payment_date", None):
+                    return _format_date_val(cp.payment_date), "Payment Date"
+                if getattr(cp, "invoice_date", None):
+                    return _format_date_val(cp.invoice_date), "Invoice Date"
+
+        elif form_code_upper == "FORM_23_WARRANTY_CERTIFICATE":
+            wc = WarrantyCertificate.query.filter_by(project_id=project.id).order_by(WarrantyCertificate.id.desc()).first()
+            if wc and getattr(wc, "certificate_date", None):
+                return _format_date_val(wc.certificate_date), "Certificate Date"
+
+        elif form_code_upper == "FORM_24_DELIVERY_CHALLAN":
+            dc = DeliveryChallan.query.filter_by(project_id=project.id).order_by(DeliveryChallan.id.desc()).first()
+            if dc and getattr(dc, "delivery_challan_date", None):
+                return _format_date_val(dc.delivery_challan_date), "Challan Date"
+
+        elif form_code_upper == "FORM_25_CUSTOMER_PACKING_LIST":
+            cpl = CustomerDeliveryPackingList.query.filter_by(project_id=project.id).order_by(CustomerDeliveryPackingList.id.desc()).first()
+            if cpl and getattr(cpl, "packing_list_date", None):
+                return _format_date_val(cpl.packing_list_date), "Packing List Date"
+
+        elif form_code_upper == "FORM_26_TAX_INVOICE_CUSTOMER" or step_num == 13:
+            cdi = CustomerDeliveryInvoice.query.filter_by(project_id=project.id).order_by(CustomerDeliveryInvoice.id.desc()).first()
+            if cdi:
+                if getattr(cdi, "due_date", None):
+                    return _format_date_val(cdi.due_date), "Due Date"
+                if getattr(cdi, "invoice_date", None):
+                    return _format_date_val(cdi.invoice_date), "Invoice Date"
+            dc = DeliveryChallan.query.filter_by(project_id=project.id).order_by(DeliveryChallan.id.desc()).first()
+            if dc and getattr(dc, "delivery_challan_date", None):
+                return _format_date_val(dc.delivery_challan_date), "Challan Date"
+
+        elif form_code_upper == "FORM_27_SHIPPING_CLEARANCE" or step_num == 11:
+            boe = BillOfEntry.query.filter_by(project_id=project.id).order_by(BillOfEntry.id.desc()).first()
+            if boe and getattr(boe, "date", None):
+                return _format_date_val(boe.date), "BOE Date"
+
+        elif form_code_upper == "FORM_28_FREIGHT_CHA" or step_num == 12:
+            cc = CustomsClearance.query.filter_by(project_id=project.id).order_by(CustomsClearance.id.desc()).first()
+            if cc:
+                if getattr(cc, "duty_paid_date", None):
+                    return _format_date_val(cc.duty_paid_date), "Duty Paid Date"
+                if getattr(cc, "boe_date", None):
+                    return _format_date_val(cc.boe_date), "BOE Date"
+
+        elif form_code_upper == "FORM_01_PQB":
+            pqb = PreQualificationBid.query.filter_by(project_id=project.id).order_by(PreQualificationBid.id.desc()).first()
+            if pqb:
+                if getattr(pqb, "pqb_closing_date_time", None):
+                    return _format_date_val(pqb.pqb_closing_date_time), "PQB Closed"
+                if getattr(pqb, "submission_deadline", None):
+                    return _format_date_val(pqb.submission_deadline), "Submission Deadline"
+                if getattr(pqb, "pqb_issuing_date", None):
+                    return _format_date_val(pqb.pqb_issuing_date), "PQB Issue Date"
+
+        elif form_code_upper == "FORM_02_PQB_BID_DOCUMENT":
+            pbd = PqbBidDocument.query.filter_by(project_id=project.id).order_by(PqbBidDocument.id.desc()).first()
+            if pbd:
+                if getattr(pbd, "pqb_closing_date_time", None):
+                    return _format_date_val(pbd.pqb_closing_date_time), "PQB Closed"
+                if getattr(pbd, "pqb_issue_date", None):
+                    return _format_date_val(pbd.pqb_issue_date), "PQB Issue Date"
+
+        elif form_code_upper == "FORM_03_CORRIGENDUM":
+            corr = Corrigendum.query.filter_by(project_id=project.id).order_by(Corrigendum.id.desc()).first()
+            if corr and getattr(corr, "issue_date", None):
+                return _format_date_val(corr.issue_date), "Issue Date"
+
+        elif form_code_upper == "FORM_04_LTE":
+            lte = LimitedTenderEnquiry.query.filter_by(project_id=project.id).order_by(LimitedTenderEnquiry.id.desc()).first()
+            if lte:
+                if getattr(lte, "closing_date_time", None):
+                    return _format_date_val(lte.closing_date_time), "Closing Date"
+                if getattr(lte, "issue_date", None):
+                    return _format_date_val(lte.issue_date), "Issue Date"
+
+        elif form_code_upper == "FORM_05_NAC":
+            nac = NotificationAward.query.filter_by(project_id=project.id).order_by(NotificationAward.id.desc()).first()
+            if nac:
+                if getattr(nac, "nac_date", None):
+                    return _format_date_val(nac.nac_date), "Award Date"
+
+        elif form_code_upper == "FORM_06_CONSULTANCY_INVOICE":
+            ci = ConsultancyInvoice.query.filter_by(project_id=project.id).order_by(ConsultancyInvoice.id.desc()).first()
+            if ci and getattr(ci, "invoice_date", None):
+                return _format_date_val(ci.invoice_date), "Invoice Date"
+
+        elif form_code_upper == "FORM_07_EOI":
+            eoi = ExpressionOfInterest.query.filter_by(project_id=project.id).order_by(ExpressionOfInterest.id.desc()).first()
+            if eoi:
+                if getattr(eoi, "closing_date", None):
+                    return _format_date_val(eoi.closing_date), "Closing Date"
+                if getattr(eoi, "issue_date", None):
+                    return _format_date_val(eoi.issue_date), "Issue Date"
+
+        elif form_code_upper == "FORM_29_BID_DOC_TECHNO_COMMERCIAL":
+            bdtc = BidDocumentTechnoCommercial.query.filter_by(project_id=project.id).order_by(BidDocumentTechnoCommercial.id.desc()).first()
+            if bdtc:
+                if getattr(bdtc, "bid_submission_date", None):
+                    return _format_date_val(bdtc.bid_submission_date), "Submission Date"
+                if getattr(bdtc, "tender_issue_date", None):
+                    return _format_date_val(bdtc.tender_issue_date), "Tender Date"
+
+        elif form_code_upper == "FORM_30_TECHNO_COMMERCIAL_TENDER":
+            tct = TechnoCommercialTender.query.filter_by(project_id=project.id).order_by(TechnoCommercialTender.id.desc()).first()
+            if tct:
+                if getattr(tct, "bid_submission_due_date_time", None):
+                    return _format_date_val(tct.bid_submission_due_date_time), "Due Date"
+                if getattr(tct, "tender_issue_date", None):
+                    return _format_date_val(tct.tender_issue_date), "Tender Date"
+
+        elif form_code_upper == "FORM_31_BID_DOC_LTE":
+            bdl = BidDocumentLte.query.filter_by(project_id=project.id).order_by(BidDocumentLte.id.desc()).first()
+            if bdl:
+                if getattr(bdl, "bid_submission_date", None):
+                    return _format_date_val(bdl.bid_submission_date), "Submission Date"
+
+        elif form_code_upper == "FORM_32_EWAY_BILL":
+            ewb = EWayBill.query.filter_by(project_id=project.id).order_by(EWayBill.id.desc()).first()
+            if ewb:
+                if getattr(ewb, "eway_bill_date", None):
+                    return _format_date_val(ewb.eway_bill_date), "E-Way Date"
+
+        elif form_code_upper == "FORM_21_TRANSPORTATION_DETAILS":
+            td = TransportDetail.query.filter_by(project_id=project.id).order_by(TransportDetail.id.desc()).first()
+            if td:
+                if getattr(td, "dispatch_date", None):
+                    return _format_date_val(td.dispatch_date), "Dispatch Date"
+                if getattr(td, "delivery_date", None):
+                    return _format_date_val(td.delivery_date), "Delivery Date"
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.warning("Error fetching step record date for project %s: %s", project.id, exc)
+
+    # 3. Fallback: inspect any key in step.data that looks like a business date (never created/updated/completed)
+    for k, v in step_data.items():
+        k_lower = str(k).lower()
+        if any(ign in k_lower for ign in ("created", "updated", "completed", "_auto", "_synced")):
+            continue
+        if "date" in k_lower or "deadline" in k_lower or "due" in k_lower or "time" in k_lower:
+            formatted = _format_date_val(v)
+            if formatted:
+                label = LABEL_BY_KEY.get(k_lower, "Step Date")
+                return formatted, label
+
+    return None, None
+
+
+def _get_project_fallback_item_date(project):
+    """
+    Checks all direct relational tables for any business date attached to this project.
+    """
+    try:
+        # 1. Purchase Orders
+        pos = getattr(project, "purchase_orders", None)
+        if pos:
+            for p in reversed(pos):
+                if getattr(p, "po_date", None):
+                    return _format_date_val(p.po_date), "PO Date"
+                if getattr(p, "delivery_date", None):
+                    return _format_date_val(p.delivery_date), "Delivery Date"
+
+        # 2. Customer Quotations
+        cqs = getattr(project, "customer_quotations", None)
+        if cqs:
+            for q in reversed(cqs):
+                if getattr(q, "quotation_date", None):
+                    return _format_date_val(q.quotation_date), "Quotation Date"
+
+        # 3. Supplier Quotations
+        sqs = getattr(project, "supplier_quotations", None)
+        if sqs:
+            for q in reversed(sqs):
+                if getattr(q, "quotation_date", None):
+                    return _format_date_val(q.quotation_date), "Quotation Date"
+
+        # 4. Pre-Qualification Bids
+        pqbs = getattr(project, "pre_qualification_bids", None)
+        if pqbs:
+            for b in reversed(pqbs):
+                if getattr(b, "pqb_closing_date_time", None):
+                    return _format_date_val(b.pqb_closing_date_time), "PQB Closed"
+                if getattr(b, "pqb_issuing_date", None):
+                    return _format_date_val(b.pqb_issuing_date), "PQB Issue Date"
+
+        # 5. Customer Tenders
+        cts = getattr(project, "customer_tenders", None)
+        if cts:
+            for t in reversed(cts):
+                if getattr(t, "closing_date_time", None):
+                    return _format_date_val(t.closing_date_time), "Closing Date"
+                if getattr(t, "tender_date", None):
+                    return _format_date_val(t.tender_date), "Tender Date"
+
+        # 6. Customer Queries
+        cqrys = getattr(project, "customer_queries", None)
+        if cqrys:
+            for q in reversed(cqrys):
+                if getattr(q, "qo_date", None):
+                    return _format_date_val(q.qo_date), "Query Date"
+
+        # 7. Quotation Requests (RFQ)
+        rfqs = getattr(project, "quotation_requests", None)
+        if rfqs:
+            for r in reversed(rfqs):
+                if getattr(r, "quotation_requested_date", None):
+                    return _format_date_val(r.quotation_requested_date), "RFQ Date"
+
+        # 8. Bid Submissions
+        bss = getattr(project, "bid_submissions", None)
+        if bss:
+            for b in reversed(bss):
+                if getattr(b, "submission_date", None):
+                    return _format_date_val(b.submission_date), "Submission Date"
+
+        # 9. Invoices
+        cdis = getattr(project, "customer_delivery_invoices", None)
+        if cdis:
+            for inv in reversed(cdis):
+                if getattr(inv, "invoice_date", None):
+                    return _format_date_val(inv.invoice_date), "Invoice Date"
+                if getattr(inv, "due_date", None):
+                    return _format_date_val(inv.due_date), "Due Date"
+
+        sis = getattr(project, "supplier_invoices", None)
+        if sis:
+            for inv in reversed(sis):
+                if getattr(inv, "invoice_date", None):
+                    return _format_date_val(inv.invoice_date), "Invoice Date"
+                if getattr(inv, "due_date", None):
+                    return _format_date_val(inv.due_date), "Due Date"
+
+        # 10. Challans
+        dcs = getattr(project, "delivery_challans", None)
+        if dcs:
+            for dc in reversed(dcs):
+                if getattr(dc, "delivery_challan_date", None):
+                    return _format_date_val(dc.delivery_challan_date), "Challan Date"
+
+        # 11. Payments
+        cps = getattr(project, "customer_payments", None)
+        if cps:
+            for cp in reversed(cps):
+                if getattr(cp, "payment_date", None):
+                    return _format_date_val(cp.payment_date), "Payment Date"
+
+        sps = getattr(project, "supplier_payments", None)
+        if sps:
+            for sp in reversed(sps):
+                if getattr(sp, "payment_date", None):
+                    return _format_date_val(sp.payment_date), "Payment Date"
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.warning("Failed _get_project_fallback_item_date for project %s: %s", getattr(project, "id", None), exc)
+
+    return None, None
+
+
 def _project_response(project):
     total_margin, margin_percentage = _get_project_margin_info(project.id)
+    steps = project.steps if hasattr(project, "steps") and project.steps else []
+    saved_steps = [s for s in steps if getattr(s, "id", None) is not None]
+    current_step_date = None
+    current_step_date_label = None
+    if saved_steps:
+        in_progress_steps = [s for s in saved_steps if s.status == "in_progress"]
+        active_or_completed_steps = [
+            s for s in saved_steps if s.status in ("in_progress", "completed")
+        ]
+        curr_s = in_progress_steps[0] if in_progress_steps else (active_or_completed_steps[-1] if active_or_completed_steps else saved_steps[-1])
+        current_step_date, current_step_date_label = _get_step_item_date(project, curr_s)
+        if not current_step_date and active_or_completed_steps:
+            for prev_s in reversed(active_or_completed_steps):
+                if prev_s != curr_s:
+                    prev_date, prev_label = _get_step_item_date(project, prev_s)
+                    if prev_date:
+                        current_step_date = prev_date
+                        current_step_date_label = prev_label
+                        break
+        if not current_step_date and saved_steps:
+            for prev_s in reversed(saved_steps):
+                if prev_s != curr_s:
+                    prev_date, prev_label = _get_step_item_date(project, prev_s)
+                    if prev_date:
+                        current_step_date = prev_date
+                        current_step_date_label = prev_label
+                        break
+    if not current_step_date:
+        current_step_date, current_step_date_label = _get_project_fallback_item_date(project)
+
     return {
         "id": project.id,
         "project_code": project.project_code,
@@ -537,6 +1064,10 @@ def _project_response(project):
         "nickname": project.nickname,
         "customer_id": project.customer_id,
         "supplier_id": project.supplier_id,
+        "current_step_date": current_step_date,
+        "current_step_date_label": current_step_date_label,
+        "step_date": current_step_date,
+        "step_date_label": current_step_date_label,
         "total_margin": total_margin,
         "margin_percentage": margin_percentage,
         "margin_percent": margin_percentage,
@@ -555,6 +1086,7 @@ def _project_summary_response(project):
     steps = project.steps if hasattr(project, "steps") and project.steps else []
 
     saved_steps = [s for s in steps if getattr(s, "id", None) is not None]
+    curr_s = None
     if saved_steps:
         total_steps = len(saved_steps)
         completed_steps_count = len([s for s in saved_steps if s.status == "completed"])
@@ -583,6 +1115,29 @@ def _project_summary_response(project):
         current_form_code = None
         in_progress_steps = []
         active_or_completed_steps = []
+
+    current_step_date = None
+    current_step_date_label = None
+    if curr_s:
+        current_step_date, current_step_date_label = _get_step_item_date(project, curr_s)
+    if not current_step_date and active_or_completed_steps:
+        for prev_s in reversed(active_or_completed_steps):
+            if prev_s != curr_s:
+                prev_date, prev_label = _get_step_item_date(project, prev_s)
+                if prev_date:
+                    current_step_date = prev_date
+                    current_step_date_label = prev_label
+                    break
+    if not current_step_date and saved_steps:
+        for prev_s in reversed(saved_steps):
+            if prev_s != curr_s:
+                prev_date, prev_label = _get_step_item_date(project, prev_s)
+                if prev_date:
+                    current_step_date = prev_date
+                    current_step_date_label = prev_label
+                    break
+    if not current_step_date:
+        current_step_date, current_step_date_label = _get_project_fallback_item_date(project)
 
     # Project overall status in dynamic workflow:
     # Only mark completed if all attached steps are completed AND a terminal settlement/delivery step is completed
@@ -654,6 +1209,10 @@ def _project_summary_response(project):
                 if d:
                     target_delivery_date = str(d)[:10]
                     break
+
+    if not current_step_date and target_delivery_date:
+        current_step_date = target_delivery_date
+        current_step_date_label = "Delivery Date"
 
     # Total value and currency resolution
     total_value = None
@@ -814,6 +1373,10 @@ def _project_summary_response(project):
         "completed_steps_count": completed_steps_count,
         "current_step_name": current_step_name,
         "current_form_code": current_form_code,
+        "current_step_date": current_step_date,
+        "current_step_date_label": current_step_date_label,
+        "step_date": current_step_date,
+        "step_date_label": current_step_date_label,
         "progress_percentage": progress_percentage,
         "status": status,
         "next_action": next_action,
@@ -1020,4 +1583,3 @@ def delete(project_id):
                 "message": "Failed to delete project.",
             },
         }, 500
-

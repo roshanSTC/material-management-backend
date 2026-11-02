@@ -13,14 +13,27 @@ def get_supplier(supplier_id: int) -> Supplier | None:
 
 
 def create_supplier_quotation(*, data: dict) -> SupplierQuotation:
-    currency_unit = data.get("currency_unit") or data.get("value_symbol")
+    currency_unit = data.get("currency_unit") or data.get("value_symbol") or data.get("currency")
+    currency = data.get("currency") or currency_unit
+    currency_symbol = data.get("currency_symbol") or (currency_unit if currency_unit in ("₹", "$", "€", "£") else ("₹" if currency == "INR" else None))
+    total_net_amount = data.get("total_net_amount") if data.get("total_net_amount") is not None else data.get("quotation_value")
+    total_gross_amount = data.get("total_gross_amount") if data.get("total_gross_amount") is not None else data.get("quotation_value")
+    total_amount = data.get("total_amount") if data.get("total_amount") is not None else (total_gross_amount or total_net_amount)
+
     supplier_quotation = SupplierQuotation(
         project_id=data["project_id"],
-        supplier_id=data["supplier_id"],
+        supplier_id=data.get("supplier_id"),
+        supplier_name=_normalize_optional_string(data.get("supplier_name")),
         quotation_number=data["quotation_number"].strip(),
         quotation_date=data["quotation_date"],
         quotation_value=data["quotation_value"],
         currency_unit=_normalize_optional_string(currency_unit),
+        currency_symbol=_normalize_optional_string(currency_symbol),
+        currency=_normalize_optional_string(currency),
+        total_net_amount=total_net_amount,
+        total_gross_amount=total_gross_amount,
+        total_amount=total_amount,
+        status=_normalize_optional_string(data.get("status")) or "completed",
         validity=_normalize_optional_string(data.get("validity")),
         incoterms=_normalize_optional_string(data.get("incoterms")),
         payment_terms=_normalize_optional_string(data.get("payment_terms")),
@@ -80,7 +93,11 @@ def update_supplier_quotation(
 ) -> SupplierQuotation:
     string_fields = {
         "quotation_number",
+        "supplier_name",
         "currency_unit",
+        "currency_symbol",
+        "currency",
+        "status",
         "validity",
         "incoterms",
         "payment_terms",
@@ -93,6 +110,9 @@ def update_supplier_quotation(
         "supplier_id",
         "quotation_date",
         "quotation_value",
+        "total_net_amount",
+        "total_gross_amount",
+        "total_amount",
     }
 
     for field in scalar_fields:
@@ -118,10 +138,14 @@ def _replace_items(
     items: list[dict],
 ) -> None:
     supplier_quotation.items.clear()
-    for item_data in items:
+    for idx, item_data in enumerate(items):
         quantity = item_data["quantity"]
         unit_price = item_data.get("unit_price")
         net_amount = item_data.get("net_amount")
+        total_amount = item_data.get("total_amount")
+        sr_no = item_data.get("sr_no") if item_data.get("sr_no") is not None else (idx + 1)
+        description = item_data.get("description") or item_data.get("material_name")
+        material_name = item_data.get("material_name") or description
         hsn_code = _normalize_optional_string(
             item_data.get("hsn_code") or item_data.get("hsn_sac")
         )
@@ -130,13 +154,18 @@ def _replace_items(
                 net_amount = quantity * unit_price
             except Exception:
                 pass
+        if total_amount is None:
+            total_amount = net_amount
 
         supplier_quotation.items.append(
             SupplierQuotationItem(
-                material_name=item_data["material_name"].strip(),
+                sr_no=sr_no,
+                material_name=material_name.strip(),
+                description=_normalize_optional_string(description),
                 quantity=quantity,
                 unit_price=unit_price,
                 net_amount=net_amount,
+                total_amount=total_amount,
                 hsn_code=hsn_code,
             )
         )

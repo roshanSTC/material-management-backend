@@ -25,6 +25,11 @@ class SupplierQuotation(db.Model):
         index=True,
     )
 
+    supplier_name = db.Column(
+        db.String(255),
+        nullable=True,
+    )
+
     quotation_number = db.Column(
         db.String(100),
         nullable=False,
@@ -43,6 +48,37 @@ class SupplierQuotation(db.Model):
     currency_unit = db.Column(
         db.String(20),
         nullable=True,
+    )
+
+    currency_symbol = db.Column(
+        db.String(20),
+        nullable=True,
+    )
+
+    currency = db.Column(
+        db.String(20),
+        nullable=True,
+    )
+
+    total_net_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    total_gross_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    total_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    status = db.Column(
+        db.String(50),
+        nullable=False,
+        default="completed",
     )
 
     validity = db.Column(
@@ -104,6 +140,30 @@ class SupplierQuotation(db.Model):
         cascade="all, delete-orphan",
         lazy="select",
     )
+
+    @property
+    def quotation_no(self):
+        return self.quotation_number
+
+    @quotation_no.setter
+    def quotation_no(self, val):
+        self.quotation_number = val
+
+    @property
+    def quotation_validity(self):
+        return self.validity
+
+    @quotation_validity.setter
+    def quotation_validity(self, val):
+        self.validity = val
+
+    @property
+    def remarks(self):
+        return self.remark
+
+    @remarks.setter
+    def remarks(self, val):
+        self.remark = val
 
     def __repr__(self) -> str:
         return f"<SupplierQuotation {self.id}>"

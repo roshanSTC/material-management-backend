@@ -363,14 +363,6 @@ def parse_supplier_quotation_excel(
                 else ""
             )
             mat_num_str = _clean_str(mat_num_val)
-            if not mat_num_str:
-                item_num_idx = header_cols.get("item_num")
-                item_num_val = (
-                    ws.cell(r, item_num_idx).value
-                    if item_num_idx and item_num_idx <= ws.max_column
-                    else ""
-                )
-                mat_num_str = _clean_str(item_num_val)
 
             hsn_idx = header_cols.get("hsn")
             hsn_val = (

@@ -18,9 +18,19 @@ class SupplierQuotationItem(db.Model):
         index=True,
     )
 
+    sr_no = db.Column(
+        db.Integer,
+        nullable=True,
+    )
+
     material_name = db.Column(
         db.String(255),
         nullable=False,
+    )
+
+    description = db.Column(
+        db.Text,
+        nullable=True,
     )
 
     quantity = db.Column(
@@ -34,6 +44,11 @@ class SupplierQuotationItem(db.Model):
     )
 
     net_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    total_amount = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )

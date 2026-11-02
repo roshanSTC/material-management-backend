@@ -1391,18 +1391,57 @@ def sync_supplier_quotation_step(project_id: int) -> ProjectStep | None:
         else str(supplier_quotation.quotation_date)
     ) if supplier_quotation.quotation_date else None
 
+    supplier_name = getattr(supplier_quotation, "supplier_name", None)
+    if not supplier_name and getattr(supplier_quotation, "supplier", None) and supplier_quotation.supplier:
+        supplier_name = getattr(supplier_quotation.supplier, "supplier_name", None) or getattr(supplier_quotation.supplier, "name", None)
+    if not supplier_name and getattr(supplier_quotation, "project", None) and getattr(supplier_quotation.project, "supplier", None):
+        supplier_name = getattr(supplier_quotation.project.supplier, "supplier_name", None) or getattr(supplier_quotation.project.supplier, "name", None)
+
+    currency = getattr(supplier_quotation, "currency", None) or supplier_quotation.currency_unit
+    currency_symbol = getattr(supplier_quotation, "currency_symbol", None) or (supplier_quotation.currency_unit if supplier_quotation.currency_unit in ("₹", "$", "€", "£") else ("₹" if currency == "INR" else None))
+
+    items_data = [
+        {
+            "id": item.id,
+            "sr_no": item.sr_no if item.sr_no is not None else (idx + 1),
+            "material_name": item.material_name,
+            "description": item.description or item.material_name,
+            "hsn_code": item.hsn_code,
+            "hsn_sac": item.hsn_code or "",
+            "quantity": str(item.quantity) if item.quantity is not None else None,
+            "unit_price": str(item.unit_price) if item.unit_price is not None else None,
+            "net_amount": str(item.net_amount) if item.net_amount is not None else None,
+            "total_amount": str(item.total_amount if item.total_amount is not None else item.net_amount) if (item.total_amount is not None or item.net_amount is not None) else None,
+        }
+        for idx, item in enumerate(supplier_quotation.items or [])
+    ]
+
     step_data = {
+        "id": supplier_quotation.id,
+        "project_id": supplier_quotation.project_id,
+        "supplier_id": supplier_quotation.supplier_id,
+        "supplier_name": supplier_name,
         "quotation_number": supplier_quotation.quotation_number,
+        "quotation_no": supplier_quotation.quotation_number,
         "quotation_value": val_str,
         "quotation_amount": val_str,
+        "total_net_amount": str(supplier_quotation.total_net_amount) if supplier_quotation.total_net_amount is not None else val_str,
+        "total_gross_amount": str(supplier_quotation.total_gross_amount) if supplier_quotation.total_gross_amount is not None else val_str,
+        "total_amount": str(supplier_quotation.total_amount) if supplier_quotation.total_amount is not None else val_str,
         "quotation_date": q_date,
-        "currency_unit": supplier_quotation.currency_unit,
+        "currency_unit": supplier_quotation.currency_unit or currency,
+        "currency_symbol": currency_symbol,
+        "currency": currency,
         "validity": supplier_quotation.validity,
+        "quotation_validity": supplier_quotation.validity,
         "validity_days": supplier_quotation.validity,
         "incoterms": supplier_quotation.incoterms,
         "payment_terms": supplier_quotation.payment_terms,
         "delivery_period": supplier_quotation.delivery_period,
         "warranty_period": supplier_quotation.warranty_period,
+        "status": getattr(supplier_quotation, "status", None) or "completed",
+        "form_code": "FORM_11_SUPPLIER_QUOTATION",
+        "items": items_data,
         "remark": supplier_quotation.remark,
         "remarks": supplier_quotation.remark,
     }

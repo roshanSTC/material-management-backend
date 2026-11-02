@@ -50,11 +50,28 @@ def _supplier_quotation_response(supplier_quotation):
         entity_type="supplier_quotation",
         entity_id=supplier_quotation.id,
     )
-    supplier_name = None
-    if getattr(supplier_quotation, "supplier", None) and supplier_quotation.supplier:
+    supplier_name = getattr(supplier_quotation, "supplier_name", None)
+    if not supplier_name and getattr(supplier_quotation, "supplier", None) and supplier_quotation.supplier:
         supplier_name = getattr(supplier_quotation.supplier, "supplier_name", None) or getattr(supplier_quotation.supplier, "name", None)
     if not supplier_name and getattr(supplier_quotation, "project", None) and getattr(supplier_quotation.project, "supplier", None):
         supplier_name = getattr(supplier_quotation.project.supplier, "supplier_name", None) or getattr(supplier_quotation.project.supplier, "name", None)
+
+    currency = getattr(supplier_quotation, "currency", None) or supplier_quotation.currency_unit
+    currency_symbol = getattr(supplier_quotation, "currency_symbol", None) or (supplier_quotation.currency_unit if supplier_quotation.currency_unit in ("₹", "$", "€", "£") else ("₹" if currency == "INR" else None))
+
+    total_net_amount = getattr(supplier_quotation, "total_net_amount", None)
+    if total_net_amount is None:
+        total_net_amount = supplier_quotation.quotation_value
+
+    total_gross_amount = getattr(supplier_quotation, "total_gross_amount", None)
+    if total_gross_amount is None:
+        total_gross_amount = supplier_quotation.quotation_value
+
+    total_amount = getattr(supplier_quotation, "total_amount", None)
+    if total_amount is None:
+        total_amount = total_gross_amount or total_net_amount or supplier_quotation.quotation_value
+
+    status = getattr(supplier_quotation, "status", None) or "completed"
 
     return {
         "id": supplier_quotation.id,
@@ -65,15 +82,21 @@ def _supplier_quotation_response(supplier_quotation):
         "quotation_number": supplier_quotation.quotation_number,
         "quotation_date": supplier_quotation.quotation_date,
         "quotation_value": supplier_quotation.quotation_value,
-        "total_net_amount": supplier_quotation.quotation_value,
-        "currency_unit": supplier_quotation.currency_unit,
-        "currency_symbol": supplier_quotation.currency_unit,
+        "total_net_amount": total_net_amount,
+        "total_gross_amount": total_gross_amount,
+        "total_amount": total_amount,
+        "currency": currency,
+        "currency_unit": supplier_quotation.currency_unit or currency,
+        "currency_symbol": currency_symbol,
         "quotation_validity": supplier_quotation.validity,
         "validity": supplier_quotation.validity,
         "incoterms": supplier_quotation.incoterms,
         "payment_terms": supplier_quotation.payment_terms,
         "delivery_period": supplier_quotation.delivery_period,
         "warranty_period": supplier_quotation.warranty_period,
+        "status": status,
+        "form_code": "FORM_11_SUPPLIER_QUOTATION",
+        "attachments_count": len(attachments),
         "remarks": get_step_remarks_for_response(
             supplier_quotation.project_id,
             3,
@@ -85,15 +108,15 @@ def _supplier_quotation_response(supplier_quotation):
         "items": [
             {
                 "id": item.id,
-                "sr_no": idx + 1,
+                "sr_no": item.sr_no if item.sr_no is not None else (idx + 1),
                 "material_name": item.material_name,
-                "description": item.material_name,
+                "description": item.description or item.material_name,
                 "hsn_code": item.hsn_code,
-                "hsn_sac": item.hsn_code,
+                "hsn_sac": item.hsn_code or "",
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
                 "net_amount": item.net_amount,
-                "total_amount": item.net_amount,
+                "total_amount": item.total_amount if item.total_amount is not None else item.net_amount,
             }
             for idx, item in enumerate(supplier_quotation.items)
         ],
@@ -113,6 +136,48 @@ def _supplier_quotation_response(supplier_quotation):
             for attachment in attachments
         ],
     }
+
+
+def _make_json_serializable(obj):
+    from datetime import date, datetime
+    from decimal import Decimal
+    if obj is None:
+        return None
+    if isinstance(obj, (date, datetime)):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return str(obj)
+    if isinstance(obj, dict):
+        return {str(k): _make_json_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_make_json_serializable(v) for v in obj]
+    return obj
+
+
+def _sync_step(project_id: int, form_code: str, status: str, data_dict: dict):
+    try:
+        from datetime import datetime
+        from app.models import Project, ProjectStep
+        from app.routes.project_step import sync_project_steps_from_records
+        project = db.session.get(Project, project_id)
+        if not project:
+            return
+        sync_project_steps_from_records(project)
+        step = ProjectStep.query.filter_by(project_id=project_id, form_code=form_code).first()
+        if step:
+            step.status = status or "completed"
+            step.progress_percentage = 100 if step.status == "completed" else 50
+            if step.status == "completed" and not step.completed_at:
+                step.completed_at = datetime.utcnow()
+            s_data = dict(step.data or {}) if isinstance(step.data, dict) else {}
+            s_data.update(_make_json_serializable(data_dict) or {})
+            s_data["_is_attached"] = True
+            s_data["_synced_from_record"] = True
+            step.data = s_data
+            db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.warning(f"Failed to sync step {form_code} for project {project_id}: {exc}")
 
 
 def _format_decimal_str(val, places=2):
@@ -334,7 +399,9 @@ def create():
             storage_keys=storage_keys,
         )
         db.session.commit()
-        return _supplier_quotation_response(supplier_quotation), 201
+        resp = _supplier_quotation_response(supplier_quotation)
+        _sync_step(supplier_quotation.project_id, "FORM_11_SUPPLIER_QUOTATION", getattr(supplier_quotation, "status", None) or "completed", resp)
+        return resp, 201
     except (ProjectNotFoundError, SupplierNotFoundError) as exc:
         db.session.rollback()
         code = "PROJECT_NOT_FOUND" if isinstance(exc, ProjectNotFoundError) else "SUPPLIER_NOT_FOUND"
@@ -449,7 +516,9 @@ def update(supplier_quotation_id):
             storage_keys=storage_keys,
         )
         db.session.commit()
-        return _supplier_quotation_response(supplier_quotation), 200
+        resp = _supplier_quotation_response(supplier_quotation)
+        _sync_step(supplier_quotation.project_id, "FORM_11_SUPPLIER_QUOTATION", getattr(supplier_quotation, "status", None) or "completed", resp)
+        return resp, 200
     except SupplierQuotationNotFoundError as exc:
         db.session.rollback()
         return _error("SUPPLIER_QUOTATION_NOT_FOUND", str(exc), 404)
@@ -598,6 +667,12 @@ def get_latest_supplier_quotation_v1(args=None):
         },
     },
 )
+@supplier_quotation_bp.post("/upload-excel")
+@jwt_required()
+def upload_excel_alias():
+    return upload_excel()
+
+
 @jwt_required()
 def upload_excel():
     file = (

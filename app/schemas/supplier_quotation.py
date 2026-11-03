@@ -691,12 +691,6 @@ class LatestSupplierQuotationResponseSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
-    id = fields.Integer(allow_none=True)
-    project_id = fields.Integer(allow_none=True)
-    supplier_id = fields.Integer(allow_none=True)
-    supplier_name = fields.String(allow_none=True)
-    quotation_no = fields.String(allow_none=True)
-    quotation_number = fields.String(allow_none=True)
     quotation_date = fields.Raw(allow_none=True)
     quotation_value = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
@@ -711,9 +705,6 @@ class LatestSupplierQuotationResponseSchema(Schema):
     payment_terms = fields.String(allow_none=True)
     delivery_period = fields.String(allow_none=True)
     warranty_period = fields.String(allow_none=True)
-    status = fields.String(allow_none=True)
-    form_code = fields.String(allow_none=True)
-    remarks = fields.Raw(allow_none=True)
     items = fields.List(
         fields.Nested(LatestSupplierQuotationItemResponseSchema),
         required=True,

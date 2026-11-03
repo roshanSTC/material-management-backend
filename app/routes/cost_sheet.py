@@ -442,7 +442,6 @@ def _handle_update_cost_sheet(cost_sheet_id, data=None):
         for old_id, old_item in list(existing_items_by_id.items()):
             if old_id not in kept_item_ids:
                 rec.items.remove(old_item)
-                db.session.delete(old_item)
 
         db.session.flush()
 

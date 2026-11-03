@@ -214,12 +214,6 @@ def _latest_supplier_quotation_response(sq):
             "net_amount": _format_decimal_str(net_amt, places=2),
         })
 
-    supplier_name = getattr(sq, "supplier_name", None)
-    if not supplier_name and getattr(sq, "supplier", None) and sq.supplier:
-        supplier_name = getattr(sq.supplier, "supplier_name", None) or getattr(sq.supplier, "name", None)
-    if not supplier_name and getattr(sq, "project", None) and getattr(sq.project, "supplier", None):
-        supplier_name = getattr(sq.project.supplier, "supplier_name", None) or getattr(sq.project.supplier, "name", None)
-
     currency = getattr(sq, "currency", None) or sq.currency_unit
     currency_symbol = getattr(sq, "currency_symbol", None) or (sq.currency_unit if sq.currency_unit in ("₹", "$", "€", "£") else ("₹" if currency == "INR" else None))
 
@@ -236,12 +230,6 @@ def _latest_supplier_quotation_response(sq):
         total_amt = total_gross or total_net or sq.quotation_value
 
     return {
-        "id": sq.id,
-        "project_id": sq.project_id,
-        "supplier_id": sq.supplier_id,
-        "supplier_name": supplier_name,
-        "quotation_no": sq.quotation_number,
-        "quotation_number": sq.quotation_number,
         "quotation_date": sq.quotation_date.isoformat() if hasattr(sq.quotation_date, "isoformat") else str(sq.quotation_date),
         "quotation_value": _format_decimal_str(sq.quotation_value, places=2),
         "total_net_amount": _format_decimal_str(total_net, places=2),
@@ -256,14 +244,6 @@ def _latest_supplier_quotation_response(sq):
         "payment_terms": sq.payment_terms,
         "warranty_period": sq.warranty_period,
         "delivery_period": sq.delivery_period,
-        "status": getattr(sq, "status", None) or "completed",
-        "form_code": "FORM_11_SUPPLIER_QUOTATION",
-        "remarks": get_step_remarks_for_response(
-            sq.project_id,
-            3,
-            fallback_raw=sq.remark,
-            entity_id=sq.id,
-        ),
         "items": items_list,
     }
 

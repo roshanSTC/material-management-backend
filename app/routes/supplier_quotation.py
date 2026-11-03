@@ -193,7 +193,7 @@ def _format_decimal_str(val, places=2):
 
 def _latest_supplier_quotation_response(sq):
     items_list = []
-    for item in sq.items:
+    for idx, item in enumerate(sq.items, start=1):
         qty = item.quantity
         price = item.unit_price
         net_amt = item.net_amount
@@ -204,6 +204,8 @@ def _latest_supplier_quotation_response(sq):
             except Exception:
                 pass
 
+        total_amt = item.total_amount if getattr(item, "total_amount", None) is not None else net_amt
+
         items_list.append({
             "material_name": item.material_name,
             "hsn_code": item.hsn_code,
@@ -212,13 +214,57 @@ def _latest_supplier_quotation_response(sq):
             "net_amount": _format_decimal_str(net_amt, places=2),
         })
 
+    supplier_name = getattr(sq, "supplier_name", None)
+    if not supplier_name and getattr(sq, "supplier", None) and sq.supplier:
+        supplier_name = getattr(sq.supplier, "supplier_name", None) or getattr(sq.supplier, "name", None)
+    if not supplier_name and getattr(sq, "project", None) and getattr(sq.project, "supplier", None):
+        supplier_name = getattr(sq.project.supplier, "supplier_name", None) or getattr(sq.project.supplier, "name", None)
+
+    currency = getattr(sq, "currency", None) or sq.currency_unit
+    currency_symbol = getattr(sq, "currency_symbol", None) or (sq.currency_unit if sq.currency_unit in ("₹", "$", "€", "£") else ("₹" if currency == "INR" else None))
+
+    total_net = getattr(sq, "total_net_amount", None)
+    if total_net is None:
+        total_net = sq.quotation_value
+
+    total_gross = getattr(sq, "total_gross_amount", None)
+    if total_gross is None:
+        total_gross = sq.quotation_value
+
+    total_amt = getattr(sq, "total_amount", None)
+    if total_amt is None:
+        total_amt = total_gross or total_net or sq.quotation_value
+
     return {
-        "items": items_list,
-        "currency_unit": sq.currency_unit,
+        "id": sq.id,
+        "project_id": sq.project_id,
+        "supplier_id": sq.supplier_id,
+        "supplier_name": supplier_name,
+        "quotation_no": sq.quotation_number,
+        "quotation_number": sq.quotation_number,
+        "quotation_date": sq.quotation_date.isoformat() if hasattr(sq.quotation_date, "isoformat") else str(sq.quotation_date),
+        "quotation_value": _format_decimal_str(sq.quotation_value, places=2),
+        "total_net_amount": _format_decimal_str(total_net, places=2),
+        "total_gross_amount": _format_decimal_str(total_gross, places=2),
+        "total_amount": _format_decimal_str(total_amt, places=2),
+        "currency": currency,
+        "currency_unit": sq.currency_unit or currency,
+        "currency_symbol": currency_symbol,
+        "quotation_validity": sq.validity,
+        "validity": sq.validity,
         "incoterms": sq.incoterms,
         "payment_terms": sq.payment_terms,
         "warranty_period": sq.warranty_period,
         "delivery_period": sq.delivery_period,
+        "status": getattr(sq, "status", None) or "completed",
+        "form_code": "FORM_11_SUPPLIER_QUOTATION",
+        "remarks": get_step_remarks_for_response(
+            sq.project_id,
+            3,
+            fallback_raw=sq.remark,
+            entity_id=sq.id,
+        ),
+        "items": items_list,
     }
 
 

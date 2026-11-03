@@ -536,13 +536,24 @@ def _serialize_item(item: CostSheetItem, eur_to_inr: Decimal | None = None) -> d
         "quotationNumber": item.quotation_number,
         "quotationIndex": item.quotation_index,
         "itemCode": item.item_code,
+        "item_code": item.item_code,
         "itemDescription": item.item_description,
+        "item_description": item.item_description,
+        "description": item.item_description,
+        "material_name": item.item_description,
         "pricePerUnitInr": float(price_inr),
+        "price_per_unit_inr": float(price_inr),
         "quantity": float(qty),
         "totalPriceInr": float(total_price_inr),
         "pricePerUnitEur": float(price_eur),
+        "price_per_unit_eur": float(price_eur),
         "totalPriceEur": float(price_eur * qty),
         "customsDutyRate": (
+            float(item.customs_duty_rate)
+            if item.customs_duty_rate is not None
+            else None
+        ),
+        "customs_duty_rate": (
             float(item.customs_duty_rate)
             if item.customs_duty_rate is not None
             else None

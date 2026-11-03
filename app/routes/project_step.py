@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from flask import request, jsonify
+from flask import current_app, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_smorest import Blueprint
 
@@ -121,12 +121,9 @@ FORM_REL_MAP = [
     ("FORM_28_FREIGHT_CHA", "customs_clearances"),
     ("FORM_29_BID_DOC_TECHNO_COMMERCIAL", "bid_document_techno_commercials"),
     ("FORM_30_TECHNO_COMMERCIAL_TENDER", "techno_commercial_tenders"),
-    ("FORM_30_SINGLE_TENDER_ENQUIRY", "techno_commercial_tenders"),
-    ("FORM_30_STE", "techno_commercial_tenders"),
     ("FORM_31_BID_DOC_LTE", "bid_document_ltes"),
     ("FORM_32_EWAY_BILL", "eway_bills"),
     ("FORM_33_STE", "techno_commercial_tenders"),
-    ("FORM_33_SINGLE_TENDER_ENQUIRY", "techno_commercial_tenders"),
     ("FORM_34_BID_DOC_STE", "bid_document_stes"),
 ]
 FORM_REL_DICT = dict(FORM_REL_MAP)
@@ -176,9 +173,27 @@ def sync_project_steps_from_records(project):
             form_defs = {}
 
         for form_code, attrs in form_rel_map:
+            if form_code not in form_defs:
+                continue
+
             has_record = False
             try:
-                if isinstance(attrs, list):
+                if attrs == "techno_commercial_tenders":
+                    ste_recs = getattr(project, "techno_commercial_tenders", None) or []
+                    if not ste_recs:
+                        has_record = False
+                    else:
+                        if "FORM_30_TECHNO_COMMERCIAL_TENDER" in existing_steps:
+                            has_record = (form_code == "FORM_30_TECHNO_COMMERCIAL_TENDER")
+                        elif "FORM_33_STE" in existing_steps:
+                            has_record = (form_code == "FORM_33_STE")
+                        else:
+                            has_form_33 = any(getattr(r, "form_code", None) in ("FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY") for r in ste_recs)
+                            if has_form_33:
+                                has_record = (form_code == "FORM_33_STE")
+                            else:
+                                has_record = (form_code == "FORM_30_TECHNO_COMMERCIAL_TENDER")
+                elif isinstance(attrs, list):
                     has_record = any(bool(getattr(project, a, None)) for a in attrs)
                 else:
                     has_record = bool(getattr(project, attrs, None))

@@ -24,6 +24,7 @@ class TechnoCommercialTender(db.Model):
     tender_validity = db.Column(db.String(100), nullable=True)
     remark = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(30), default="completed", nullable=True)
+    form_code = db.Column(db.String(100), default="FORM_30_SINGLE_TENDER_ENQUIRY", nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(
         db.DateTime,
@@ -43,6 +44,54 @@ class TechnoCommercialTender(db.Model):
         lazy="select",
         order_by="TechnoCommercialTenderItem.sr_no.asc()",
     )
+
+    @property
+    def ste_no(self):
+        return self.tender_no
+
+    @ste_no.setter
+    def ste_no(self, val):
+        self.tender_no = val
+
+    @property
+    def tender_number(self):
+        return self.tender_no
+
+    @tender_number.setter
+    def tender_number(self, val):
+        self.tender_no = val
+
+    @property
+    def tender_enquiry_no(self):
+        return self.tender_no
+
+    @tender_enquiry_no.setter
+    def tender_enquiry_no(self, val):
+        self.tender_no = val
+
+    @property
+    def pqb_number(self):
+        return self.pqb_no
+
+    @pqb_number.setter
+    def pqb_number(self, val):
+        self.pqb_no = val
+
+    @property
+    def validity(self):
+        return self.tender_validity
+
+    @validity.setter
+    def validity(self, val):
+        self.tender_validity = val
+
+    @property
+    def remarks(self):
+        return self.remark
+
+    @remarks.setter
+    def remarks(self, val):
+        self.remark = val
 
     def __repr__(self) -> str:
         return f"<TechnoCommercialTender {self.id}: {self.tender_no}>"
@@ -79,3 +128,6 @@ class TechnoCommercialTenderItem(db.Model):
     def __repr__(self) -> str:
         return f"<TechnoCommercialTenderItem {self.id}: {self.description}>"
 
+
+SingleTenderEnquiry = TechnoCommercialTender
+SingleTenderEnquiryItem = TechnoCommercialTenderItem

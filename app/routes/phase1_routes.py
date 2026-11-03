@@ -62,6 +62,13 @@ pqb_bid_document_bp = Blueprint(
     description="PQB Bid Documents APIs",
 )
 
+pqb_bid_document_singular_bp = Blueprint(
+    "pqb_bid_document_singular",
+    __name__,
+    url_prefix="/api/v1/pqb-bid-document",
+    description="PQB Bid Document (Singular) APIs",
+)
+
 corrigendum_bp = Blueprint(
     "corrigendums",
     __name__,
@@ -100,6 +107,7 @@ expression_of_interest_bp = Blueprint(
 PHASE1_BLUEPRINTS = [
     pre_qualification_bid_bp,
     pqb_bid_document_bp,
+    pqb_bid_document_singular_bp,
     corrigendum_bp,
     limited_tender_enquiry_bp,
     notification_award_bp,
@@ -533,7 +541,7 @@ def delete_pqb_doc(rec_id):
     return jsonify({"success": True, "message": "PQB Bid document deleted successfully."}), 200
 
 
-for bp in (pqb_bid_document_bp,):
+for bp in (pqb_bid_document_bp, pqb_bid_document_singular_bp):
     bp.route("", methods=["GET"])(jwt_required()(list_pqb_docs))
     bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(get_pqb_doc))
     bp.route("", methods=["POST"])(jwt_required()(create_pqb_doc))

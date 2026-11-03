@@ -68,10 +68,16 @@ from app.models.bid_document_techno_commercial import (
 from app.models.techno_commercial_tender import (
     TechnoCommercialTender,
     TechnoCommercialTenderItem,
+    SingleTenderEnquiry,
+    SingleTenderEnquiryItem,
 )
 from app.models.bid_document_lte import (
     BidDocumentLte,
     BidDocumentLteItem,
+)
+from app.models.bid_document_ste import (
+    BidDocumentSte,
+    BidDocumentSteItem,
 )
 from app.models.eway_bill import (
     EWayBill,
@@ -147,8 +153,12 @@ __all__ = [
     "BidDocumentTechnoCommercialItem",
     "TechnoCommercialTender",
     "TechnoCommercialTenderItem",
+    "SingleTenderEnquiry",
+    "SingleTenderEnquiryItem",
     "BidDocumentLte",
     "BidDocumentLteItem",
+    "BidDocumentSte",
+    "BidDocumentSteItem",
     "EWayBill",
     "EWayBillItem",
 ]

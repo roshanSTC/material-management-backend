@@ -289,6 +289,13 @@ class Project(db.Model):
         lazy="select",
     )
 
+    bid_document_stes = db.relationship(
+        "BidDocumentSte",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
     eway_bills = db.relationship(
         "EWayBill",
         back_populates="project",

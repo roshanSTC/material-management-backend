@@ -1,5 +1,6 @@
 import json
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 
 from flask import current_app, jsonify, make_response, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
@@ -10,6 +11,8 @@ from app.extensions.database import db
 from app.models import (
     BidDocumentLte,
     BidDocumentLteItem,
+    BidDocumentSte,
+    BidDocumentSteItem,
     BidDocumentTechnoCommercial,
     BidDocumentTechnoCommercialItem,
     Project,
@@ -20,6 +23,8 @@ from app.models import (
 from app.schemas.phase1 import (
     BidDocumentLteCreateSchema,
     BidDocumentLteUpdateSchema,
+    BidDocumentSteCreateSchema,
+    BidDocumentSteUpdateSchema,
     BidDocumentTechnoCommercialCreateSchema,
     BidDocumentTechnoCommercialUpdateSchema,
     TechnoCommercialTenderCreateSchema,
@@ -43,13 +48,62 @@ bid_document_techno_commercial_bp = Blueprint(
     description="Bid Document Techno-Commercial APIs",
 )
 
+bid_document_techno_commercial_plural_bp = Blueprint(
+    "bid_document_techno_commercial_plural",
+    __name__,
+    url_prefix="/api/v1/bid-document-techno-commercials",
+    description="Bid Document Techno-Commercials (Plural) APIs",
+)
 
-# 2. Techno-Commercial Tender
+
+# 2. Form 30/33: Techno-Commercial Tender / Single Tender Enquiry (STE)
 techno_commercial_tender_bp = Blueprint(
     "techno_commercial_tenders",
     __name__,
     url_prefix="/api/v1/techno-commercial-tenders",
     description="Techno-Commercial Tenders APIs",
+)
+
+techno_commercial_tender_singular_bp = Blueprint(
+    "techno_commercial_tender_singular",
+    __name__,
+    url_prefix="/api/v1/techno-commercial-tender",
+    description="Techno-Commercial Tender (Singular) APIs",
+)
+
+single_tender_enquiries_bp = Blueprint(
+    "single_tender_enquiries",
+    __name__,
+    url_prefix="/api/v1/single-tender-enquiries",
+    description="Single Tender Enquiry APIs",
+)
+
+single_tender_enquiry_bp = Blueprint(
+    "single_tender_enquiry",
+    __name__,
+    url_prefix="/api/v1/single-tender-enquiry",
+    description="Single Tender Enquiry (Singular) APIs",
+)
+
+single_tender_enquiry_ste_bp = Blueprint(
+    "single_tender_enquiry_ste",
+    __name__,
+    url_prefix="/api/v1/single-tender-enquiry-ste",
+    description="Single Tender Enquiry STE APIs",
+)
+
+ste_bp = Blueprint(
+    "ste",
+    __name__,
+    url_prefix="/api/v1/ste",
+    description="STE APIs",
+)
+
+stes_bp = Blueprint(
+    "stes",
+    __name__,
+    url_prefix="/api/v1/stes",
+    description="STEs APIs",
 )
 
 
@@ -61,18 +115,85 @@ bid_document_lte_bp = Blueprint(
     description="Bid Document LTE APIs",
 )
 
+bid_document_lte_plural_bp = Blueprint(
+    "bid_document_lte_plural",
+    __name__,
+    url_prefix="/api/v1/bid-document-ltes",
+    description="Bid Document LTE (Plural) APIs",
+)
+
+
+# 4. Form 34: Bid Document STE
+bid_document_ste_bp = Blueprint(
+    "bid_document_ste",
+    __name__,
+    url_prefix="/api/v1/bid-document-ste",
+    description="Bid Document STE APIs",
+)
+
+bid_document_stes_bp = Blueprint(
+    "bid_document_stes",
+    __name__,
+    url_prefix="/api/v1/bid-document-stes",
+    description="Bid Document STEs (Plural) APIs",
+)
+
+bid_document_for_ste_bp = Blueprint(
+    "bid_document_for_ste",
+    __name__,
+    url_prefix="/api/v1/bid-document-for-ste",
+    description="Bid Document for STE APIs",
+)
 
 
 EXTRA_BLUEPRINTS = [
     bid_document_techno_commercial_bp,
+    bid_document_techno_commercial_plural_bp,
     techno_commercial_tender_bp,
+    techno_commercial_tender_singular_bp,
+    single_tender_enquiries_bp,
+    single_tender_enquiry_bp,
+    single_tender_enquiry_ste_bp,
+    ste_bp,
+    stes_bp,
     bid_document_lte_bp,
+    bid_document_lte_plural_bp,
+    bid_document_ste_bp,
+    bid_document_stes_bp,
+    bid_document_for_ste_bp,
 ]
 
 
 # =========================================================================
 # COMMON HELPERS
 # =========================================================================
+def _make_json_serializable(obj):
+    if obj is None:
+        return None
+    if isinstance(obj, (date, datetime)):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, dict):
+        return {str(k): _make_json_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_make_json_serializable(v) for v in obj]
+    return obj
+
+
+def _get_step_num_for_form(project_id: int, possible_codes: list[str], default: int) -> int:
+    try:
+        step = ProjectStep.query.filter(
+            ProjectStep.project_id == project_id,
+            ProjectStep.form_code.in_(possible_codes),
+        ).first()
+        if step and step.step_number:
+            return step.step_number
+    except Exception:
+        pass
+    return default
+
+
 def _extract_payload_and_files():
     content_type = request.content_type or ""
     files = []
@@ -88,9 +209,8 @@ def _extract_payload_and_files():
         else:
             raw_payload = request.form.to_dict()
 
-        for key in ("file", "files", "attachments", "upload_bid_document", "upload_tender_document"):
-            if key in request.files:
-                files.extend(request.files.getlist(key))
+        for key in request.files:
+            files.extend(request.files.getlist(key))
     else:
         raw_payload = request.get_json(silent=True) or {}
 
@@ -169,14 +289,29 @@ def _sync_step(project_id: int, form_code: str, status: str, data_dict: dict):
         if not project:
             return
         sync_project_steps_from_records(project)
-        step = ProjectStep.query.filter_by(project_id=project_id, form_code=form_code).first()
+
+        possible_codes = [form_code]
+        if form_code in ("FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE", "FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY"):
+            possible_codes = ["FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE", "FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY"]
+        elif form_code in ("FORM_29_BID_DOC_TECHNO_COMMERCIAL", "FORM_29_BID_DOCUMENT_TECHNO_COMMERCIAL"):
+            possible_codes = ["FORM_29_BID_DOC_TECHNO_COMMERCIAL", "FORM_29_BID_DOCUMENT_TECHNO_COMMERCIAL"]
+        elif form_code in ("FORM_31_BID_DOC_LTE", "FORM_31_BID_DOCUMENT_LTE"):
+            possible_codes = ["FORM_31_BID_DOC_LTE", "FORM_31_BID_DOCUMENT_LTE"]
+        elif form_code in ("FORM_34_BID_DOC_STE", "FORM_34_BID_DOCUMENT_STE"):
+            possible_codes = ["FORM_34_BID_DOC_STE", "FORM_34_BID_DOCUMENT_STE"]
+
+        step = ProjectStep.query.filter(
+            ProjectStep.project_id == project_id,
+            ProjectStep.form_code.in_(possible_codes),
+        ).first()
+
         if step:
             step.status = status or "completed"
             step.progress_percentage = 100 if step.status == "completed" else 50
             if step.status == "completed" and not step.completed_at:
                 step.completed_at = datetime.utcnow()
             s_data = dict(step.data or {}) if isinstance(step.data, dict) else {}
-            s_data.update(data_dict)
+            s_data.update(_make_json_serializable(data_dict) or {})
             s_data["_is_attached"] = True
             s_data["_synced_from_record"] = True
             step.data = s_data
@@ -195,12 +330,24 @@ def _error(code: str, message: str, status_code: int = 400):
 # =========================================================================
 def _serialize_bid_doc_techno_commercial(rec):
     atts = _serialize_attachments("bid_document_techno_commercial", rec.id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_29_BID_DOC_TECHNO_COMMERCIAL", "FORM_29_BID_DOCUMENT_TECHNO_COMMERCIAL"],
+        default=29,
+    )
     remarks = get_step_remarks_for_response(
         rec.project_id,
-        29,
+        step_num,
         fallback_raw=rec.remark,
         entity_id=rec.id,
     )
+    if not remarks and step_num != 29:
+        remarks = get_step_remarks_for_response(
+            rec.project_id,
+            29,
+            fallback_raw=rec.remark,
+            entity_id=rec.id,
+        )
     items = [
         {
             "id": it.id,
@@ -297,7 +444,14 @@ def handle_create_bid_doc_techno_commercial():
     db.session.flush()
 
     _save_attachments(files, "bid_document_techno_commercial", rec.id, user_id)
-    _save_remarks(rec.project_id, 29, rec.id, remarks_data, user_id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_29_BID_DOC_TECHNO_COMMERCIAL", "FORM_29_BID_DOCUMENT_TECHNO_COMMERCIAL"],
+        default=29,
+    )
+    _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
+    if step_num != 29:
+        _save_remarks(rec.project_id, 29, rec.id, remarks_data, user_id)
     db.session.commit()
 
     serialized = _serialize_bid_doc_techno_commercial(rec)
@@ -373,7 +527,14 @@ def handle_update_bid_doc_techno_commercial(rec_id: int):
             ))
 
     _save_attachments(files, "bid_document_techno_commercial", rec.id, user_id)
-    _save_remarks(rec.project_id, 29, rec.id, remarks_data, user_id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_29_BID_DOC_TECHNO_COMMERCIAL", "FORM_29_BID_DOCUMENT_TECHNO_COMMERCIAL"],
+        default=29,
+    )
+    _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
+    if step_num != 29:
+        _save_remarks(rec.project_id, 29, rec.id, remarks_data, user_id)
     db.session.commit()
 
     serialized = _serialize_bid_doc_techno_commercial(rec)
@@ -403,7 +564,7 @@ def handle_delete_bid_doc_techno_commercial(rec_id: int):
 
 
 # Wire routes to blueprints
-for bp in (bid_document_techno_commercial_bp,):
+for bp in (bid_document_techno_commercial_bp, bid_document_techno_commercial_plural_bp):
     bp.route("", methods=["GET"])(jwt_required()(handle_get_bid_doc_techno_commercial))
     bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_bid_doc_techno_commercial))
     bp.route("", methods=["POST"])(jwt_required()(handle_create_bid_doc_techno_commercial))
@@ -412,16 +573,39 @@ for bp in (bid_document_techno_commercial_bp,):
 
 
 # =========================================================================
-# 2. FORM_30_TECHNO_COMMERCIAL_TENDER
+# 2. FORM_30 / FORM_33: SINGLE TENDER ENQUIRY (STE) / TECHNO-COMMERCIAL TENDER
 # =========================================================================
 def _serialize_techno_commercial_tender(rec):
     atts = _serialize_attachments("techno_commercial_tender", rec.id)
+    if not atts:
+        atts = _serialize_attachments("single_tender_enquiry", rec.id)
+
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE", "FORM_30_TECHNO_COMMERCIAL_TENDER"],
+        default=30,
+    )
     remarks = get_step_remarks_for_response(
         rec.project_id,
-        30,
+        step_num,
         fallback_raw=rec.remark,
         entity_id=rec.id,
     )
+    if not remarks and step_num != 30:
+        remarks = get_step_remarks_for_response(
+            rec.project_id,
+            30,
+            fallback_raw=rec.remark,
+            entity_id=rec.id,
+        )
+    if not remarks and step_num != 33:
+        remarks = get_step_remarks_for_response(
+            rec.project_id,
+            33,
+            fallback_raw=rec.remark,
+            entity_id=rec.id,
+        )
+
     items = [
         {
             "id": it.id,
@@ -437,23 +621,27 @@ def _serialize_techno_commercial_tender(rec):
         "id": rec.id,
         "project_id": rec.project_id,
         "pqb_no": rec.pqb_no,
+        "pqb_number": rec.pqb_no,
         "tender_title": rec.tender_title,
         "tender_no": rec.tender_no,
         "tender_number": rec.tender_no,
         "tender_enquiry_no": rec.tender_no,
+        "ste_no": rec.tender_no,
         "tender_issue_date": rec.tender_issue_date.isoformat() if rec.tender_issue_date else None,
         "bid_submission_due_date_time": rec.bid_submission_due_date_time.isoformat() if rec.bid_submission_due_date_time else None,
         "bid_opening_date_time": rec.bid_opening_date_time.isoformat() if rec.bid_opening_date_time else None,
         "tender_fee": float(rec.tender_fee) if rec.tender_fee is not None else None,
         "emd": float(rec.emd) if rec.emd is not None else None,
         "tender_validity": rec.tender_validity,
+        "validity": rec.tender_validity,
         "remark": rec.remark,
         "remarks": remarks,
         "items": items,
+        "requirements": items,
         "attachments": atts,
         "attachments_count": len(atts),
         "status": rec.status or "completed",
-        "form_code": "FORM_30_TECHNO_COMMERCIAL_TENDER",
+        "form_code": rec.form_code or "FORM_33_STE",
         "created_at": rec.created_at.isoformat() if rec.created_at else None,
         "updated_at": rec.updated_at.isoformat() if rec.updated_at else None,
     }
@@ -471,27 +659,60 @@ def handle_create_techno_commercial_tender():
     if not project:
         return _error("PROJECT_NOT_FOUND", f"Project {data['project_id']} not found.", 404)
 
-    items_data = data.pop("items", None) or []
-    remarks_data = data.pop("remarks", None) or data.get("remark")
+    items_data = data.pop("items", None) or data.pop("requirements", None) or []
+    data.pop("requirements", None)
+    remarks_data = raw_payload.get("remarks") or data.pop("remarks", None) or data.get("remark") or raw_payload.get("remark")
+    data.pop("remarks", None)
+    data.pop("remark", None)
     status_val = data.pop("status", None) or raw_payload.get("status") or "completed"
+    form_code_val = raw_payload.get("form_code") or data.pop("form_code", None) or "FORM_33_STE"
     data.pop("attachments_count", None)
     data.pop("form_code", None)
 
-    if "tender_number" in data and not data.get("tender_no"):
-        data["tender_no"] = data.pop("tender_number")
-    elif "tender_enquiry_no" in data and not data.get("tender_no"):
-        data["tender_no"] = data.pop("tender_enquiry_no")
-    else:
-        data.pop("tender_number", None)
-        data.pop("tender_enquiry_no", None)
+    # Normalize aliases
+    if not data.get("tender_no"):
+        for alias in ("ste_no", "tender_number", "tender_enquiry_no"):
+            if data.get(alias):
+                data["tender_no"] = data.pop(alias)
+                break
+    for alias in ("ste_no", "tender_number", "tender_enquiry_no"):
+        data.pop(alias, None)
+
+    if not data.get("pqb_no") and data.get("pqb_number"):
+        data["pqb_no"] = data.pop("pqb_number")
+    data.pop("pqb_number", None)
+
+    if not data.get("tender_validity") and data.get("validity"):
+        data["tender_validity"] = data.pop("validity")
+    data.pop("validity", None)
+
+    if not data.get("bid_submission_due_date_time"):
+        for alias in ("submission_due_date_time", "bid_submission_due_date"):
+            if data.get(alias):
+                data["bid_submission_due_date_time"] = data.pop(alias)
+                break
+    data.pop("submission_due_date_time", None)
+    data.pop("bid_submission_due_date", None)
+
+    if not data.get("bid_opening_date_time") and data.get("opening_date_time"):
+        data["bid_opening_date_time"] = data.pop("opening_date_time")
+    data.pop("opening_date_time", None)
 
     rec = TechnoCommercialTender(**{k: v for k, v in data.items() if hasattr(TechnoCommercialTender, k)})
     rec.status = status_val
+    rec.form_code = form_code_val
+
+    if not rec.remark and remarks_data:
+        if isinstance(remarks_data, list) and remarks_data:
+            first_rem = remarks_data[0]
+            rec.remark = first_rem.get("remark") if isinstance(first_rem, dict) else str(first_rem)
+        elif isinstance(remarks_data, str):
+            rec.remark = remarks_data
 
     for it in items_data:
         rec.items.append(TechnoCommercialTenderItem(
             sr_no=it.get("sr_no"),
-            description=it.get("description", ""),
+            description=it.get("description", "") or it.get("material_name", ""),
             material_name=it.get("material_name") or it.get("description", ""),
             unit=it.get("unit"),
             quantity=it.get("quantity"),
@@ -501,11 +722,18 @@ def handle_create_techno_commercial_tender():
     db.session.flush()
 
     _save_attachments(files, "techno_commercial_tender", rec.id, user_id)
-    _save_remarks(rec.project_id, 30, rec.id, remarks_data, user_id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE", "FORM_30_TECHNO_COMMERCIAL_TENDER"],
+        default=30,
+    )
+    _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
+    if step_num != 30:
+        _save_remarks(rec.project_id, 30, rec.id, remarks_data, user_id)
     db.session.commit()
 
     serialized = _serialize_techno_commercial_tender(rec)
-    _sync_step(rec.project_id, "FORM_30_TECHNO_COMMERCIAL_TENDER", status_val, serialized)
+    _sync_step(rec.project_id, form_code_val, status_val, serialized)
     return jsonify(serialized), 201
 
 
@@ -536,43 +764,83 @@ def handle_update_techno_commercial_tender(rec_id: int):
     except ValidationError as err:
         return _error("VALIDATION_ERROR", err.messages, 422)
 
-    items_data = data.pop("items", None) if "items" in data else None
-    remarks_data = data.pop("remarks", None) if "remarks" in data else data.get("remark")
+    items_data = data.pop("items", None) if "items" in data else (data.pop("requirements", None) if "requirements" in data else None)
+    data.pop("requirements", None)
+    remarks_data = raw_payload.get("remarks") if "remarks" in raw_payload else (data.pop("remarks", None) if "remarks" in data else data.get("remark"))
+    data.pop("remarks", None)
+    data.pop("remark", None)
     status_val = data.pop("status", None) or raw_payload.get("status")
+    form_code_val = raw_payload.get("form_code") or data.pop("form_code", None)
     data.pop("attachments_count", None)
     data.pop("form_code", None)
 
-    if "tender_number" in data and not data.get("tender_no"):
-        data["tender_no"] = data.pop("tender_number")
-    elif "tender_enquiry_no" in data and not data.get("tender_no"):
-        data["tender_no"] = data.pop("tender_enquiry_no")
-    else:
-        data.pop("tender_number", None)
-        data.pop("tender_enquiry_no", None)
+    if not data.get("tender_no"):
+        for alias in ("ste_no", "tender_number", "tender_enquiry_no"):
+            if data.get(alias):
+                data["tender_no"] = data.pop(alias)
+                break
+    for alias in ("ste_no", "tender_number", "tender_enquiry_no"):
+        data.pop(alias, None)
+
+    if "pqb_number" in data and not data.get("pqb_no"):
+        data["pqb_no"] = data.pop("pqb_number")
+    data.pop("pqb_number", None)
+
+    if "validity" in data and not data.get("tender_validity"):
+        data["tender_validity"] = data.pop("validity")
+    data.pop("validity", None)
+
+    if not data.get("bid_submission_due_date_time"):
+        for alias in ("submission_due_date_time", "bid_submission_due_date"):
+            if data.get(alias):
+                data["bid_submission_due_date_time"] = data.pop(alias)
+                break
+    data.pop("submission_due_date_time", None)
+    data.pop("bid_submission_due_date", None)
+
+    if not data.get("bid_opening_date_time") and data.get("opening_date_time"):
+        data["bid_opening_date_time"] = data.pop("opening_date_time")
+    data.pop("opening_date_time", None)
 
     for k, v in data.items():
         if hasattr(rec, k):
             setattr(rec, k, v)
     if status_val:
         rec.status = status_val
+    if form_code_val:
+        rec.form_code = form_code_val
+
+    if remarks_data:
+        if isinstance(remarks_data, list) and remarks_data:
+            first_rem = remarks_data[0]
+            rec.remark = first_rem.get("remark") if isinstance(first_rem, dict) else str(first_rem)
+        elif isinstance(remarks_data, str):
+            rec.remark = remarks_data
 
     if items_data is not None:
         rec.items.clear()
         for it in items_data:
             rec.items.append(TechnoCommercialTenderItem(
                 sr_no=it.get("sr_no"),
-                description=it.get("description", ""),
+                description=it.get("description", "") or it.get("material_name", ""),
                 material_name=it.get("material_name") or it.get("description", ""),
                 unit=it.get("unit"),
                 quantity=it.get("quantity"),
             ))
 
     _save_attachments(files, "techno_commercial_tender", rec.id, user_id)
-    _save_remarks(rec.project_id, 30, rec.id, remarks_data, user_id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE", "FORM_30_TECHNO_COMMERCIAL_TENDER"],
+        default=30,
+    )
+    _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
+    if step_num != 30:
+        _save_remarks(rec.project_id, 30, rec.id, remarks_data, user_id)
     db.session.commit()
 
     serialized = _serialize_techno_commercial_tender(rec)
-    _sync_step(rec.project_id, "FORM_30_TECHNO_COMMERCIAL_TENDER", rec.status, serialized)
+    _sync_step(rec.project_id, rec.form_code or "FORM_33_STE", rec.status, serialized)
     return jsonify(serialized), 200
 
 
@@ -594,11 +862,19 @@ def handle_delete_techno_commercial_tender(rec_id: int):
     proj = db.session.get(Project, project_id)
     if proj:
         sync_project_steps_from_records(proj)
-    return jsonify({"success": True, "message": "Techno-Commercial Tender deleted successfully."}), 200
+    return jsonify({"success": True, "message": "Single Tender Enquiry (STE) deleted successfully."}), 200
 
 
 # Wire routes to blueprints
-for bp in (techno_commercial_tender_bp,):
+for bp in (
+    techno_commercial_tender_bp,
+    techno_commercial_tender_singular_bp,
+    single_tender_enquiries_bp,
+    single_tender_enquiry_bp,
+    single_tender_enquiry_ste_bp,
+    ste_bp,
+    stes_bp,
+):
     bp.route("", methods=["GET"])(jwt_required()(handle_get_techno_commercial_tender))
     bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_techno_commercial_tender))
     bp.route("", methods=["POST"])(jwt_required()(handle_create_techno_commercial_tender))
@@ -611,12 +887,24 @@ for bp in (techno_commercial_tender_bp,):
 # =========================================================================
 def _serialize_bid_doc_lte(rec):
     atts = _serialize_attachments("bid_document_lte", rec.id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_31_BID_DOC_LTE", "FORM_31_BID_DOCUMENT_LTE"],
+        default=31,
+    )
     remarks = get_step_remarks_for_response(
         rec.project_id,
-        31,
+        step_num,
         fallback_raw=rec.remark,
         entity_id=rec.id,
     )
+    if not remarks and step_num != 31:
+        remarks = get_step_remarks_for_response(
+            rec.project_id,
+            31,
+            fallback_raw=rec.remark,
+            entity_id=rec.id,
+        )
     items = [
         {
             "id": it.id,
@@ -712,7 +1000,14 @@ def handle_create_bid_doc_lte():
     db.session.flush()
 
     _save_attachments(files, "bid_document_lte", rec.id, user_id)
-    _save_remarks(rec.project_id, 31, rec.id, remarks_data, user_id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_31_BID_DOC_LTE", "FORM_31_BID_DOCUMENT_LTE"],
+        default=31,
+    )
+    _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
+    if step_num != 31:
+        _save_remarks(rec.project_id, 31, rec.id, remarks_data, user_id)
     db.session.commit()
 
     serialized = _serialize_bid_doc_lte(rec)
@@ -788,7 +1083,14 @@ def handle_update_bid_doc_lte(rec_id: int):
             ))
 
     _save_attachments(files, "bid_document_lte", rec.id, user_id)
-    _save_remarks(rec.project_id, 31, rec.id, remarks_data, user_id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_31_BID_DOC_LTE", "FORM_31_BID_DOCUMENT_LTE"],
+        default=31,
+    )
+    _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
+    if step_num != 31:
+        _save_remarks(rec.project_id, 31, rec.id, remarks_data, user_id)
     db.session.commit()
 
     serialized = _serialize_bid_doc_lte(rec)
@@ -818,9 +1120,351 @@ def handle_delete_bid_doc_lte(rec_id: int):
 
 
 # Wire routes to blueprints
-for bp in (bid_document_lte_bp,):
+for bp in (bid_document_lte_bp, bid_document_lte_plural_bp):
     bp.route("", methods=["GET"])(jwt_required()(handle_get_bid_doc_lte))
     bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_bid_doc_lte))
     bp.route("", methods=["POST"])(jwt_required()(handle_create_bid_doc_lte))
     bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(jwt_required()(handle_update_bid_doc_lte))
     bp.route("/<int:rec_id>", methods=["DELETE"])(jwt_required()(handle_delete_bid_doc_lte))
+
+
+# =========================================================================
+# 4. FORM_34_BID_DOC_STE (BID DOCUMENT FOR SINGLE TENDER ENQUIRY)
+# =========================================================================
+def _serialize_bid_doc_ste(rec):
+    atts = _serialize_attachments("bid_document_ste", rec.id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_34_BID_DOC_STE", "FORM_34_BID_DOCUMENT_STE"],
+        default=34,
+    )
+    remarks = get_step_remarks_for_response(
+        rec.project_id,
+        step_num,
+        fallback_raw=rec.remark,
+        entity_id=rec.id,
+    )
+    if not remarks and step_num != 34:
+        remarks = get_step_remarks_for_response(
+            rec.project_id,
+            34,
+            fallback_raw=rec.remark,
+            entity_id=rec.id,
+        )
+    items = [
+        {
+            "id": it.id,
+            "sr_no": it.sr_no,
+            "description": it.description,
+            "material_name": it.material_name or it.description,
+            "hsn_sac": it.hsn_sac,
+            "quantity": float(it.quantity) if it.quantity is not None else None,
+            "unit_price": float(it.unit_price) if it.unit_price is not None else None,
+            "total_amount": float(it.total_amount) if it.total_amount is not None else None,
+        }
+        for it in (rec.items or [])
+    ]
+    return {
+        "id": rec.id,
+        "project_id": rec.project_id,
+        "customer_name": rec.customer_name,
+        "tender_title": rec.tender_title,
+        "tender_no": rec.tender_no,
+        "tender_number": rec.tender_no,
+        "tender_issue_date": rec.tender_issue_date.isoformat() if rec.tender_issue_date else None,
+        "total_no_corrigendum_issued": rec.total_no_corrigendum_issued,
+        "total_corrigendum_issued": rec.total_no_corrigendum_issued,
+        "bid_submission_date": rec.bid_submission_date.isoformat() if rec.bid_submission_date else None,
+        "delivery_terms": rec.delivery_terms,
+        "delivery_term": rec.delivery_terms,
+        "delivery_period": rec.delivery_period,
+        "bid_validity": rec.bid_validity,
+        "payment_terms": rec.payment_terms,
+        "payment_term": rec.payment_terms,
+        "warranty_period": rec.warranty_period,
+        "gst_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
+        "gst_rate": float(rec.gst_pct) if rec.gst_pct is not None else None,
+        "gst_rate_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
+        "total_net_amount": float(rec.total_net_amount) if rec.total_net_amount is not None else None,
+        "total_gross_amount": float(rec.total_gross_amount) if rec.total_gross_amount is not None else None,
+        "gst_amount": float(rec.gst_amount) if rec.gst_amount is not None else None,
+        "total_amount": float(rec.total_amount) if rec.total_amount is not None else None,
+        "remark": rec.remark,
+        "remarks": remarks,
+        "items": items,
+        "attachments": atts,
+        "attachments_count": len(atts),
+        "status": rec.status or "completed",
+        "form_code": rec.form_code or "FORM_34_BID_DOC_STE",
+        "created_at": rec.created_at.isoformat() if rec.created_at else None,
+        "updated_at": rec.updated_at.isoformat() if rec.updated_at else None,
+    }
+
+
+def handle_create_bid_doc_ste():
+    user_id = _get_user_id()
+    try:
+        raw_payload, files = _extract_payload_and_files()
+        data = BidDocumentSteCreateSchema().load(raw_payload)
+    except ValidationError as err:
+        return _error("VALIDATION_ERROR", err.messages, 422)
+
+    project = db.session.get(Project, data["project_id"])
+    if not project:
+        return _error("PROJECT_NOT_FOUND", f"Project {data['project_id']} not found.", 404)
+
+    items_data = data.pop("items", None) or data.pop("requirements", None) or []
+    data.pop("requirements", None)
+    remarks_data = raw_payload.get("remarks") or data.pop("remarks", None) or data.get("remark") or raw_payload.get("remark")
+    data.pop("remarks", None)
+    data.pop("remark", None)
+    data.pop("form_code", None)
+    status_val = data.pop("status", None) or raw_payload.get("status") or "completed"
+    form_code_val = raw_payload.get("form_code") or data.pop("form_code", None) or "FORM_34_BID_DOC_STE"
+    data.pop("attachments_count", None)
+
+    # Normalize aliases
+    if "tender_number" in data and not data.get("tender_no"):
+        data["tender_no"] = data.pop("tender_number")
+    else:
+        data.pop("tender_number", None)
+
+    if "total_corrigendum_issued" in data and data.get("total_no_corrigendum_issued") is None:
+        data["total_no_corrigendum_issued"] = data.pop("total_corrigendum_issued")
+    else:
+        data.pop("total_corrigendum_issued", None)
+
+    if "delivery_term" in data and not data.get("delivery_terms"):
+        data["delivery_terms"] = data.pop("delivery_term")
+    else:
+        data.pop("delivery_term", None)
+
+    if "payment_term" in data and not data.get("payment_terms"):
+        data["payment_terms"] = data.pop("payment_term")
+    else:
+        data.pop("payment_term", None)
+
+    if data.get("gst_pct") is None:
+        if data.get("gst_rate") is not None:
+            data["gst_pct"] = data.pop("gst_rate")
+        elif data.get("gst_rate_pct") is not None:
+            data["gst_pct"] = data.pop("gst_rate_pct")
+    data.pop("gst_rate", None)
+    data.pop("gst_rate_pct", None)
+
+    # Calculate item amounts and auto-calculate totals if not supplied
+    calc_net = 0.0
+    for it in items_data:
+        q = float(it.get("quantity") or 0)
+        p = float(it.get("unit_price") or 0)
+        tot = float(it.get("total_amount") or (q * p if q and p else 0))
+        calc_net += tot
+
+    if data.get("total_net_amount") is None and calc_net > 0:
+        data["total_net_amount"] = calc_net
+
+    gst_p = float(data.get("gst_pct") or 0)
+    net_val = float(data.get("total_net_amount") or 0)
+    if data.get("gst_amount") is None and net_val > 0 and gst_p > 0:
+        data["gst_amount"] = round(net_val * gst_p / 100.0, 2)
+
+    gst_val = float(data.get("gst_amount") or 0)
+    if data.get("total_gross_amount") is None and net_val > 0:
+        data["total_gross_amount"] = round(net_val + gst_val, 2)
+
+    if data.get("total_amount") is None:
+        data["total_amount"] = data.get("total_gross_amount") or net_val
+
+    rec = BidDocumentSte(**{k: v for k, v in data.items() if hasattr(BidDocumentSte, k)})
+    rec.status = status_val
+    rec.form_code = form_code_val
+
+    if not rec.remark and remarks_data:
+        if isinstance(remarks_data, list) and remarks_data:
+            first_rem = remarks_data[0]
+            rec.remark = first_rem.get("remark") if isinstance(first_rem, dict) else str(first_rem)
+        elif isinstance(remarks_data, str):
+            rec.remark = remarks_data
+
+    for it in items_data:
+        q = it.get("quantity")
+        p = it.get("unit_price")
+        tot = it.get("total_amount")
+        if tot is None and p is not None and q is not None:
+            tot = float(p) * float(q)
+        rec.items.append(BidDocumentSteItem(
+            sr_no=it.get("sr_no"),
+            description=it.get("description", "") or it.get("material_name", ""),
+            material_name=it.get("material_name") or it.get("description", ""),
+            hsn_sac=it.get("hsn_sac"),
+            quantity=q,
+            unit_price=p,
+            total_amount=tot,
+        ))
+
+    db.session.add(rec)
+    db.session.flush()
+
+    _save_attachments(files, "bid_document_ste", rec.id, user_id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_34_BID_DOC_STE", "FORM_34_BID_DOCUMENT_STE"],
+        default=34,
+    )
+    _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
+    if step_num != 34:
+        _save_remarks(rec.project_id, 34, rec.id, remarks_data, user_id)
+    db.session.commit()
+
+    serialized = _serialize_bid_doc_ste(rec)
+    _sync_step(rec.project_id, form_code_val, status_val, serialized)
+    return jsonify(serialized), 201
+
+
+def handle_get_bid_doc_ste(rec_id=None):
+    if rec_id is not None:
+        rec = db.session.get(BidDocumentSte, rec_id)
+        if not rec:
+            return _error("NOT_FOUND", f"BidDocumentSte {rec_id} not found.", 404)
+        return jsonify(_serialize_bid_doc_ste(rec)), 200
+
+    project_id = request.args.get("project_id", type=int)
+    q = BidDocumentSte.query
+    if project_id:
+        q = q.filter_by(project_id=project_id)
+    records = q.order_by(BidDocumentSte.id.desc()).all()
+    return jsonify([_serialize_bid_doc_ste(r) for r in records]), 200
+
+
+def handle_update_bid_doc_ste(rec_id: int):
+    user_id = _get_user_id()
+    rec = db.session.get(BidDocumentSte, rec_id)
+    if not rec:
+        return _error("NOT_FOUND", f"BidDocumentSte {rec_id} not found.", 404)
+
+    try:
+        raw_payload, files = _extract_payload_and_files()
+        data = BidDocumentSteUpdateSchema().load(raw_payload)
+    except ValidationError as err:
+        return _error("VALIDATION_ERROR", err.messages, 422)
+
+    items_data = data.pop("items", None) if "items" in data else (data.pop("requirements", None) if "requirements" in data else None)
+    data.pop("requirements", None)
+    remarks_data = raw_payload.get("remarks") if "remarks" in raw_payload else (data.pop("remarks", None) if "remarks" in data else data.get("remark"))
+    data.pop("remarks", None)
+    data.pop("remark", None)
+    status_val = data.pop("status", None) or raw_payload.get("status")
+    form_code_val = raw_payload.get("form_code") or data.pop("form_code", None)
+    data.pop("attachments_count", None)
+    data.pop("form_code", None)
+
+    if "tender_number" in data and not data.get("tender_no"):
+        data["tender_no"] = data.pop("tender_number")
+    else:
+        data.pop("tender_number", None)
+
+    if "total_corrigendum_issued" in data and data.get("total_no_corrigendum_issued") is None:
+        data["total_no_corrigendum_issued"] = data.pop("total_corrigendum_issued")
+    else:
+        data.pop("total_corrigendum_issued", None)
+
+    if "delivery_term" in data and not data.get("delivery_terms"):
+        data["delivery_terms"] = data.pop("delivery_term")
+    else:
+        data.pop("delivery_term", None)
+
+    if "payment_term" in data and not data.get("payment_terms"):
+        data["payment_terms"] = data.pop("payment_term")
+    else:
+        data.pop("payment_term", None)
+
+    if data.get("gst_pct") is None:
+        if data.get("gst_rate") is not None:
+            data["gst_pct"] = data.pop("gst_rate")
+        elif data.get("gst_rate_pct") is not None:
+            data["gst_pct"] = data.pop("gst_rate_pct")
+    data.pop("gst_rate", None)
+    data.pop("gst_rate_pct", None)
+
+    for k, v in data.items():
+        if hasattr(rec, k):
+            setattr(rec, k, v)
+    if status_val:
+        rec.status = status_val
+    if form_code_val:
+        rec.form_code = form_code_val
+
+    if remarks_data:
+        if isinstance(remarks_data, list) and remarks_data:
+            first_rem = remarks_data[0]
+            rec.remark = first_rem.get("remark") if isinstance(first_rem, dict) else str(first_rem)
+        elif isinstance(remarks_data, str):
+            rec.remark = remarks_data
+
+    if items_data is not None:
+        rec.items.clear()
+        calc_net = 0.0
+        for it in items_data:
+            q = it.get("quantity")
+            p = it.get("unit_price")
+            tot = it.get("total_amount")
+            if tot is None and p is not None and q is not None:
+                tot = float(p) * float(q)
+            if tot:
+                calc_net += float(tot)
+            rec.items.append(BidDocumentSteItem(
+                sr_no=it.get("sr_no"),
+                description=it.get("description", "") or it.get("material_name", ""),
+                material_name=it.get("material_name") or it.get("description", ""),
+                hsn_sac=it.get("hsn_sac"),
+                quantity=q,
+                unit_price=p,
+                total_amount=tot,
+            ))
+        if "total_net_amount" not in data and calc_net > 0:
+            rec.total_net_amount = calc_net
+
+    _save_attachments(files, "bid_document_ste", rec.id, user_id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_34_BID_DOC_STE", "FORM_34_BID_DOCUMENT_STE"],
+        default=34,
+    )
+    _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
+    if step_num != 34:
+        _save_remarks(rec.project_id, 34, rec.id, remarks_data, user_id)
+    db.session.commit()
+
+    serialized = _serialize_bid_doc_ste(rec)
+    _sync_step(rec.project_id, rec.form_code or "FORM_34_BID_DOC_STE", rec.status, serialized)
+    return jsonify(serialized), 200
+
+
+def handle_delete_bid_doc_ste(rec_id: int):
+    rec = db.session.get(BidDocumentSte, rec_id)
+    if not rec:
+        return _error("NOT_FOUND", f"BidDocumentSte {rec_id} not found.", 404)
+    project_id = rec.project_id
+    atts = list_attachments(entity_type="bid_document_ste", entity_id=rec_id)
+    for a in atts:
+        try:
+            delete_attachment(a.id)
+        except Exception:
+            pass
+    db.session.delete(rec)
+    db.session.commit()
+
+    from app.routes.project_step import sync_project_steps_from_records
+    proj = db.session.get(Project, project_id)
+    if proj:
+        sync_project_steps_from_records(proj)
+    return jsonify({"success": True, "message": "Bid Document STE deleted successfully."}), 200
+
+
+# Wire routes to blueprints
+for bp in (bid_document_ste_bp, bid_document_stes_bp, bid_document_for_ste_bp):
+    bp.route("", methods=["GET"])(jwt_required()(handle_get_bid_doc_ste))
+    bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_bid_doc_ste))
+    bp.route("", methods=["POST"])(jwt_required()(handle_create_bid_doc_ste))
+    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(jwt_required()(handle_update_bid_doc_ste))
+    bp.route("/<int:rec_id>", methods=["DELETE"])(jwt_required()(handle_delete_bid_doc_ste))

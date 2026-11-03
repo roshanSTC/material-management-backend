@@ -121,8 +121,13 @@ FORM_REL_MAP = [
     ("FORM_28_FREIGHT_CHA", "customs_clearances"),
     ("FORM_29_BID_DOC_TECHNO_COMMERCIAL", "bid_document_techno_commercials"),
     ("FORM_30_TECHNO_COMMERCIAL_TENDER", "techno_commercial_tenders"),
+    ("FORM_30_SINGLE_TENDER_ENQUIRY", "techno_commercial_tenders"),
+    ("FORM_30_STE", "techno_commercial_tenders"),
     ("FORM_31_BID_DOC_LTE", "bid_document_ltes"),
     ("FORM_32_EWAY_BILL", "eway_bills"),
+    ("FORM_33_STE", "techno_commercial_tenders"),
+    ("FORM_33_SINGLE_TENDER_ENQUIRY", "techno_commercial_tenders"),
+    ("FORM_34_BID_DOC_STE", "bid_document_stes"),
 ]
 FORM_REL_DICT = dict(FORM_REL_MAP)
 
@@ -178,7 +183,6 @@ def sync_project_steps_from_records(project):
                 else:
                     has_record = bool(getattr(project, attrs, None))
             except Exception:
-                db.session.rollback()
                 has_record = False
 
             if has_record:

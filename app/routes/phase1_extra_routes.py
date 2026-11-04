@@ -741,6 +741,10 @@ def handle_get_techno_commercial_tender(rec_id=None):
     if rec_id is not None:
         rec = db.session.get(TechnoCommercialTender, rec_id)
         if not rec:
+            step = db.session.get(ProjectStep, rec_id)
+            if step and step.project_id:
+                rec = TechnoCommercialTender.query.filter_by(project_id=step.project_id).order_by(TechnoCommercialTender.id.desc()).first()
+        if not rec:
             return _error("NOT_FOUND", f"TechnoCommercialTender {rec_id} not found.", 404)
         return jsonify(_serialize_techno_commercial_tender(rec)), 200
 
@@ -755,6 +759,10 @@ def handle_get_techno_commercial_tender(rec_id=None):
 def handle_update_techno_commercial_tender(rec_id: int):
     user_id = _get_user_id()
     rec = db.session.get(TechnoCommercialTender, rec_id)
+    if not rec:
+        step = db.session.get(ProjectStep, rec_id)
+        if step and step.project_id:
+            rec = TechnoCommercialTender.query.filter_by(project_id=step.project_id).order_by(TechnoCommercialTender.id.desc()).first()
     if not rec:
         return _error("NOT_FOUND", f"TechnoCommercialTender {rec_id} not found.", 404)
 
@@ -1019,6 +1027,10 @@ def handle_get_bid_doc_lte(rec_id=None):
     if rec_id is not None:
         rec = db.session.get(BidDocumentLte, rec_id)
         if not rec:
+            step = db.session.get(ProjectStep, rec_id)
+            if step and step.project_id:
+                rec = BidDocumentLte.query.filter_by(project_id=step.project_id).order_by(BidDocumentLte.id.desc()).first()
+        if not rec:
             return _error("NOT_FOUND", f"BidDocumentLte {rec_id} not found.", 404)
         return jsonify(_serialize_bid_doc_lte(rec)), 200
 
@@ -1033,6 +1045,10 @@ def handle_get_bid_doc_lte(rec_id=None):
 def handle_update_bid_doc_lte(rec_id: int):
     user_id = _get_user_id()
     rec = db.session.get(BidDocumentLte, rec_id)
+    if not rec:
+        step = db.session.get(ProjectStep, rec_id)
+        if step and step.project_id:
+            rec = BidDocumentLte.query.filter_by(project_id=step.project_id).order_by(BidDocumentLte.id.desc()).first()
     if not rec:
         return _error("NOT_FOUND", f"BidDocumentLte {rec_id} not found.", 404)
 

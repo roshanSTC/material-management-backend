@@ -232,23 +232,45 @@ class PqbBidDocumentUpdateSchema(BasePhase1Schema):
 # =========================================================================
 # 3. CORRIGENDUM (FORM_03_CORRIGENDUM)
 # =========================================================================
+class CorrigendumItemSchema(BasePhase1Schema):
+    id = fields.Int(dump_only=True)
+    sr_no = FlexibleInt(allow_none=True)
+    as_per_tender_doc = fields.Str(required=False, allow_none=True)
+    as_per_corrigendum = fields.Str(required=False, allow_none=True)
+    description = fields.Str(required=False, allow_none=True)
+
+
 class CorrigendumCreateSchema(BasePhase1Schema):
     project_id = FlexibleInt(required=True)
     corrigendum_no = fields.Str(required=True)
     against_tender_no = fields.Str(allow_none=True)
+    against_ref_no = fields.Str(allow_none=True)
     tender_title = fields.Str(allow_none=True)
+    ref_title = fields.Str(allow_none=True)
     issue_date = FlexibleDate(allow_none=True)
     remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
+    status = fields.Str(allow_none=True)
+    form_code = fields.Str(allow_none=True)
+    attachments_count = FlexibleInt(allow_none=True)
+    items = fields.List(fields.Nested(CorrigendumItemSchema), allow_none=True)
+    table_items = fields.List(fields.Nested(CorrigendumItemSchema), allow_none=True)
 
 
 class CorrigendumUpdateSchema(BasePhase1Schema):
     corrigendum_no = fields.Str(allow_none=True)
     against_tender_no = fields.Str(allow_none=True)
+    against_ref_no = fields.Str(allow_none=True)
     tender_title = fields.Str(allow_none=True)
+    ref_title = fields.Str(allow_none=True)
     issue_date = FlexibleDate(allow_none=True)
     remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
+    status = fields.Str(allow_none=True)
+    form_code = fields.Str(allow_none=True)
+    attachments_count = FlexibleInt(allow_none=True)
+    items = fields.List(fields.Nested(CorrigendumItemSchema), allow_none=True)
+    table_items = fields.List(fields.Nested(CorrigendumItemSchema), allow_none=True)
 
 
 # =========================================================================
@@ -651,4 +673,3 @@ class BidDocumentSteUpdateSchema(BasePhase1Schema):
     attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(BidDocumentSteItemSchema), allow_none=True)
     requirements = fields.List(fields.Nested(BidDocumentSteItemSchema), allow_none=True)
-

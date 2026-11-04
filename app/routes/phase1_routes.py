@@ -10,6 +10,7 @@ from app.extensions.database import db
 from app.models import (
     ConsultancyInvoice,
     Corrigendum,
+    CorrigendumItem,
     ExpressionOfInterest,
     ExpressionOfInterestItem,
     LimitedTenderEnquiry,
@@ -21,6 +22,7 @@ from app.models import (
     PreQualificationBid,
     PreQualificationBidItem,
     Project,
+    ProjectStep,
 )
 from app.schemas.phase1 import (
     ConsultancyInvoiceCreateSchema,
@@ -267,6 +269,10 @@ def list_pqbs():
 def get_pqb(rec_id):
     rec = db.session.get(PreQualificationBid, rec_id)
     if not rec:
+        step = db.session.get(ProjectStep, rec_id)
+        if step and step.project_id:
+            rec = PreQualificationBid.query.filter_by(project_id=step.project_id).order_by(PreQualificationBid.id.desc()).first()
+    if not rec:
         return _error("NOT_FOUND", f"PreQualificationBid {rec_id} not found.", 404)
     return jsonify(_serialize_pqb(rec)), 200
 
@@ -316,6 +322,10 @@ def create_pqb():
 def update_pqb(rec_id):
     user_id = _get_user_id()
     rec = db.session.get(PreQualificationBid, rec_id)
+    if not rec:
+        step = db.session.get(ProjectStep, rec_id)
+        if step and step.project_id:
+            rec = PreQualificationBid.query.filter_by(project_id=step.project_id).order_by(PreQualificationBid.id.desc()).first()
     if not rec:
         return _error("NOT_FOUND", f"PreQualificationBid {rec_id} not found.", 404)
 
@@ -553,6 +563,18 @@ for bp in (pqb_bid_document_bp, pqb_bid_document_singular_bp):
 # 3. CORRIGENDUM (FORM_03_CORRIGENDUM)
 # =========================================================================
 def _serialize_corrigendum(rec):
+    items_list = []
+    if hasattr(rec, "items") and rec.items:
+        items_list = [
+            {
+                "id": it.id,
+                "sr_no": it.sr_no,
+                "as_per_tender_doc": it.as_per_tender_doc or "",
+                "as_per_corrigendum": it.as_per_corrigendum or "",
+                "description": it.as_per_corrigendum or it.as_per_tender_doc or "",
+            }
+            for it in rec.items
+        ]
     return {
         "id": rec.id,
         "project_id": rec.project_id,
@@ -562,6 +584,7 @@ def _serialize_corrigendum(rec):
         "tender_title": rec.tender_title,
         "ref_title": rec.tender_title,
         "issue_date": rec.issue_date.isoformat() if rec.issue_date else None,
+        "items": items_list,
         "remark": rec.remark,
         "remarks": get_step_remarks_for_response(rec.project_id, 3, fallback_raw=rec.remark, entity_id=rec.id),
         "attachments": _serialize_attachments("corrigendum", rec.id),
@@ -604,8 +627,21 @@ def create_corrigendum():
     if not project:
         return _error("PROJECT_NOT_FOUND", f"Project {data['project_id']} not found.", 404)
 
+    items_data = data.pop("items", None) or data.pop("table_items", None) or []
     remarks_data = data.pop("remarks", None) or data.get("remark")
+    if "against_ref_no" in data and not data.get("against_tender_no"):
+        data["against_tender_no"] = data.pop("against_ref_no")
+    if "ref_title" in data and not data.get("tender_title"):
+        data["tender_title"] = data.pop("ref_title")
+
     rec = Corrigendum(**{k: v for k, v in data.items() if hasattr(Corrigendum, k)})
+    for it in items_data:
+        rec.items.append(CorrigendumItem(
+            sr_no=it.get("sr_no"),
+            as_per_tender_doc=it.get("as_per_tender_doc"),
+            as_per_corrigendum=it.get("as_per_corrigendum"),
+        ))
+
     db.session.add(rec)
     db.session.flush()
 
@@ -629,12 +665,27 @@ def update_corrigendum(rec_id):
     except ValidationError as err:
         return _error("VALIDATION_ERROR", err.messages, 422)
 
+    items_data = data.pop("items", None) if "items" in data else data.pop("table_items", None)
     remarks_data = data.pop("remarks", None) if "remarks" in data else data.get("remark")
+    if "against_ref_no" in data:
+        data["against_tender_no"] = data.pop("against_ref_no")
+    if "ref_title" in data:
+        data["tender_title"] = data.pop("ref_title")
+
     for k, v in data.items():
         if hasattr(rec, k):
             setattr(rec, k, v)
     if "bid_number" in data and data["bid_number"]:
         rec.pqb_no = data["bid_number"]
+
+    if items_data is not None:
+        rec.items.clear()
+        for it in items_data:
+            rec.items.append(CorrigendumItem(
+                sr_no=it.get("sr_no"),
+                as_per_tender_doc=it.get("as_per_tender_doc"),
+                as_per_corrigendum=it.get("as_per_corrigendum"),
+            ))
 
     _save_attachments(files, "corrigendum", rec.id, user_id)
     if remarks_data is not None:
@@ -706,6 +757,10 @@ def list_ltes():
 def get_lte(rec_id):
     rec = db.session.get(LimitedTenderEnquiry, rec_id)
     if not rec:
+        step = db.session.get(ProjectStep, rec_id)
+        if step and step.project_id:
+            rec = LimitedTenderEnquiry.query.filter_by(project_id=step.project_id).order_by(LimitedTenderEnquiry.id.desc()).first()
+    if not rec:
         return _error("NOT_FOUND", f"LimitedTenderEnquiry {rec_id} not found.", 404)
     return jsonify(_serialize_lte(rec)), 200
 
@@ -750,6 +805,10 @@ def create_lte():
 def update_lte(rec_id):
     user_id = _get_user_id()
     rec = db.session.get(LimitedTenderEnquiry, rec_id)
+    if not rec:
+        step = db.session.get(ProjectStep, rec_id)
+        if step and step.project_id:
+            rec = LimitedTenderEnquiry.query.filter_by(project_id=step.project_id).order_by(LimitedTenderEnquiry.id.desc()).first()
     if not rec:
         return _error("NOT_FOUND", f"LimitedTenderEnquiry {rec_id} not found.", 404)
 

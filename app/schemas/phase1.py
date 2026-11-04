@@ -327,6 +327,15 @@ class LimitedTenderEnquiryUpdateSchema(BasePhase1Schema):
     requirements = fields.List(fields.Nested(LimitedTenderEnquiryItemSchema), allow_none=True)
 
 
+class LatestLimitedTenderEnquiryQuerySchema(BasePhase1Schema):
+    project_id = FlexibleInt(required=False, allow_none=True)
+
+
+class LatestLimitedTenderEnquiryResponseSchema(BasePhase1Schema):
+    tender_title = fields.Str(allow_none=True)
+    tender_enquiry_no = fields.Str(allow_none=True)
+
+
 # =========================================================================
 # 5. NOTIFICATION OF AWARD OF CONTRACT (FORM_05_NAC)
 # =========================================================================
@@ -540,6 +549,15 @@ class TechnoCommercialTenderUpdateSchema(BasePhase1Schema):
     form_code = fields.Str(allow_none=True)
     attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(TechnoCommercialTenderItemSchema), allow_none=True)
+
+
+class LatestSingleTenderEnquiryQuerySchema(BasePhase1Schema):
+    project_id = FlexibleInt(required=False, allow_none=True)
+
+
+class LatestSingleTenderEnquiryResponseSchema(BasePhase1Schema):
+    tender_title = fields.Str(allow_none=True)
+    tender_enquiry_no = fields.Str(allow_none=True)
 
 
 # =========================================================================

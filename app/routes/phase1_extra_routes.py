@@ -35,6 +35,8 @@ from app.schemas.phase1 import (
     BidDocumentTechnoCommercialUpdateSchema,
     InternationalCompetitiveBiddingCreateSchema,
     InternationalCompetitiveBiddingUpdateSchema,
+    LatestSingleTenderEnquiryQuerySchema,
+    LatestSingleTenderEnquiryResponseSchema,
     TechnoCommercialTenderCreateSchema,
     TechnoCommercialTenderUpdateSchema,
 )
@@ -805,7 +807,41 @@ def handle_create_techno_commercial_tender():
     return jsonify(serialized), 201
 
 
+def handle_get_latest_techno_commercial_tender(args=None):
+    if args is None:
+        args = {}
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    query = TechnoCommercialTender.query
+    if project_id is not None:
+        try:
+            pid = int(project_id)
+            if pid <= 0:
+                return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+        except (ValueError, TypeError):
+            return _error("INVALID_PROJECT_ID", "project_id must be an integer.", 400)
+
+        project = db.session.get(Project, pid)
+        if not project:
+            return _error("PROJECT_NOT_FOUND", f"Project {pid} not found.", 404)
+        query = query.filter_by(project_id=pid)
+
+    rec = query.order_by(TechnoCommercialTender.id.desc()).first()
+    if not rec:
+        return _error("NOT_FOUND", "Single tender enquiry not found.", 404)
+
+    return jsonify({
+        "tender_title": rec.tender_title,
+        "tender_enquiry_no": rec.tender_enquiry_no or rec.tender_no,
+    }), 200
+
+
 def handle_get_techno_commercial_tender(rec_id=None):
+    if request.args.get("latest") in ("true", "1"):
+        return handle_get_latest_techno_commercial_tender()
     if rec_id is not None:
         rec = db.session.get(TechnoCommercialTender, rec_id)
         if not rec:
@@ -951,6 +987,19 @@ for bp in (
     ste_bp,
     stes_bp,
 ):
+    bp.route("/latest", methods=["GET"])(
+        bp.doc(
+            security=[{"BearerAuth": []}],
+            summary="Get Latest Single Tender Enquiry",
+            description="Retrieve only tender_title and tender_enquiry_no for the latest single tender enquiry.",
+        )(
+            bp.arguments(LatestSingleTenderEnquiryQuerySchema, location="query")(
+                bp.response(200, LatestSingleTenderEnquiryResponseSchema)(
+                    jwt_required()(handle_get_latest_techno_commercial_tender)
+                )
+            )
+        )
+    )
     bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_techno_commercial_tender)))
     bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_techno_commercial_tender)))
     bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_techno_commercial_tender)))

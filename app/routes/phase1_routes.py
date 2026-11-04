@@ -31,6 +31,8 @@ from app.schemas.phase1 import (
     CorrigendumUpdateSchema,
     ExpressionOfInterestCreateSchema,
     ExpressionOfInterestUpdateSchema,
+    LatestLimitedTenderEnquiryQuerySchema,
+    LatestLimitedTenderEnquiryResponseSchema,
     LatestPreQualificationBidQuerySchema,
     LatestPreQualificationBidResponseSchema,
     LimitedTenderEnquiryCreateSchema,
@@ -94,6 +96,13 @@ limited_tender_enquiry_bp = Blueprint(
     description="Limited Tender Enquiries APIs",
 )
 
+limited_tender_enquiry_singular_bp = Blueprint(
+    "limited_tender_enquiry_singular",
+    __name__,
+    url_prefix="/api/v1/limited-tender-enquiry",
+    description="Limited Tender Enquiry (Singular) APIs",
+)
+
 notification_award_bp = Blueprint(
     "notification_awards",
     __name__,
@@ -122,6 +131,7 @@ PHASE1_BLUEPRINTS = [
     pqb_bid_document_singular_bp,
     corrigendum_bp,
     limited_tender_enquiry_bp,
+    limited_tender_enquiry_singular_bp,
     notification_award_bp,
     consultancy_invoice_bp,
     expression_of_interest_bp,
@@ -823,12 +833,72 @@ def _serialize_lte(rec):
 @limited_tender_enquiry_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_ltes():
+    if request.args.get("latest") in ("true", "1"):
+        return _handle_get_latest_lte()
     project_id = request.args.get("project_id", type=int)
     query = LimitedTenderEnquiry.query
     if project_id:
         query = query.filter_by(project_id=project_id)
     records = query.order_by(LimitedTenderEnquiry.id.desc()).all()
     return jsonify([_serialize_lte(r) for r in records]), 200
+
+
+def _handle_get_latest_lte(args=None):
+    if args is None:
+        args = {}
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    query = LimitedTenderEnquiry.query
+    if project_id is not None:
+        try:
+            pid = int(project_id)
+            if pid <= 0:
+                return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+        except (ValueError, TypeError):
+            return _error("INVALID_PROJECT_ID", "project_id must be an integer.", 400)
+
+        project = db.session.get(Project, pid)
+        if not project:
+            return _error("PROJECT_NOT_FOUND", f"Project {pid} not found.", 404)
+        query = query.filter_by(project_id=pid)
+
+    rec = query.order_by(LimitedTenderEnquiry.id.desc()).first()
+    if not rec:
+        return _error("NOT_FOUND", "Limited tender enquiry not found.", 404)
+
+    return jsonify({
+        "tender_title": rec.tender_title,
+        "tender_enquiry_no": rec.tender_enquiry_no,
+    }), 200
+
+
+@limited_tender_enquiry_bp.get("/latest")
+@limited_tender_enquiry_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Limited Tender Enquiry",
+    description="Retrieve only tender_title and tender_enquiry_no for the latest limited tender enquiry.",
+)
+@limited_tender_enquiry_bp.arguments(LatestLimitedTenderEnquiryQuerySchema, location="query")
+@limited_tender_enquiry_bp.response(200, LatestLimitedTenderEnquiryResponseSchema)
+@jwt_required()
+def get_latest_lte(args=None):
+    return _handle_get_latest_lte(args)
+
+
+@limited_tender_enquiry_singular_bp.get("/latest")
+@limited_tender_enquiry_singular_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Limited Tender Enquiry (Singular)",
+    description="Retrieve only tender_title and tender_enquiry_no for the latest limited tender enquiry.",
+)
+@limited_tender_enquiry_singular_bp.arguments(LatestLimitedTenderEnquiryQuerySchema, location="query")
+@limited_tender_enquiry_singular_bp.response(200, LatestLimitedTenderEnquiryResponseSchema)
+@jwt_required()
+def get_latest_lte_singular(args=None):
+    return _handle_get_latest_lte(args)
 
 
 @limited_tender_enquiry_bp.get("/<int:rec_id>")

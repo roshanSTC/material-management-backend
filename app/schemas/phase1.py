@@ -702,6 +702,35 @@ class BidDocumentSteUpdateSchema(BasePhase1Schema):
     requirements = fields.List(fields.Nested(BidDocumentSteItemSchema), allow_none=True)
 
 
+class LatestBidDocumentItemResponseSchema(BasePhase1Schema):
+    id = fields.Int(allow_none=True)
+    sr_no = FlexibleInt(allow_none=True)
+    description = fields.Str(allow_none=True)
+    material_name = fields.Str(allow_none=True)
+    hsn_sac = fields.Str(allow_none=True)
+    quantity = FlexibleFloat(allow_none=True)
+    unit_price = FlexibleFloat(allow_none=True)
+    total_amount = FlexibleFloat(allow_none=True)
+
+
+class LatestBidDocumentQuerySchema(BasePhase1Schema):
+    project_id = FlexibleInt(required=False, allow_none=True)
+
+
+class LatestBidDocumentResponseSchema(BasePhase1Schema):
+    delivery_term = fields.Str(allow_none=True)
+    gst_pct = FlexibleFloat(allow_none=True)
+    payment_terms = fields.Str(allow_none=True)
+    warranty_period = fields.Str(allow_none=True)
+    items = fields.List(fields.Nested(LatestBidDocumentItemResponseSchema), allow_none=True)
+
+
+LatestBidDocumentLteQuerySchema = LatestBidDocumentQuerySchema
+LatestBidDocumentLteResponseSchema = LatestBidDocumentResponseSchema
+LatestBidDocumentSteQuerySchema = LatestBidDocumentQuerySchema
+LatestBidDocumentSteResponseSchema = LatestBidDocumentResponseSchema
+
+
 # =========================================================================
 # 12. INTERNATIONAL COMPETITIVE BIDDING (FORM_35_ICB)
 # =========================================================================

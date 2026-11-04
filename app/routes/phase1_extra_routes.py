@@ -35,6 +35,10 @@ from app.schemas.phase1 import (
     BidDocumentTechnoCommercialUpdateSchema,
     InternationalCompetitiveBiddingCreateSchema,
     InternationalCompetitiveBiddingUpdateSchema,
+    LatestBidDocumentLteQuerySchema,
+    LatestBidDocumentLteResponseSchema,
+    LatestBidDocumentSteQuerySchema,
+    LatestBidDocumentSteResponseSchema,
     LatestSingleTenderEnquiryQuerySchema,
     LatestSingleTenderEnquiryResponseSchema,
     TechnoCommercialTenderCreateSchema,
@@ -1140,7 +1144,56 @@ def handle_create_bid_doc_lte():
     return jsonify(serialized), 201
 
 
+def handle_get_latest_bid_doc_lte(args=None):
+    if args is None:
+        args = {}
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    query = BidDocumentLte.query
+    if project_id is not None:
+        try:
+            pid = int(project_id)
+            if pid <= 0:
+                return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+        except (ValueError, TypeError):
+            return _error("INVALID_PROJECT_ID", "project_id must be an integer.", 400)
+
+        project = db.session.get(Project, pid)
+        if not project:
+            return _error("PROJECT_NOT_FOUND", f"Project {pid} not found.", 404)
+        query = query.filter_by(project_id=pid)
+
+    rec = query.order_by(BidDocumentLte.id.desc()).first()
+    if not rec:
+        return _error("NOT_FOUND", "Bid document LTE not found.", 404)
+
+    return jsonify({
+        "delivery_term": rec.delivery_terms,
+        "gst_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
+        "payment_terms": rec.payment_terms,
+        "warranty_period": rec.warranty_period,
+        "items": [
+            {
+                "id": it.id,
+                "sr_no": it.sr_no,
+                "description": it.description,
+                "material_name": it.material_name or it.description,
+                "hsn_sac": it.hsn_sac,
+                "quantity": float(it.quantity) if it.quantity is not None else None,
+                "unit_price": float(it.unit_price) if it.unit_price is not None else None,
+                "total_amount": float(it.total_amount) if it.total_amount is not None else None,
+            }
+            for it in (rec.items or [])
+        ],
+    }), 200
+
+
 def handle_get_bid_doc_lte(rec_id=None):
+    if request.args.get("latest") in ("true", "1"):
+        return handle_get_latest_bid_doc_lte()
     if rec_id is not None:
         rec = db.session.get(BidDocumentLte, rec_id)
         if not rec:
@@ -1254,6 +1307,19 @@ def handle_delete_bid_doc_lte(rec_id: int):
 
 # Wire routes to blueprints
 for bp in (bid_document_lte_bp, bid_document_lte_plural_bp):
+    bp.route("/latest", methods=["GET"])(
+        bp.doc(
+            security=[{"BearerAuth": []}],
+            summary="Get Latest Bid Document LTE",
+            description="Retrieve only delivery_term, gst_pct, payment_terms, warranty_period, and items for the latest bid document LTE.",
+        )(
+            bp.arguments(LatestBidDocumentLteQuerySchema, location="query")(
+                bp.response(200, LatestBidDocumentLteResponseSchema)(
+                    jwt_required()(handle_get_latest_bid_doc_lte)
+                )
+            )
+        )
+    )
     bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_lte)))
     bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_lte)))
     bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_bid_doc_lte)))
@@ -1454,7 +1520,56 @@ def handle_create_bid_doc_ste():
     return jsonify(serialized), 201
 
 
+def handle_get_latest_bid_doc_ste(args=None):
+    if args is None:
+        args = {}
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    query = BidDocumentSte.query
+    if project_id is not None:
+        try:
+            pid = int(project_id)
+            if pid <= 0:
+                return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+        except (ValueError, TypeError):
+            return _error("INVALID_PROJECT_ID", "project_id must be an integer.", 400)
+
+        project = db.session.get(Project, pid)
+        if not project:
+            return _error("PROJECT_NOT_FOUND", f"Project {pid} not found.", 404)
+        query = query.filter_by(project_id=pid)
+
+    rec = query.order_by(BidDocumentSte.id.desc()).first()
+    if not rec:
+        return _error("NOT_FOUND", "Bid document STE not found.", 404)
+
+    return jsonify({
+        "delivery_term": rec.delivery_terms,
+        "gst_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
+        "payment_terms": rec.payment_terms,
+        "warranty_period": rec.warranty_period,
+        "items": [
+            {
+                "id": it.id,
+                "sr_no": it.sr_no,
+                "description": it.description,
+                "material_name": it.material_name or it.description,
+                "hsn_sac": it.hsn_sac,
+                "quantity": float(it.quantity) if it.quantity is not None else None,
+                "unit_price": float(it.unit_price) if it.unit_price is not None else None,
+                "total_amount": float(it.total_amount) if it.total_amount is not None else None,
+            }
+            for it in (rec.items or [])
+        ],
+    }), 200
+
+
 def handle_get_bid_doc_ste(rec_id=None):
+    if request.args.get("latest") in ("true", "1"):
+        return handle_get_latest_bid_doc_ste()
     if rec_id is not None:
         rec = db.session.get(BidDocumentSte, rec_id)
         if not rec:
@@ -1596,6 +1711,19 @@ def handle_delete_bid_doc_ste(rec_id: int):
 
 # Wire routes to blueprints
 for bp in (bid_document_ste_bp, bid_document_stes_bp, bid_document_for_ste_bp):
+    bp.route("/latest", methods=["GET"])(
+        bp.doc(
+            security=[{"BearerAuth": []}],
+            summary="Get Latest Bid Document STE",
+            description="Retrieve only delivery_term, gst_pct, payment_terms, warranty_period, and items for the latest bid document STE.",
+        )(
+            bp.arguments(LatestBidDocumentSteQuerySchema, location="query")(
+                bp.response(200, LatestBidDocumentSteResponseSchema)(
+                    jwt_required()(handle_get_latest_bid_doc_ste)
+                )
+            )
+        )
+    )
     bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_ste)))
     bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_ste)))
     bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_bid_doc_ste)))

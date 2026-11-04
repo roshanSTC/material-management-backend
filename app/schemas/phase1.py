@@ -560,6 +560,22 @@ class LatestSingleTenderEnquiryResponseSchema(BasePhase1Schema):
     tender_enquiry_no = fields.Str(allow_none=True)
 
 
+LatestTenderEnquiryQuerySchema = LatestSingleTenderEnquiryQuerySchema
+LatestTenderEnquiryResponseSchema = LatestSingleTenderEnquiryResponseSchema
+
+LatestExpressionOfInterestQuerySchema = LatestTenderEnquiryQuerySchema
+LatestExpressionOfInterestResponseSchema = LatestTenderEnquiryResponseSchema
+
+LatestInternationalCompetitiveBiddingQuerySchema = LatestTenderEnquiryQuerySchema
+LatestInternationalCompetitiveBiddingResponseSchema = LatestTenderEnquiryResponseSchema
+
+LatestTechnoCommercialTenderQuerySchema = LatestTenderEnquiryQuerySchema
+LatestTechnoCommercialTenderResponseSchema = LatestTenderEnquiryResponseSchema
+
+LatestPacTenderQuerySchema = LatestTenderEnquiryQuerySchema
+LatestPacTenderResponseSchema = LatestTenderEnquiryResponseSchema
+
+
 # =========================================================================
 # 10. BID DOCUMENT LTE (FORM_31_BID_DOC_LTE)
 # =========================================================================

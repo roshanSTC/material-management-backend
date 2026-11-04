@@ -168,5 +168,13 @@ class CustomerTender(db.Model):
     def incoterms(self, val: str | None) -> None:
         self.delivery_terms = val
 
+    @property
+    def tender_enquiry_no(self) -> str | None:
+        return self.tender_number
+
+    @tender_enquiry_no.setter
+    def tender_enquiry_no(self, val: str | None) -> None:
+        self.tender_number = val
+
     def __repr__(self) -> str:
         return f"<CustomerTender {self.id}>"

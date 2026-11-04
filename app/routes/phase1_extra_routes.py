@@ -39,6 +39,8 @@ from app.schemas.phase1 import (
     LatestBidDocumentLteResponseSchema,
     LatestBidDocumentSteQuerySchema,
     LatestBidDocumentSteResponseSchema,
+    LatestInternationalCompetitiveBiddingQuerySchema,
+    LatestInternationalCompetitiveBiddingResponseSchema,
     LatestSingleTenderEnquiryQuerySchema,
     LatestSingleTenderEnquiryResponseSchema,
     TechnoCommercialTenderCreateSchema,
@@ -118,6 +120,20 @@ stes_bp = Blueprint(
     __name__,
     url_prefix="/api/v1/stes",
     description="STEs APIs",
+)
+
+tct_bp = Blueprint(
+    "tct",
+    __name__,
+    url_prefix="/api/v1/tct",
+    description="TCT APIs",
+)
+
+tcts_bp = Blueprint(
+    "tcts",
+    __name__,
+    url_prefix="/api/v1/tcts",
+    description="TCTs APIs",
 )
 
 
@@ -223,6 +239,8 @@ EXTRA_BLUEPRINTS = [
     single_tender_enquiry_ste_bp,
     ste_bp,
     stes_bp,
+    tct_bp,
+    tcts_bp,
     bid_document_lte_bp,
     bid_document_lte_plural_bp,
     bid_document_ste_bp,
@@ -990,6 +1008,8 @@ for bp in (
     single_tender_enquiry_ste_bp,
     ste_bp,
     stes_bp,
+    tct_bp,
+    tcts_bp,
 ):
     bp.route("/latest", methods=["GET"])(
         bp.doc(
@@ -1889,7 +1909,41 @@ def handle_create_international_competitive_bidding():
     return jsonify(serialized), 201
 
 
+def handle_get_latest_international_competitive_bidding(args=None):
+    if args is None:
+        args = {}
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    query = InternationalCompetitiveBidding.query
+    if project_id is not None:
+        try:
+            pid = int(project_id)
+            if pid <= 0:
+                return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+        except (ValueError, TypeError):
+            return _error("INVALID_PROJECT_ID", "project_id must be an integer.", 400)
+
+        project = db.session.get(Project, pid)
+        if not project:
+            return _error("PROJECT_NOT_FOUND", f"Project {pid} not found.", 404)
+        query = query.filter_by(project_id=pid)
+
+    rec = query.order_by(InternationalCompetitiveBidding.id.desc()).first()
+    if not rec:
+        return _error("NOT_FOUND", "International competitive bidding not found.", 404)
+
+    return jsonify({
+        "tender_title": rec.tender_title,
+        "tender_enquiry_no": rec.tender_no or rec.tender_number,
+    }), 200
+
+
 def handle_get_international_competitive_bidding(rec_id=None):
+    if request.args.get("latest") in ("true", "1"):
+        return handle_get_latest_international_competitive_bidding()
     if rec_id is not None:
         rec = db.session.get(InternationalCompetitiveBidding, rec_id)
         if not rec:
@@ -2019,6 +2073,19 @@ def handle_delete_international_competitive_bidding(rec_id: int):
 
 # Wire routes to ICB blueprints
 for bp in (international_competitive_biddings_bp, international_competitive_bidding_bp, icb_bp, icbs_bp):
+    bp.route("/latest", methods=["GET"])(
+        bp.doc(
+            security=[{"BearerAuth": []}],
+            summary="Get Latest International Competitive Bidding (ICB)",
+            description="Retrieve only tender_title and tender_enquiry_no for the latest international competitive bidding.",
+        )(
+            bp.arguments(LatestInternationalCompetitiveBiddingQuerySchema, location="query")(
+                bp.response(200, LatestInternationalCompetitiveBiddingResponseSchema)(
+                    jwt_required()(handle_get_latest_international_competitive_bidding)
+                )
+            )
+        )
+    )
     bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_international_competitive_bidding)))
     bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_international_competitive_bidding)))
     bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_international_competitive_bidding)))

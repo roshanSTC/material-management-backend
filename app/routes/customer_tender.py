@@ -14,6 +14,8 @@ from app.schemas.customer_tender import (
     CustomerTenderUpdateSchema,
     LatestCustomerTenderQuerySchema,
     LatestCustomerTenderResponseSchema,
+    LatestPacTenderQuerySchema,
+    LatestPacTenderResponseSchema,
 )
 from app.services.attachment_service import (
     AttachmentValidationError,
@@ -41,6 +43,27 @@ customer_tender_bp = Blueprint(
     __name__,
     url_prefix="/api/v1/customer-tenders",
     description="Customer Tender APIs",
+)
+
+pac_tenders_bp = Blueprint(
+    "pac_tenders",
+    __name__,
+    url_prefix="/api/v1/pac-tenders",
+    description="PAC Tenders APIs",
+)
+
+pac_tender_bp = Blueprint(
+    "pac_tender",
+    __name__,
+    url_prefix="/api/v1/pac-tender",
+    description="PAC Tender (Singular) APIs",
+)
+
+pac_bp = Blueprint(
+    "pac",
+    __name__,
+    url_prefix="/api/v1/pac",
+    description="PAC APIs",
 )
 
 
@@ -327,9 +350,48 @@ def list_customer_tenders(args=None):
         return _error("CUSTOMER_TENDER_LIST_FAILED", "Failed to list customer tenders.", 500)
 
 
+def _handle_get_latest_pac_tender(args=None):
+    if args is None:
+        args = {}
+
+    from app.models import CustomerTender, Project
+
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+        or request.args.get("product_id")
+    )
+    query = CustomerTender.query
+    if project_id is not None:
+        try:
+            pid = int(project_id)
+            if pid <= 0:
+                return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+        except (ValueError, TypeError):
+            return _error("INVALID_PROJECT_ID", "project_id must be an integer.", 400)
+
+        project = db.session.get(Project, pid)
+        if not project:
+            return _error("PROJECT_NOT_FOUND", f"Project {pid} not found.", 404)
+        query = query.filter_by(project_id=pid)
+
+    rec = query.order_by(CustomerTender.id.desc()).first()
+    if not rec:
+        return _error("NOT_FOUND", "PAC tender not found.", 404)
+
+    return jsonify({
+        "tender_title": rec.tender_title,
+        "tender_enquiry_no": rec.tender_number,
+    }), 200
+
+
 def _handle_get_latest_customer_tender(args=None):
     if args is None:
         args = {}
+
+    if request.args.get("pac") in ("true", "1") or request.args.get("enquiry_only") in ("true", "1") or request.args.get("tender_only") in ("true", "1"):
+        return _handle_get_latest_pac_tender(args)
 
     project_id = (
         args.get("project_id")
@@ -501,3 +563,59 @@ def get_customer_tender_by_id(customer_tender_id: int):
         return jsonify(_customer_tender_response(record)), 200
     except CustomerTenderNotFoundError as exc:
         return _error("CUSTOMER_TENDER_NOT_FOUND", str(exc), 404)
+
+
+# PAC Tender handlers (wrappers to prevent smorest doc parameter collision)
+def _list_pac(*args, **kwargs):
+    return list_customer_tenders(*args, **kwargs)
+
+
+def _get_pac_by_id(customer_tender_id: int):
+    return get_customer_tender_by_id(customer_tender_id)
+
+
+def _create_pac():
+    return create_customer_tender()
+
+
+def _update_pac(customer_tender_id: int):
+    return update_customer_tender(customer_tender_id)
+
+
+def _delete_pac(customer_tender_id: int):
+    return delete_customer_tender(customer_tender_id)
+
+
+# Wire PAC Tender Blueprints
+for bp in (pac_tenders_bp, pac_tender_bp, pac_bp):
+    bp.route("/latest", methods=["GET"])(
+        bp.doc(
+            security=[{"BearerAuth": []}],
+            summary="Get Latest PAC Tender",
+            description="Retrieve only tender_title and tender_enquiry_no for the latest PAC tender.",
+        )(
+            jwt_required()(
+                bp.arguments(LatestPacTenderQuerySchema, location="query")(
+                    bp.response(200, LatestPacTenderResponseSchema)(
+                        _handle_get_latest_pac_tender
+                    )
+                )
+            )
+        )
+    )
+    bp.route("", methods=["GET"])(
+        bp.doc(security=[{"BearerAuth": []}])(jwt_required()(_list_pac))
+    )
+    bp.route("/<int:customer_tender_id>", methods=["GET"])(
+        bp.doc(security=[{"BearerAuth": []}])(jwt_required()(_get_pac_by_id))
+    )
+    bp.route("", methods=["POST"])(
+        bp.doc(security=[{"BearerAuth": []}])(jwt_required()(_create_pac))
+    )
+    bp.route("/<int:customer_tender_id>", methods=["PATCH", "PUT"])(
+        bp.doc(security=[{"BearerAuth": []}])(jwt_required()(_update_pac))
+    )
+    bp.route("/<int:customer_tender_id>", methods=["DELETE"])(
+        bp.doc(security=[{"BearerAuth": []}])(jwt_required()(_delete_pac))
+    )
+

@@ -490,3 +490,34 @@ class LatestCustomerTenderResponseSchema(Schema):
         fields.Nested(LatestCustomerTenderItemResponseSchema),
         required=True,
     )
+
+
+class LatestPacTenderResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    tender_title = fields.String(allow_none=True)
+    tender_enquiry_no = fields.String(allow_none=True)
+
+
+class LatestPacTenderQuerySchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    project_id = fields.Integer(
+        required=False,
+        allow_none=True,
+    )
+
+    @pre_load
+    def normalize_keys(self, data, **kwargs):
+        from collections.abc import Mapping
+        if not isinstance(data, (dict, Mapping)):
+            return data
+        normalized = dict(data)
+        if "projectId" in normalized and "project_id" not in normalized:
+            normalized["project_id"] = normalized.pop("projectId")
+        if "product_id" in normalized and "project_id" not in normalized:
+            normalized["project_id"] = normalized.pop("product_id")
+        return normalized
+

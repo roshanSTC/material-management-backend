@@ -31,6 +31,8 @@ from app.schemas.phase1 import (
     CorrigendumUpdateSchema,
     ExpressionOfInterestCreateSchema,
     ExpressionOfInterestUpdateSchema,
+    LatestExpressionOfInterestQuerySchema,
+    LatestExpressionOfInterestResponseSchema,
     LatestLimitedTenderEnquiryQuerySchema,
     LatestLimitedTenderEnquiryResponseSchema,
     LatestPreQualificationBidQuerySchema,
@@ -124,6 +126,27 @@ expression_of_interest_bp = Blueprint(
     description="Expressions of Interest APIs",
 )
 
+expression_of_interest_singular_bp = Blueprint(
+    "expression_of_interest_singular",
+    __name__,
+    url_prefix="/api/v1/expression-of-interest",
+    description="Expression of Interest (Singular) APIs",
+)
+
+eoi_bp = Blueprint(
+    "eoi",
+    __name__,
+    url_prefix="/api/v1/eoi",
+    description="EOI APIs",
+)
+
+eois_bp = Blueprint(
+    "eois",
+    __name__,
+    url_prefix="/api/v1/eois",
+    description="EOIs APIs",
+)
+
 PHASE1_BLUEPRINTS = [
     pre_qualification_bid_bp,
     pre_qualification_bid_singular_bp,
@@ -135,6 +158,9 @@ PHASE1_BLUEPRINTS = [
     notification_award_bp,
     consultancy_invoice_bp,
     expression_of_interest_bp,
+    expression_of_interest_singular_bp,
+    eoi_bp,
+    eois_bp,
 ]
 
 
@@ -1308,10 +1334,44 @@ def _serialize_eoi(rec):
     }
 
 
+def handle_get_latest_expression_of_interest(args=None):
+    if args is None:
+        args = {}
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    query = ExpressionOfInterest.query
+    if project_id is not None:
+        try:
+            pid = int(project_id)
+            if pid <= 0:
+                return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+        except (ValueError, TypeError):
+            return _error("INVALID_PROJECT_ID", "project_id must be an integer.", 400)
+
+        project = db.session.get(Project, pid)
+        if not project:
+            return _error("PROJECT_NOT_FOUND", f"Project {pid} not found.", 404)
+        query = query.filter_by(project_id=pid)
+
+    rec = query.order_by(ExpressionOfInterest.id.desc()).first()
+    if not rec:
+        return _error("NOT_FOUND", "Expression of interest not found.", 404)
+
+    return jsonify({
+        "tender_title": rec.eoi_title,
+        "tender_enquiry_no": rec.eoi_no,
+    }), 200
+
+
 @expression_of_interest_bp.get("")
 @expression_of_interest_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_eois():
+    if request.args.get("latest") in ("true", "1"):
+        return handle_get_latest_expression_of_interest()
     project_id = request.args.get("project_id", type=int)
     query = ExpressionOfInterest.query
     if project_id:
@@ -1419,3 +1479,26 @@ def delete_eoi(rec_id):
     db.session.delete(rec)
     db.session.commit()
     return jsonify({"success": True, "message": "Expression of interest deleted successfully."}), 200
+
+
+for bp in (expression_of_interest_bp, expression_of_interest_singular_bp, eoi_bp, eois_bp):
+    bp.route("/latest", methods=["GET"])(
+        bp.doc(
+            security=[{"BearerAuth": []}],
+            summary="Get Latest Expression of Interest",
+            description="Retrieve only tender_title and tender_enquiry_no for the latest expression of interest.",
+        )(
+            bp.arguments(LatestExpressionOfInterestQuerySchema, location="query")(
+                bp.response(200, LatestExpressionOfInterestResponseSchema)(
+                    jwt_required()(handle_get_latest_expression_of_interest)
+                )
+            )
+        )
+    )
+    if bp != expression_of_interest_bp:
+        bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(list_eois)))
+        bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(get_eoi)))
+        bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(create_eoi)))
+        bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(update_eoi)))
+        bp.route("/<int:rec_id>", methods=["DELETE"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(delete_eoi)))
+

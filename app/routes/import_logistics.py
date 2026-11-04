@@ -556,6 +556,7 @@ def delete_import_logistics(logistics_id: int):
 
 
 @import_logistics_bp.get("/<int:logistics_id>")
+@import_logistics_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_import_logistics_by_id(logistics_id: int):
     try:

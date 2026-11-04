@@ -694,6 +694,10 @@ def get_latest_supplier_quotation_v1(args=None):
     },
 )
 @supplier_quotation_bp.post("/upload-excel")
+@supplier_quotation_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Upload and parse Supplier Quotation Excel file (alias)",
+)
 @jwt_required()
 def upload_excel_alias():
     return upload_excel()
@@ -758,6 +762,7 @@ def upload_excel():
 
 
 @supplier_quotation_bp.get("/<int:supplier_quotation_id>")
+@supplier_quotation_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_supplier_quotation_by_id(supplier_quotation_id: int):
     try:

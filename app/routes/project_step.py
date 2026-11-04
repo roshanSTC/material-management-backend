@@ -125,6 +125,8 @@ FORM_REL_MAP = [
     ("FORM_32_EWAY_BILL", "eway_bills"),
     ("FORM_33_STE", "techno_commercial_tenders"),
     ("FORM_34_BID_DOC_STE", "bid_document_stes"),
+    ("FORM_35_ICB", "international_competitive_biddings"),
+    ("FORM_36_BID_DOC_ICB", "bid_document_icbs"),
 ]
 FORM_REL_DICT = dict(FORM_REL_MAP)
 

@@ -79,6 +79,14 @@ from app.models.bid_document_ste import (
     BidDocumentSte,
     BidDocumentSteItem,
 )
+from app.models.international_competitive_bidding import (
+    InternationalCompetitiveBidding,
+    InternationalCompetitiveBiddingItem,
+)
+from app.models.bid_document_icb import (
+    BidDocumentIcb,
+    BidDocumentIcbItem,
+)
 from app.models.eway_bill import (
     EWayBill,
     EWayBillItem,
@@ -160,6 +168,10 @@ __all__ = [
     "BidDocumentLteItem",
     "BidDocumentSte",
     "BidDocumentSteItem",
+    "InternationalCompetitiveBidding",
+    "InternationalCompetitiveBiddingItem",
+    "BidDocumentIcb",
+    "BidDocumentIcbItem",
     "EWayBill",
     "EWayBillItem",
 ]

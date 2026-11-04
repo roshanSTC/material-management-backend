@@ -720,6 +720,7 @@ def delete(quotation_request_id):
 
 
 @quotation_request_bp.get("/<int:quotation_request_id>")
+@quotation_request_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_quotation_request_by_id(quotation_request_id: int):
     try:

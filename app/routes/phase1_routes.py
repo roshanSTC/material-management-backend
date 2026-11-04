@@ -31,6 +31,8 @@ from app.schemas.phase1 import (
     CorrigendumUpdateSchema,
     ExpressionOfInterestCreateSchema,
     ExpressionOfInterestUpdateSchema,
+    LatestPreQualificationBidQuerySchema,
+    LatestPreQualificationBidResponseSchema,
     LimitedTenderEnquiryCreateSchema,
     LimitedTenderEnquiryUpdateSchema,
     NotificationAwardCreateSchema,
@@ -55,6 +57,13 @@ pre_qualification_bid_bp = Blueprint(
     __name__,
     url_prefix="/api/v1/pre-qualification-bids",
     description="Pre-Qualification Bids APIs",
+)
+
+pre_qualification_bid_singular_bp = Blueprint(
+    "pre_qualification_bid_singular",
+    __name__,
+    url_prefix="/api/v1/pre-qualification-bid",
+    description="Pre-Qualification Bid (Singular) APIs",
 )
 
 pqb_bid_document_bp = Blueprint(
@@ -108,6 +117,7 @@ expression_of_interest_bp = Blueprint(
 
 PHASE1_BLUEPRINTS = [
     pre_qualification_bid_bp,
+    pre_qualification_bid_singular_bp,
     pqb_bid_document_bp,
     pqb_bid_document_singular_bp,
     corrigendum_bp,
@@ -254,6 +264,7 @@ def _serialize_pqb(rec):
 
 
 @pre_qualification_bid_bp.get("")
+@pre_qualification_bid_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_pqbs():
     project_id = request.args.get("project_id", type=int)
@@ -264,7 +275,66 @@ def list_pqbs():
     return jsonify([_serialize_pqb(r) for r in records]), 200
 
 
+def _handle_get_latest_pqb(args=None):
+    if args is None:
+        args = {}
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    query = PreQualificationBid.query
+    if project_id is not None:
+        try:
+            pid = int(project_id)
+            if pid <= 0:
+                return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+        except (ValueError, TypeError):
+            return _error("INVALID_PROJECT_ID", "project_id must be an integer.", 400)
+
+        project = db.session.get(Project, pid)
+        if not project:
+            return _error("PROJECT_NOT_FOUND", f"Project {pid} not found.", 404)
+        query = query.filter_by(project_id=pid)
+
+    rec = query.order_by(PreQualificationBid.id.desc()).first()
+    if not rec:
+        return _error("NOT_FOUND", "Pre-qualification bid not found.", 404)
+
+    return jsonify({
+        "pqb_title": rec.pqb_title,
+        "pqb_no": rec.pqb_no,
+    }), 200
+
+
+@pre_qualification_bid_bp.get("/latest")
+@pre_qualification_bid_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Pre-Qualification Bid",
+    description="Retrieve only pqb_title and pqb_no for the latest pre-qualification bid.",
+)
+@pre_qualification_bid_bp.arguments(LatestPreQualificationBidQuerySchema, location="query")
+@pre_qualification_bid_bp.response(200, LatestPreQualificationBidResponseSchema)
+@jwt_required()
+def get_latest_pqb(args=None):
+    return _handle_get_latest_pqb(args)
+
+
+@pre_qualification_bid_singular_bp.get("/latest")
+@pre_qualification_bid_singular_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Pre-Qualification Bid (Singular)",
+    description="Retrieve only pqb_title and pqb_no for the latest pre-qualification bid.",
+)
+@pre_qualification_bid_singular_bp.arguments(LatestPreQualificationBidQuerySchema, location="query")
+@pre_qualification_bid_singular_bp.response(200, LatestPreQualificationBidResponseSchema)
+@jwt_required()
+def get_latest_pqb_singular(args=None):
+    return _handle_get_latest_pqb(args)
+
+
 @pre_qualification_bid_bp.get("/<int:rec_id>")
+@pre_qualification_bid_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_pqb(rec_id):
     rec = db.session.get(PreQualificationBid, rec_id)
@@ -278,6 +348,7 @@ def get_pqb(rec_id):
 
 
 @pre_qualification_bid_bp.post("")
+@pre_qualification_bid_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def create_pqb():
     user_id = _get_user_id()
@@ -318,6 +389,7 @@ def create_pqb():
 
 
 @pre_qualification_bid_bp.patch("/<int:rec_id>")
+@pre_qualification_bid_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def update_pqb(rec_id):
     user_id = _get_user_id()
@@ -364,6 +436,7 @@ def update_pqb(rec_id):
 
 
 @pre_qualification_bid_bp.delete("/<int:rec_id>")
+@pre_qualification_bid_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def delete_pqb(rec_id):
     rec = db.session.get(PreQualificationBid, rec_id)
@@ -552,11 +625,11 @@ def delete_pqb_doc(rec_id):
 
 
 for bp in (pqb_bid_document_bp, pqb_bid_document_singular_bp):
-    bp.route("", methods=["GET"])(jwt_required()(list_pqb_docs))
-    bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(get_pqb_doc))
-    bp.route("", methods=["POST"])(jwt_required()(create_pqb_doc))
-    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(jwt_required()(update_pqb_doc))
-    bp.route("/<int:rec_id>", methods=["DELETE"])(jwt_required()(delete_pqb_doc))
+    bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(list_pqb_docs)))
+    bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(get_pqb_doc)))
+    bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(create_pqb_doc)))
+    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(update_pqb_doc)))
+    bp.route("/<int:rec_id>", methods=["DELETE"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(delete_pqb_doc)))
 
 
 # =========================================================================
@@ -594,6 +667,7 @@ def _serialize_corrigendum(rec):
 
 
 @corrigendum_bp.get("")
+@corrigendum_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_corrigendums():
     project_id = request.args.get("project_id", type=int)
@@ -605,6 +679,7 @@ def list_corrigendums():
 
 
 @corrigendum_bp.get("/<int:rec_id>")
+@corrigendum_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_corrigendum(rec_id):
     rec = db.session.get(Corrigendum, rec_id)
@@ -614,6 +689,7 @@ def get_corrigendum(rec_id):
 
 
 @corrigendum_bp.post("")
+@corrigendum_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def create_corrigendum():
     user_id = _get_user_id()
@@ -652,6 +728,7 @@ def create_corrigendum():
 
 
 @corrigendum_bp.patch("/<int:rec_id>")
+@corrigendum_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def update_corrigendum(rec_id):
     user_id = _get_user_id()
@@ -697,6 +774,7 @@ def update_corrigendum(rec_id):
 
 
 @corrigendum_bp.delete("/<int:rec_id>")
+@corrigendum_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def delete_corrigendum(rec_id):
     rec = db.session.get(Corrigendum, rec_id)
@@ -742,6 +820,7 @@ def _serialize_lte(rec):
 
 
 @limited_tender_enquiry_bp.get("")
+@limited_tender_enquiry_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_ltes():
     project_id = request.args.get("project_id", type=int)
@@ -753,6 +832,7 @@ def list_ltes():
 
 
 @limited_tender_enquiry_bp.get("/<int:rec_id>")
+@limited_tender_enquiry_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_lte(rec_id):
     rec = db.session.get(LimitedTenderEnquiry, rec_id)
@@ -766,6 +846,7 @@ def get_lte(rec_id):
 
 
 @limited_tender_enquiry_bp.post("")
+@limited_tender_enquiry_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def create_lte():
     user_id = _get_user_id()
@@ -801,6 +882,7 @@ def create_lte():
 
 
 @limited_tender_enquiry_bp.patch("/<int:rec_id>")
+@limited_tender_enquiry_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def update_lte(rec_id):
     user_id = _get_user_id()
@@ -847,6 +929,7 @@ def update_lte(rec_id):
 
 
 @limited_tender_enquiry_bp.delete("/<int:rec_id>")
+@limited_tender_enquiry_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def delete_lte(rec_id):
     rec = db.session.get(LimitedTenderEnquiry, rec_id)
@@ -898,6 +981,7 @@ def _serialize_nac(rec):
 
 
 @notification_award_bp.get("")
+@notification_award_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_nacs():
     project_id = request.args.get("project_id", type=int)
@@ -909,6 +993,7 @@ def list_nacs():
 
 
 @notification_award_bp.get("/<int:rec_id>")
+@notification_award_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_nac(rec_id):
     rec = db.session.get(NotificationAward, rec_id)
@@ -918,6 +1003,7 @@ def get_nac(rec_id):
 
 
 @notification_award_bp.post("")
+@notification_award_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def create_nac():
     user_id = _get_user_id()
@@ -954,6 +1040,7 @@ def create_nac():
 
 
 @notification_award_bp.patch("/<int:rec_id>")
+@notification_award_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def update_nac(rec_id):
     user_id = _get_user_id()
@@ -997,6 +1084,7 @@ def update_nac(rec_id):
 
 
 @notification_award_bp.delete("/<int:rec_id>")
+@notification_award_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def delete_nac(rec_id):
     rec = db.session.get(NotificationAward, rec_id)
@@ -1028,6 +1116,7 @@ def _serialize_consultancy_invoice(rec):
 
 
 @consultancy_invoice_bp.get("")
+@consultancy_invoice_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_consultancy_invoices():
     project_id = request.args.get("project_id", type=int)
@@ -1039,6 +1128,7 @@ def list_consultancy_invoices():
 
 
 @consultancy_invoice_bp.get("/<int:rec_id>")
+@consultancy_invoice_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_consultancy_invoice(rec_id):
     rec = db.session.get(ConsultancyInvoice, rec_id)
@@ -1048,6 +1138,7 @@ def get_consultancy_invoice(rec_id):
 
 
 @consultancy_invoice_bp.post("")
+@consultancy_invoice_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def create_consultancy_invoice():
     user_id = _get_user_id()
@@ -1073,6 +1164,7 @@ def create_consultancy_invoice():
 
 
 @consultancy_invoice_bp.patch("/<int:rec_id>")
+@consultancy_invoice_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def update_consultancy_invoice(rec_id):
     user_id = _get_user_id()
@@ -1103,6 +1195,7 @@ def update_consultancy_invoice(rec_id):
 
 
 @consultancy_invoice_bp.delete("/<int:rec_id>")
+@consultancy_invoice_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def delete_consultancy_invoice(rec_id):
     rec = db.session.get(ConsultancyInvoice, rec_id)
@@ -1146,6 +1239,7 @@ def _serialize_eoi(rec):
 
 
 @expression_of_interest_bp.get("")
+@expression_of_interest_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_eois():
     project_id = request.args.get("project_id", type=int)
@@ -1157,6 +1251,7 @@ def list_eois():
 
 
 @expression_of_interest_bp.get("/<int:rec_id>")
+@expression_of_interest_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_eoi(rec_id):
     rec = db.session.get(ExpressionOfInterest, rec_id)
@@ -1166,6 +1261,7 @@ def get_eoi(rec_id):
 
 
 @expression_of_interest_bp.post("")
+@expression_of_interest_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def create_eoi():
     user_id = _get_user_id()
@@ -1201,6 +1297,7 @@ def create_eoi():
 
 
 @expression_of_interest_bp.patch("/<int:rec_id>")
+@expression_of_interest_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def update_eoi(rec_id):
     user_id = _get_user_id()
@@ -1243,6 +1340,7 @@ def update_eoi(rec_id):
 
 
 @expression_of_interest_bp.delete("/<int:rec_id>")
+@expression_of_interest_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def delete_eoi(rec_id):
     rec = db.session.get(ExpressionOfInterest, rec_id)

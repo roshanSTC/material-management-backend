@@ -557,6 +557,7 @@ def delete_bid_submission(bid_submission_id):
 
 
 @bid_submission_bp.get("/<int:bid_submission_id>")
+@bid_submission_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_bid_submission_by_id(bid_submission_id: int):
     try:

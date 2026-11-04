@@ -480,6 +480,7 @@ def delete_delivery_challan(delivery_challan_id):
 
 
 @delivery_challan_bp.get("/<int:delivery_challan_id>")
+@delivery_challan_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_delivery_challan_by_id(delivery_challan_id: int):
     try:

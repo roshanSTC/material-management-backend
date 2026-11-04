@@ -597,6 +597,7 @@ def delete_supplier_payment(supplier_payment_id):
 
 
 @supplier_payment_bp.get("/<int:supplier_payment_id>")
+@supplier_payment_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_supplier_payment_by_id(supplier_payment_id: int):
     try:

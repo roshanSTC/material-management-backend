@@ -555,6 +555,7 @@ def delete_order_confirmation(order_confirmation_id):
 
 
 @order_confirmation_bp.get("/<int:order_confirmation_id>")
+@order_confirmation_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_order_confirmation_by_id(order_confirmation_id: int):
     try:

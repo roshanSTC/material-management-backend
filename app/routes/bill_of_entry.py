@@ -600,42 +600,49 @@ def _handle_get_single_bill_of_entry(bill_of_entry_id: int):
 
 
 @bill_of_entry_bp.get("/<int:bill_of_entry_id>")
+@bill_of_entry_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_single_bill_of_entry(bill_of_entry_id: int):
     return _handle_get_single_bill_of_entry(bill_of_entry_id)
 
 
 @bill_of_entry_alias_bp.post("")
+@bill_of_entry_alias_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def create_bill_of_entry_alias():
     return _handle_create_bill_of_entry()
 
 
 @bill_of_entry_alias_bp.get("")
+@bill_of_entry_alias_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_bills_of_entry_alias(args=None):
     return _handle_list_bills_of_entry(args)
 
 
 @bill_of_entry_alias_bp.get("/latest")
+@bill_of_entry_alias_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_latest_bill_of_entry_alias(args=None):
     return _handle_get_latest_bill_of_entry(args)
 
 
 @bill_of_entry_alias_bp.get("/<int:bill_of_entry_id>")
+@bill_of_entry_alias_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_single_bill_of_entry_alias(bill_of_entry_id: int):
     return _handle_get_single_bill_of_entry(bill_of_entry_id)
 
 
 @bill_of_entry_alias_bp.patch("/<int:bill_of_entry_id>")
+@bill_of_entry_alias_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def update_bill_of_entry_alias(bill_of_entry_id: int):
     return _handle_update_bill_of_entry(bill_of_entry_id)
 
 
 @bill_of_entry_alias_bp.delete("/<int:bill_of_entry_id>")
+@bill_of_entry_alias_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def delete_bill_of_entry_alias(bill_of_entry_id: int):
     return _handle_delete_bill_of_entry(bill_of_entry_id)

@@ -368,8 +368,8 @@ def handle_delete_eway_bill(rec_id):
 # BIND ROUTES
 # =========================================================================
 for bp in [eway_bill_bp]:
-    bp.route("", methods=["POST"])(jwt_required()(handle_create_eway_bill))
-    bp.route("", methods=["GET"])(jwt_required()(lambda: handle_get_eway_bills()))
-    bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_eway_bills))
-    bp.route("/<int:rec_id>", methods=["PUT", "PATCH"])(jwt_required()(handle_update_eway_bill))
-    bp.route("/<int:rec_id>", methods=["DELETE"])(jwt_required()(handle_delete_eway_bill))
+    bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_eway_bill)))
+    bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(lambda: handle_get_eway_bills())))
+    bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_eway_bills)))
+    bp.route("/<int:rec_id>", methods=["PUT", "PATCH"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_update_eway_bill)))
+    bp.route("/<int:rec_id>", methods=["DELETE"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_delete_eway_bill)))

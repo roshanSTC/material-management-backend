@@ -471,6 +471,7 @@ def delete_customer_quotation(customer_quotation_id):
 
 
 @customer_quotation_bp.get("/<int:customer_quotation_id>")
+@customer_quotation_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_customer_quotation_by_id(customer_quotation_id: int):
     try:

@@ -116,6 +116,10 @@ FORM_DEFINITIONS_SEED = [
     # 33..34: Single Tender Enquiry (STE) & Bid Document for STE
     (33, 'FORM_33_STE', 'Single Tender Enquiry (STE)', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-briefcase', 'Single Tender Enquiry (STE) terms, tender fee, EMD, schedule, and items', True),
     (34, 'FORM_34_BID_DOC_STE', 'Bid Document for STE', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-book', 'Bid Document for Single Tender Enquiry (STE), terms, corrigendum, items, and values', True),
+
+    # 35..36: International Competitive Bidding (ICB) & Bid Document for ICB
+    (35, 'FORM_35_ICB', 'International Competitive Bidding (ICB)', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-globe', 'International Competitive Bidding (ICB) terms, tender fee, EMD, schedule, and items', True),
+    (36, 'FORM_36_BID_DOC_ICB', 'Bid Document for ICB', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-book', 'Bid Document for International Competitive Bidding (ICB), terms, corrigendum, items, and values', True),
 ]
 
 

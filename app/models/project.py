@@ -296,6 +296,20 @@ class Project(db.Model):
         lazy="select",
     )
 
+    international_competitive_biddings = db.relationship(
+        "InternationalCompetitiveBidding",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    bid_document_icbs = db.relationship(
+        "BidDocumentIcb",
+        back_populates="project",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
     eway_bills = db.relationship(
         "EWayBill",
         back_populates="project",

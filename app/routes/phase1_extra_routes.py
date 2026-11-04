@@ -9,24 +9,32 @@ from marshmallow import ValidationError
 
 from app.extensions.database import db
 from app.models import (
+    BidDocumentIcb,
+    BidDocumentIcbItem,
     BidDocumentLte,
     BidDocumentLteItem,
     BidDocumentSte,
     BidDocumentSteItem,
     BidDocumentTechnoCommercial,
     BidDocumentTechnoCommercialItem,
+    InternationalCompetitiveBidding,
+    InternationalCompetitiveBiddingItem,
     Project,
     ProjectStep,
     TechnoCommercialTender,
     TechnoCommercialTenderItem,
 )
 from app.schemas.phase1 import (
+    BidDocumentIcbCreateSchema,
+    BidDocumentIcbUpdateSchema,
     BidDocumentLteCreateSchema,
     BidDocumentLteUpdateSchema,
     BidDocumentSteCreateSchema,
     BidDocumentSteUpdateSchema,
     BidDocumentTechnoCommercialCreateSchema,
     BidDocumentTechnoCommercialUpdateSchema,
+    InternationalCompetitiveBiddingCreateSchema,
+    InternationalCompetitiveBiddingUpdateSchema,
     TechnoCommercialTenderCreateSchema,
     TechnoCommercialTenderUpdateSchema,
 )
@@ -146,6 +154,59 @@ bid_document_for_ste_bp = Blueprint(
 )
 
 
+# 5. Form 35: International Competitive Bidding (ICB)
+international_competitive_biddings_bp = Blueprint(
+    "international_competitive_biddings",
+    __name__,
+    url_prefix="/api/v1/international-competitive-biddings",
+    description="International Competitive Biddings APIs",
+)
+
+international_competitive_bidding_bp = Blueprint(
+    "international_competitive_bidding",
+    __name__,
+    url_prefix="/api/v1/international-competitive-bidding",
+    description="International Competitive Bidding (Singular) APIs",
+)
+
+icb_bp = Blueprint(
+    "icb",
+    __name__,
+    url_prefix="/api/v1/icb",
+    description="ICB APIs",
+)
+
+icbs_bp = Blueprint(
+    "icbs",
+    __name__,
+    url_prefix="/api/v1/icbs",
+    description="ICBs APIs",
+)
+
+
+# 6. Form 36: Bid Document ICB
+bid_document_icb_bp = Blueprint(
+    "bid_document_icb",
+    __name__,
+    url_prefix="/api/v1/bid-document-icb",
+    description="Bid Document ICB APIs",
+)
+
+bid_document_icbs_bp = Blueprint(
+    "bid_document_icbs",
+    __name__,
+    url_prefix="/api/v1/bid-document-icbs",
+    description="Bid Document ICBs (Plural) APIs",
+)
+
+bid_document_for_icb_bp = Blueprint(
+    "bid_document_for_icb",
+    __name__,
+    url_prefix="/api/v1/bid-document-for-icb",
+    description="Bid Document for ICB APIs",
+)
+
+
 EXTRA_BLUEPRINTS = [
     bid_document_techno_commercial_bp,
     bid_document_techno_commercial_plural_bp,
@@ -161,6 +222,13 @@ EXTRA_BLUEPRINTS = [
     bid_document_ste_bp,
     bid_document_stes_bp,
     bid_document_for_ste_bp,
+    international_competitive_biddings_bp,
+    international_competitive_bidding_bp,
+    icb_bp,
+    icbs_bp,
+    bid_document_icb_bp,
+    bid_document_icbs_bp,
+    bid_document_for_icb_bp,
 ]
 
 
@@ -1468,3 +1536,640 @@ for bp in (bid_document_ste_bp, bid_document_stes_bp, bid_document_for_ste_bp):
     bp.route("", methods=["POST"])(jwt_required()(handle_create_bid_doc_ste))
     bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(jwt_required()(handle_update_bid_doc_ste))
     bp.route("/<int:rec_id>", methods=["DELETE"])(jwt_required()(handle_delete_bid_doc_ste))
+
+
+# =========================================================================
+# 5. FORM_35_ICB (INTERNATIONAL COMPETITIVE BIDDING)
+# =========================================================================
+def _serialize_international_competitive_bidding(rec):
+    atts = _serialize_attachments("international_competitive_bidding", rec.id)
+    if not atts:
+        atts = _serialize_attachments("icb", rec.id)
+
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_35_ICB", "FORM_35_INTERNATIONAL_COMPETITIVE_BIDDING"],
+        default=35,
+    )
+    remarks = get_step_remarks_for_response(
+        rec.project_id,
+        step_num,
+        fallback_raw=rec.remark,
+        entity_id=rec.id,
+    )
+    if not remarks and step_num != 35:
+        remarks = get_step_remarks_for_response(
+            rec.project_id,
+            35,
+            fallback_raw=rec.remark,
+            entity_id=rec.id,
+        )
+
+    items = [
+        {
+            "id": it.id,
+            "sr_no": it.sr_no,
+            "description": it.description,
+            "material_name": it.material_name or it.description,
+            "unit": it.unit,
+            "quantity": float(it.quantity) if it.quantity is not None else None,
+        }
+        for it in (rec.items or [])
+    ]
+    return {
+        "id": rec.id,
+        "project_id": rec.project_id,
+        "pqb_no": rec.pqb_no,
+        "pqb_number": rec.pqb_no,
+        "tender_title": rec.tender_title,
+        "tender_no": rec.tender_no,
+        "tender_number": rec.tender_no,
+        "tender_enquiry_no": rec.tender_no,
+        "icb_no": rec.tender_no,
+        "tender_issue_date": rec.tender_issue_date.isoformat() if rec.tender_issue_date else None,
+        "bid_submission_due_date_time": rec.bid_submission_due_date_time.isoformat() if rec.bid_submission_due_date_time else None,
+        "bid_opening_date_time": rec.bid_opening_date_time.isoformat() if rec.bid_opening_date_time else None,
+        "tender_fee": float(rec.tender_fee) if rec.tender_fee is not None else None,
+        "emd": float(rec.emd) if rec.emd is not None else None,
+        "tender_validity": rec.tender_validity,
+        "validity": rec.tender_validity,
+        "remark": rec.remark,
+        "remarks": remarks,
+        "items": items,
+        "requirements": items,
+        "attachments": atts,
+        "attachments_count": len(atts),
+        "status": rec.status or "completed",
+        "form_code": rec.form_code or "FORM_35_ICB",
+        "created_at": rec.created_at.isoformat() if rec.created_at else None,
+        "updated_at": rec.updated_at.isoformat() if rec.updated_at else None,
+    }
+
+
+def handle_create_international_competitive_bidding():
+    user_id = _get_user_id()
+    try:
+        raw_payload, files = _extract_payload_and_files()
+        data = InternationalCompetitiveBiddingCreateSchema().load(raw_payload)
+    except ValidationError as err:
+        return _error("VALIDATION_ERROR", err.messages, 422)
+
+    project = db.session.get(Project, data["project_id"])
+    if not project:
+        return _error("PROJECT_NOT_FOUND", f"Project {data['project_id']} not found.", 404)
+
+    items_data = data.pop("items", None) or data.pop("requirements", None) or []
+    data.pop("requirements", None)
+    remarks_data = raw_payload.get("remarks") or data.pop("remarks", None) or data.get("remark") or raw_payload.get("remark")
+    data.pop("remarks", None)
+    data.pop("remark", None)
+    status_val = data.pop("status", None) or raw_payload.get("status") or "completed"
+    form_code_val = raw_payload.get("form_code") or data.pop("form_code", None) or "FORM_35_ICB"
+    data.pop("attachments_count", None)
+    data.pop("form_code", None)
+
+    # Normalize aliases
+    if not data.get("tender_no"):
+        for alias in ("icb_no", "tender_number", "tender_enquiry_no"):
+            if data.get(alias):
+                data["tender_no"] = data.pop(alias)
+                break
+    for alias in ("icb_no", "tender_number", "tender_enquiry_no"):
+        data.pop(alias, None)
+
+    if not data.get("pqb_no") and data.get("pqb_number"):
+        data["pqb_no"] = data.pop("pqb_number")
+    data.pop("pqb_number", None)
+
+    if not data.get("tender_validity") and data.get("validity"):
+        data["tender_validity"] = data.pop("validity")
+    data.pop("validity", None)
+
+    if not data.get("bid_submission_due_date_time"):
+        for alias in ("submission_due_date_time", "bid_submission_due_date"):
+            if data.get(alias):
+                data["bid_submission_due_date_time"] = data.pop(alias)
+                break
+    data.pop("submission_due_date_time", None)
+    data.pop("bid_submission_due_date", None)
+
+    if not data.get("bid_opening_date_time") and data.get("opening_date_time"):
+        data["bid_opening_date_time"] = data.pop("opening_date_time")
+    data.pop("opening_date_time", None)
+
+    rec = InternationalCompetitiveBidding(**{k: v for k, v in data.items() if hasattr(InternationalCompetitiveBidding, k)})
+    rec.status = status_val
+    rec.form_code = form_code_val
+
+    if not rec.remark and remarks_data:
+        if isinstance(remarks_data, list) and remarks_data:
+            first_rem = remarks_data[0]
+            rec.remark = first_rem.get("remark") if isinstance(first_rem, dict) else str(first_rem)
+        elif isinstance(remarks_data, str):
+            rec.remark = remarks_data
+
+    for it in items_data:
+        rec.items.append(InternationalCompetitiveBiddingItem(
+            sr_no=it.get("sr_no"),
+            description=it.get("description", "") or it.get("material_name", ""),
+            material_name=it.get("material_name") or it.get("description", ""),
+            unit=it.get("unit"),
+            quantity=it.get("quantity"),
+        ))
+
+    db.session.add(rec)
+    db.session.flush()
+
+    _save_attachments(files, "international_competitive_bidding", rec.id, user_id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_35_ICB", "FORM_35_INTERNATIONAL_COMPETITIVE_BIDDING"],
+        default=35,
+    )
+    _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
+    if step_num != 35:
+        _save_remarks(rec.project_id, 35, rec.id, remarks_data, user_id)
+    db.session.commit()
+
+    serialized = _serialize_international_competitive_bidding(rec)
+    _sync_step(rec.project_id, form_code_val, status_val, serialized)
+    return jsonify(serialized), 201
+
+
+def handle_get_international_competitive_bidding(rec_id=None):
+    if rec_id is not None:
+        rec = db.session.get(InternationalCompetitiveBidding, rec_id)
+        if not rec:
+            return _error("NOT_FOUND", f"InternationalCompetitiveBidding {rec_id} not found.", 404)
+        return jsonify(_serialize_international_competitive_bidding(rec)), 200
+
+    project_id = request.args.get("project_id", type=int)
+    q = InternationalCompetitiveBidding.query
+    if project_id:
+        q = q.filter_by(project_id=project_id)
+    records = q.order_by(InternationalCompetitiveBidding.id.desc()).all()
+    return jsonify([_serialize_international_competitive_bidding(r) for r in records]), 200
+
+
+def handle_update_international_competitive_bidding(rec_id: int):
+    user_id = _get_user_id()
+    rec = db.session.get(InternationalCompetitiveBidding, rec_id)
+    if not rec:
+        return _error("NOT_FOUND", f"InternationalCompetitiveBidding {rec_id} not found.", 404)
+
+    try:
+        raw_payload, files = _extract_payload_and_files()
+        data = InternationalCompetitiveBiddingUpdateSchema().load(raw_payload)
+    except ValidationError as err:
+        return _error("VALIDATION_ERROR", err.messages, 422)
+
+    items_data = data.pop("items", None) if "items" in data else (data.pop("requirements", None) if "requirements" in data else None)
+    data.pop("requirements", None)
+    remarks_data = raw_payload.get("remarks") if "remarks" in raw_payload else (data.pop("remarks", None) if "remarks" in data else data.get("remark"))
+    data.pop("remarks", None)
+    data.pop("remark", None)
+    status_val = data.pop("status", None) or raw_payload.get("status")
+    form_code_val = raw_payload.get("form_code") or data.pop("form_code", None)
+    data.pop("attachments_count", None)
+    data.pop("form_code", None)
+
+    if not data.get("tender_no"):
+        for alias in ("icb_no", "tender_number", "tender_enquiry_no"):
+            if data.get(alias):
+                data["tender_no"] = data.pop(alias)
+                break
+    for alias in ("icb_no", "tender_number", "tender_enquiry_no"):
+        data.pop(alias, None)
+
+    if "pqb_number" in data and not data.get("pqb_no"):
+        data["pqb_no"] = data.pop("pqb_number")
+    data.pop("pqb_number", None)
+
+    if "validity" in data and not data.get("tender_validity"):
+        data["tender_validity"] = data.pop("validity")
+    data.pop("validity", None)
+
+    if not data.get("bid_submission_due_date_time"):
+        for alias in ("submission_due_date_time", "bid_submission_due_date"):
+            if data.get(alias):
+                data["bid_submission_due_date_time"] = data.pop(alias)
+                break
+    data.pop("submission_due_date_time", None)
+    data.pop("bid_submission_due_date", None)
+
+    if not data.get("bid_opening_date_time") and data.get("opening_date_time"):
+        data["bid_opening_date_time"] = data.pop("opening_date_time")
+    data.pop("opening_date_time", None)
+
+    for k, v in data.items():
+        if hasattr(rec, k):
+            setattr(rec, k, v)
+    if status_val:
+        rec.status = status_val
+    if form_code_val:
+        rec.form_code = form_code_val
+
+    if remarks_data:
+        if isinstance(remarks_data, list) and remarks_data:
+            first_rem = remarks_data[0]
+            rec.remark = first_rem.get("remark") if isinstance(first_rem, dict) else str(first_rem)
+        elif isinstance(remarks_data, str):
+            rec.remark = remarks_data
+
+    if items_data is not None:
+        rec.items.clear()
+        for it in items_data:
+            rec.items.append(InternationalCompetitiveBiddingItem(
+                sr_no=it.get("sr_no"),
+                description=it.get("description", "") or it.get("material_name", ""),
+                material_name=it.get("material_name") or it.get("description", ""),
+                unit=it.get("unit"),
+                quantity=it.get("quantity"),
+            ))
+
+    _save_attachments(files, "international_competitive_bidding", rec.id, user_id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_35_ICB", "FORM_35_INTERNATIONAL_COMPETITIVE_BIDDING"],
+        default=35,
+    )
+    _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
+    if step_num != 35:
+        _save_remarks(rec.project_id, 35, rec.id, remarks_data, user_id)
+    db.session.commit()
+
+    serialized = _serialize_international_competitive_bidding(rec)
+    _sync_step(rec.project_id, rec.form_code or "FORM_35_ICB", rec.status, serialized)
+    return jsonify(serialized), 200
+
+
+def handle_delete_international_competitive_bidding(rec_id: int):
+    rec = db.session.get(InternationalCompetitiveBidding, rec_id)
+    if not rec:
+        return _error("NOT_FOUND", f"InternationalCompetitiveBidding {rec_id} not found.", 404)
+    project_id = rec.project_id
+    atts = list_attachments(entity_type="international_competitive_bidding", entity_id=rec_id)
+    for a in atts:
+        try:
+            delete_attachment(a.id)
+        except Exception:
+            pass
+    db.session.delete(rec)
+    db.session.commit()
+
+    from app.routes.project_step import sync_project_steps_from_records
+    proj = db.session.get(Project, project_id)
+    if proj:
+        sync_project_steps_from_records(proj)
+    return jsonify({"success": True, "message": "International Competitive Bidding deleted successfully."}), 200
+
+
+# Wire routes to ICB blueprints
+for bp in (international_competitive_biddings_bp, international_competitive_bidding_bp, icb_bp, icbs_bp):
+    bp.route("", methods=["GET"])(jwt_required()(handle_get_international_competitive_bidding))
+    bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_international_competitive_bidding))
+    bp.route("", methods=["POST"])(jwt_required()(handle_create_international_competitive_bidding))
+    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(jwt_required()(handle_update_international_competitive_bidding))
+    bp.route("/<int:rec_id>", methods=["DELETE"])(jwt_required()(handle_delete_international_competitive_bidding))
+
+
+# =========================================================================
+# 6. FORM_36_BID_DOC_ICB (BID DOCUMENT FOR ICB)
+# =========================================================================
+def _serialize_bid_doc_icb(rec):
+    atts = _serialize_attachments("bid_document_icb", rec.id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_36_BID_DOC_ICB", "FORM_36_BID_DOCUMENT_ICB"],
+        default=36,
+    )
+    remarks = get_step_remarks_for_response(
+        rec.project_id,
+        step_num,
+        fallback_raw=rec.remark,
+        entity_id=rec.id,
+    )
+    if not remarks and step_num != 36:
+        remarks = get_step_remarks_for_response(
+            rec.project_id,
+            36,
+            fallback_raw=rec.remark,
+            entity_id=rec.id,
+        )
+    items = [
+        {
+            "id": it.id,
+            "sr_no": it.sr_no,
+            "description": it.description,
+            "material_name": it.material_name or it.description,
+            "item_code": it.item_code,
+            "hsn_sac": it.hsn_sac,
+            "hsn_code": it.hsn_sac,
+            "quantity": float(it.quantity) if it.quantity is not None else None,
+            "unit_price": float(it.unit_price) if it.unit_price is not None else None,
+            "total_amount": float(it.total_amount) if it.total_amount is not None else None,
+        }
+        for it in (rec.items or [])
+    ]
+    return {
+        "id": rec.id,
+        "project_id": rec.project_id,
+        "customer_name": rec.customer_name,
+        "tender_title": rec.tender_title,
+        "tender_no": rec.tender_no,
+        "tender_number": rec.tender_no,
+        "tender_issue_date": rec.tender_issue_date.isoformat() if rec.tender_issue_date else None,
+        "total_no_corrigendum_issued": rec.total_no_corrigendum_issued,
+        "total_corrigendum_issued": rec.total_no_corrigendum_issued,
+        "bid_submission_date": rec.bid_submission_date.isoformat() if rec.bid_submission_date else None,
+        "delivery_terms": rec.delivery_terms,
+        "delivery_term": rec.delivery_terms,
+        "delivery_period": rec.delivery_period,
+        "bid_validity": rec.bid_validity,
+        "payment_terms": rec.payment_terms,
+        "payment_term": rec.payment_terms,
+        "warranty_period": rec.warranty_period,
+        "gst_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
+        "gst_rate": float(rec.gst_pct) if rec.gst_pct is not None else None,
+        "gst_rate_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
+        "total_net_amount": float(rec.total_net_amount) if rec.total_net_amount is not None else None,
+        "total_gross_amount": float(rec.total_gross_amount) if rec.total_gross_amount is not None else None,
+        "gst_amount": float(rec.gst_amount) if rec.gst_amount is not None else None,
+        "total_amount": float(rec.total_amount) if rec.total_amount is not None else None,
+        "remark": rec.remark,
+        "remarks": remarks,
+        "items": items,
+        "attachments": atts,
+        "attachments_count": len(atts),
+        "status": rec.status or "completed",
+        "form_code": rec.form_code or "FORM_36_BID_DOC_ICB",
+        "created_at": rec.created_at.isoformat() if rec.created_at else None,
+        "updated_at": rec.updated_at.isoformat() if rec.updated_at else None,
+    }
+
+
+def handle_create_bid_doc_icb():
+    user_id = _get_user_id()
+    try:
+        raw_payload, files = _extract_payload_and_files()
+        data = BidDocumentIcbCreateSchema().load(raw_payload)
+    except ValidationError as err:
+        return _error("VALIDATION_ERROR", err.messages, 422)
+
+    project = db.session.get(Project, data["project_id"])
+    if not project:
+        return _error("PROJECT_NOT_FOUND", f"Project {data['project_id']} not found.", 404)
+
+    items_data = data.pop("items", None) or data.pop("requirements", None) or []
+    data.pop("requirements", None)
+    remarks_data = raw_payload.get("remarks") or data.pop("remarks", None) or data.get("remark") or raw_payload.get("remark")
+    data.pop("remarks", None)
+    data.pop("remark", None)
+    data.pop("form_code", None)
+    status_val = data.pop("status", None) or raw_payload.get("status") or "completed"
+    form_code_val = raw_payload.get("form_code") or data.pop("form_code", None) or "FORM_36_BID_DOC_ICB"
+    data.pop("attachments_count", None)
+
+    # Normalize aliases
+    if "tender_number" in data and not data.get("tender_no"):
+        data["tender_no"] = data.pop("tender_number")
+    else:
+        data.pop("tender_number", None)
+
+    if "total_corrigendum_issued" in data and data.get("total_no_corrigendum_issued") is None:
+        data["total_no_corrigendum_issued"] = data.pop("total_corrigendum_issued")
+    else:
+        data.pop("total_corrigendum_issued", None)
+
+    if "delivery_term" in data and not data.get("delivery_terms"):
+        data["delivery_terms"] = data.pop("delivery_term")
+    else:
+        data.pop("delivery_term", None)
+
+    if "payment_term" in data and not data.get("payment_terms"):
+        data["payment_terms"] = data.pop("payment_term")
+    else:
+        data.pop("payment_term", None)
+
+    if data.get("gst_pct") is None:
+        if data.get("gst_rate") is not None:
+            data["gst_pct"] = data.pop("gst_rate")
+        elif data.get("gst_rate_pct") is not None:
+            data["gst_pct"] = data.pop("gst_rate_pct")
+    data.pop("gst_rate", None)
+    data.pop("gst_rate_pct", None)
+
+    # Calculate item amounts and auto-calculate totals if not supplied
+    calc_net = 0.0
+    for it in items_data:
+        q = float(it.get("quantity") or 0)
+        p = float(it.get("unit_price") or 0)
+        tot = float(it.get("total_amount") or (q * p if q and p else 0))
+        calc_net += tot
+
+    if data.get("total_net_amount") is None and calc_net > 0:
+        data["total_net_amount"] = calc_net
+
+    gst_p = float(data.get("gst_pct") or 0)
+    net_val = float(data.get("total_net_amount") or 0)
+    if data.get("gst_amount") is None and net_val > 0 and gst_p > 0:
+        data["gst_amount"] = round(net_val * gst_p / 100.0, 2)
+
+    gst_val = float(data.get("gst_amount") or 0)
+    if data.get("total_gross_amount") is None and net_val > 0:
+        data["total_gross_amount"] = round(net_val + gst_val, 2)
+
+    if data.get("total_amount") is None:
+        data["total_amount"] = data.get("total_gross_amount") or net_val
+
+    rec = BidDocumentIcb(**{k: v for k, v in data.items() if hasattr(BidDocumentIcb, k)})
+    rec.status = status_val
+    rec.form_code = form_code_val
+
+    if not rec.remark and remarks_data:
+        if isinstance(remarks_data, list) and remarks_data:
+            first_rem = remarks_data[0]
+            rec.remark = first_rem.get("remark") if isinstance(first_rem, dict) else str(first_rem)
+        elif isinstance(remarks_data, str):
+            rec.remark = remarks_data
+
+    for it in items_data:
+        q = it.get("quantity")
+        p = it.get("unit_price")
+        tot = it.get("total_amount")
+        if tot is None and p is not None and q is not None:
+            tot = float(p) * float(q)
+        rec.items.append(BidDocumentIcbItem(
+            sr_no=it.get("sr_no"),
+            description=it.get("description", "") or it.get("material_name", ""),
+            material_name=it.get("material_name") or it.get("description", ""),
+            item_code=it.get("item_code"),
+            hsn_sac=it.get("hsn_sac") or it.get("hsn_code"),
+            quantity=q,
+            unit_price=p,
+            total_amount=tot,
+        ))
+
+    db.session.add(rec)
+    db.session.flush()
+
+    _save_attachments(files, "bid_document_icb", rec.id, user_id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_36_BID_DOC_ICB", "FORM_36_BID_DOCUMENT_ICB"],
+        default=36,
+    )
+    _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
+    if step_num != 36:
+        _save_remarks(rec.project_id, 36, rec.id, remarks_data, user_id)
+    db.session.commit()
+
+    serialized = _serialize_bid_doc_icb(rec)
+    _sync_step(rec.project_id, form_code_val, status_val, serialized)
+    return jsonify(serialized), 201
+
+
+def handle_get_bid_doc_icb(rec_id=None):
+    if rec_id is not None:
+        rec = db.session.get(BidDocumentIcb, rec_id)
+        if not rec:
+            return _error("NOT_FOUND", f"BidDocumentIcb {rec_id} not found.", 404)
+        return jsonify(_serialize_bid_doc_icb(rec)), 200
+
+    project_id = request.args.get("project_id", type=int)
+    q = BidDocumentIcb.query
+    if project_id:
+        q = q.filter_by(project_id=project_id)
+    records = q.order_by(BidDocumentIcb.id.desc()).all()
+    return jsonify([_serialize_bid_doc_icb(r) for r in records]), 200
+
+
+def handle_update_bid_doc_icb(rec_id: int):
+    user_id = _get_user_id()
+    rec = db.session.get(BidDocumentIcb, rec_id)
+    if not rec:
+        return _error("NOT_FOUND", f"BidDocumentIcb {rec_id} not found.", 404)
+
+    try:
+        raw_payload, files = _extract_payload_and_files()
+        data = BidDocumentIcbUpdateSchema().load(raw_payload)
+    except ValidationError as err:
+        return _error("VALIDATION_ERROR", err.messages, 422)
+
+    items_data = data.pop("items", None) if "items" in data else (data.pop("requirements", None) if "requirements" in data else None)
+    data.pop("requirements", None)
+    remarks_data = raw_payload.get("remarks") if "remarks" in raw_payload else (data.pop("remarks", None) if "remarks" in data else data.get("remark"))
+    data.pop("remarks", None)
+    data.pop("remark", None)
+    status_val = data.pop("status", None) or raw_payload.get("status")
+    form_code_val = raw_payload.get("form_code") or data.pop("form_code", None)
+    data.pop("attachments_count", None)
+    data.pop("form_code", None)
+
+    if "tender_number" in data and not data.get("tender_no"):
+        data["tender_no"] = data.pop("tender_number")
+    else:
+        data.pop("tender_number", None)
+
+    if "total_corrigendum_issued" in data and data.get("total_no_corrigendum_issued") is None:
+        data["total_no_corrigendum_issued"] = data.pop("total_corrigendum_issued")
+    else:
+        data.pop("total_corrigendum_issued", None)
+
+    if "delivery_term" in data and not data.get("delivery_terms"):
+        data["delivery_terms"] = data.pop("delivery_term")
+    else:
+        data.pop("delivery_term", None)
+
+    if "payment_term" in data and not data.get("payment_terms"):
+        data["payment_terms"] = data.pop("payment_term")
+    else:
+        data.pop("payment_term", None)
+
+    if data.get("gst_pct") is None:
+        if data.get("gst_rate") is not None:
+            data["gst_pct"] = data.pop("gst_rate")
+        elif data.get("gst_rate_pct") is not None:
+            data["gst_pct"] = data.pop("gst_rate_pct")
+    data.pop("gst_rate", None)
+    data.pop("gst_rate_pct", None)
+
+    for k, v in data.items():
+        if hasattr(rec, k):
+            setattr(rec, k, v)
+    if status_val:
+        rec.status = status_val
+    if form_code_val:
+        rec.form_code = form_code_val
+
+    if remarks_data:
+        if isinstance(remarks_data, list) and remarks_data:
+            first_rem = remarks_data[0]
+            rec.remark = first_rem.get("remark") if isinstance(first_rem, dict) else str(first_rem)
+        elif isinstance(remarks_data, str):
+            rec.remark = remarks_data
+
+    if items_data is not None:
+        rec.items.clear()
+        for it in items_data:
+            q = it.get("quantity")
+            p = it.get("unit_price")
+            tot = it.get("total_amount")
+            if tot is None and p is not None and q is not None:
+                tot = float(p) * float(q)
+            rec.items.append(BidDocumentIcbItem(
+                sr_no=it.get("sr_no"),
+                description=it.get("description", "") or it.get("material_name", ""),
+                material_name=it.get("material_name") or it.get("description", ""),
+                item_code=it.get("item_code"),
+                hsn_sac=it.get("hsn_sac") or it.get("hsn_code"),
+                quantity=q,
+                unit_price=p,
+                total_amount=tot,
+            ))
+
+    _save_attachments(files, "bid_document_icb", rec.id, user_id)
+    step_num = _get_step_num_for_form(
+        rec.project_id,
+        ["FORM_36_BID_DOC_ICB", "FORM_36_BID_DOCUMENT_ICB"],
+        default=36,
+    )
+    _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
+    if step_num != 36:
+        _save_remarks(rec.project_id, 36, rec.id, remarks_data, user_id)
+    db.session.commit()
+
+    serialized = _serialize_bid_doc_icb(rec)
+    _sync_step(rec.project_id, rec.form_code or "FORM_36_BID_DOC_ICB", rec.status, serialized)
+    return jsonify(serialized), 200
+
+
+def handle_delete_bid_doc_icb(rec_id: int):
+    rec = db.session.get(BidDocumentIcb, rec_id)
+    if not rec:
+        return _error("NOT_FOUND", f"BidDocumentIcb {rec_id} not found.", 404)
+    project_id = rec.project_id
+    atts = list_attachments(entity_type="bid_document_icb", entity_id=rec_id)
+    for a in atts:
+        try:
+            delete_attachment(a.id)
+        except Exception:
+            pass
+    db.session.delete(rec)
+    db.session.commit()
+
+    from app.routes.project_step import sync_project_steps_from_records
+    proj = db.session.get(Project, project_id)
+    if proj:
+        sync_project_steps_from_records(proj)
+    return jsonify({"success": True, "message": "Bid Document ICB deleted successfully."}), 200
+
+
+# Wire routes to Bid Document ICB blueprints
+for bp in (bid_document_icb_bp, bid_document_icbs_bp, bid_document_for_icb_bp):
+    bp.route("", methods=["GET"])(jwt_required()(handle_get_bid_doc_icb))
+    bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_bid_doc_icb))
+    bp.route("", methods=["POST"])(jwt_required()(handle_create_bid_doc_icb))
+    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(jwt_required()(handle_update_bid_doc_icb))
+    bp.route("/<int:rec_id>", methods=["DELETE"])(jwt_required()(handle_delete_bid_doc_icb))
+

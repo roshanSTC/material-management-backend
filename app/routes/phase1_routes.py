@@ -29,6 +29,8 @@ from app.schemas.phase1 import (
     CorrigendumUpdateSchema,
     ExpressionOfInterestCreateSchema,
     ExpressionOfInterestUpdateSchema,
+    LatestPreQualificationBidQuerySchema,
+    LatestPreQualificationBidResponseSchema,
     LimitedTenderEnquiryCreateSchema,
     LimitedTenderEnquiryUpdateSchema,
     NotificationAwardCreateSchema,
@@ -53,6 +55,13 @@ pre_qualification_bid_bp = Blueprint(
     __name__,
     url_prefix="/api/v1/pre-qualification-bids",
     description="Pre-Qualification Bids APIs",
+)
+
+pre_qualification_bid_singular_bp = Blueprint(
+    "pre_qualification_bid_singular",
+    __name__,
+    url_prefix="/api/v1/pre-qualification-bid",
+    description="Pre-Qualification Bid (Singular) APIs",
 )
 
 pqb_bid_document_bp = Blueprint(
@@ -106,6 +115,7 @@ expression_of_interest_bp = Blueprint(
 
 PHASE1_BLUEPRINTS = [
     pre_qualification_bid_bp,
+    pre_qualification_bid_singular_bp,
     pqb_bid_document_bp,
     pqb_bid_document_singular_bp,
     corrigendum_bp,
@@ -261,6 +271,64 @@ def list_pqbs():
         query = query.filter_by(project_id=project_id)
     records = query.order_by(PreQualificationBid.id.desc()).all()
     return jsonify([_serialize_pqb(r) for r in records]), 200
+
+
+def _handle_get_latest_pqb(args=None):
+    if args is None:
+        args = {}
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    query = PreQualificationBid.query
+    if project_id is not None:
+        try:
+            pid = int(project_id)
+            if pid <= 0:
+                return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+        except (ValueError, TypeError):
+            return _error("INVALID_PROJECT_ID", "project_id must be an integer.", 400)
+
+        project = db.session.get(Project, pid)
+        if not project:
+            return _error("PROJECT_NOT_FOUND", f"Project {pid} not found.", 404)
+        query = query.filter_by(project_id=pid)
+
+    rec = query.order_by(PreQualificationBid.id.desc()).first()
+    if not rec:
+        return _error("NOT_FOUND", "Pre-qualification bid not found.", 404)
+
+    return jsonify({
+        "pqb_title": rec.pqb_title,
+        "pqb_no": rec.pqb_no,
+    }), 200
+
+
+@pre_qualification_bid_bp.get("/latest")
+@pre_qualification_bid_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Pre-Qualification Bid",
+    description="Retrieve only pqb_title and pqb_no for the latest pre-qualification bid.",
+)
+@pre_qualification_bid_bp.arguments(LatestPreQualificationBidQuerySchema, location="query")
+@pre_qualification_bid_bp.response(200, LatestPreQualificationBidResponseSchema)
+@jwt_required()
+def get_latest_pqb(args=None):
+    return _handle_get_latest_pqb(args)
+
+
+@pre_qualification_bid_singular_bp.get("/latest")
+@pre_qualification_bid_singular_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Pre-Qualification Bid (Singular)",
+    description="Retrieve only pqb_title and pqb_no for the latest pre-qualification bid.",
+)
+@pre_qualification_bid_singular_bp.arguments(LatestPreQualificationBidQuerySchema, location="query")
+@pre_qualification_bid_singular_bp.response(200, LatestPreQualificationBidResponseSchema)
+@jwt_required()
+def get_latest_pqb_singular(args=None):
+    return _handle_get_latest_pqb(args)
 
 
 @pre_qualification_bid_bp.get("/<int:rec_id>")

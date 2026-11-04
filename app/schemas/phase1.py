@@ -182,6 +182,15 @@ class PreQualificationBidUpdateSchema(BasePhase1Schema):
     requirements = fields.List(fields.Nested(PreQualificationBidItemSchema), allow_none=True)
 
 
+class LatestPreQualificationBidQuerySchema(BasePhase1Schema):
+    project_id = FlexibleInt(required=False, allow_none=True)
+
+
+class LatestPreQualificationBidResponseSchema(BasePhase1Schema):
+    pqb_title = fields.Str(allow_none=True)
+    pqb_no = fields.Str(allow_none=True)
+
+
 # =========================================================================
 # 2. BID DOCUMENT FOR PQB (FORM_02_PQB_BID_DOCUMENT)
 # =========================================================================

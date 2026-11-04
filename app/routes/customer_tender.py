@@ -493,6 +493,7 @@ def delete_customer_tender(customer_tender_id):
 
 
 @customer_tender_bp.get("/<int:customer_tender_id>")
+@customer_tender_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_customer_tender_by_id(customer_tender_id: int):
     try:

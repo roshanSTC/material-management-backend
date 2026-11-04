@@ -498,6 +498,7 @@ def delete_customs_clearance_route(clearance_id: int):
 
 
 @customs_clearance_bp.get("/<int:clearance_id>")
+@customs_clearance_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_customs_clearance_by_id(clearance_id: int):
     try:

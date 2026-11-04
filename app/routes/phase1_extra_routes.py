@@ -633,11 +633,11 @@ def handle_delete_bid_doc_techno_commercial(rec_id: int):
 
 # Wire routes to blueprints
 for bp in (bid_document_techno_commercial_bp, bid_document_techno_commercial_plural_bp):
-    bp.route("", methods=["GET"])(jwt_required()(handle_get_bid_doc_techno_commercial))
-    bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_bid_doc_techno_commercial))
-    bp.route("", methods=["POST"])(jwt_required()(handle_create_bid_doc_techno_commercial))
-    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(jwt_required()(handle_update_bid_doc_techno_commercial))
-    bp.route("/<int:rec_id>", methods=["DELETE"])(jwt_required()(handle_delete_bid_doc_techno_commercial))
+    bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_techno_commercial)))
+    bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_techno_commercial)))
+    bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_bid_doc_techno_commercial)))
+    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_update_bid_doc_techno_commercial)))
+    bp.route("/<int:rec_id>", methods=["DELETE"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_delete_bid_doc_techno_commercial)))
 
 
 # =========================================================================
@@ -943,11 +943,11 @@ for bp in (
     ste_bp,
     stes_bp,
 ):
-    bp.route("", methods=["GET"])(jwt_required()(handle_get_techno_commercial_tender))
-    bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_techno_commercial_tender))
-    bp.route("", methods=["POST"])(jwt_required()(handle_create_techno_commercial_tender))
-    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(jwt_required()(handle_update_techno_commercial_tender))
-    bp.route("/<int:rec_id>", methods=["DELETE"])(jwt_required()(handle_delete_techno_commercial_tender))
+    bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_techno_commercial_tender)))
+    bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_techno_commercial_tender)))
+    bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_techno_commercial_tender)))
+    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_update_techno_commercial_tender)))
+    bp.route("/<int:rec_id>", methods=["DELETE"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_delete_techno_commercial_tender)))
 
 
 # =========================================================================
@@ -1189,11 +1189,11 @@ def handle_delete_bid_doc_lte(rec_id: int):
 
 # Wire routes to blueprints
 for bp in (bid_document_lte_bp, bid_document_lte_plural_bp):
-    bp.route("", methods=["GET"])(jwt_required()(handle_get_bid_doc_lte))
-    bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_bid_doc_lte))
-    bp.route("", methods=["POST"])(jwt_required()(handle_create_bid_doc_lte))
-    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(jwt_required()(handle_update_bid_doc_lte))
-    bp.route("/<int:rec_id>", methods=["DELETE"])(jwt_required()(handle_delete_bid_doc_lte))
+    bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_lte)))
+    bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_lte)))
+    bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_bid_doc_lte)))
+    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_update_bid_doc_lte)))
+    bp.route("/<int:rec_id>", methods=["DELETE"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_delete_bid_doc_lte)))
 
 
 # =========================================================================
@@ -1531,11 +1531,11 @@ def handle_delete_bid_doc_ste(rec_id: int):
 
 # Wire routes to blueprints
 for bp in (bid_document_ste_bp, bid_document_stes_bp, bid_document_for_ste_bp):
-    bp.route("", methods=["GET"])(jwt_required()(handle_get_bid_doc_ste))
-    bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_bid_doc_ste))
-    bp.route("", methods=["POST"])(jwt_required()(handle_create_bid_doc_ste))
-    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(jwt_required()(handle_update_bid_doc_ste))
-    bp.route("/<int:rec_id>", methods=["DELETE"])(jwt_required()(handle_delete_bid_doc_ste))
+    bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_ste)))
+    bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_ste)))
+    bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_bid_doc_ste)))
+    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_update_bid_doc_ste)))
+    bp.route("/<int:rec_id>", methods=["DELETE"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_delete_bid_doc_ste)))
 
 
 # =========================================================================
@@ -1826,11 +1826,11 @@ def handle_delete_international_competitive_bidding(rec_id: int):
 
 # Wire routes to ICB blueprints
 for bp in (international_competitive_biddings_bp, international_competitive_bidding_bp, icb_bp, icbs_bp):
-    bp.route("", methods=["GET"])(jwt_required()(handle_get_international_competitive_bidding))
-    bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_international_competitive_bidding))
-    bp.route("", methods=["POST"])(jwt_required()(handle_create_international_competitive_bidding))
-    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(jwt_required()(handle_update_international_competitive_bidding))
-    bp.route("/<int:rec_id>", methods=["DELETE"])(jwt_required()(handle_delete_international_competitive_bidding))
+    bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_international_competitive_bidding)))
+    bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_international_competitive_bidding)))
+    bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_international_competitive_bidding)))
+    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_update_international_competitive_bidding)))
+    bp.route("/<int:rec_id>", methods=["DELETE"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_delete_international_competitive_bidding)))
 
 
 # =========================================================================
@@ -2167,9 +2167,9 @@ def handle_delete_bid_doc_icb(rec_id: int):
 
 # Wire routes to Bid Document ICB blueprints
 for bp in (bid_document_icb_bp, bid_document_icbs_bp, bid_document_for_icb_bp):
-    bp.route("", methods=["GET"])(jwt_required()(handle_get_bid_doc_icb))
-    bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(handle_get_bid_doc_icb))
-    bp.route("", methods=["POST"])(jwt_required()(handle_create_bid_doc_icb))
-    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(jwt_required()(handle_update_bid_doc_icb))
-    bp.route("/<int:rec_id>", methods=["DELETE"])(jwt_required()(handle_delete_bid_doc_icb))
+    bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_icb)))
+    bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_icb)))
+    bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_bid_doc_icb)))
+    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_update_bid_doc_icb)))
+    bp.route("/<int:rec_id>", methods=["DELETE"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_delete_bid_doc_icb)))
 

@@ -252,6 +252,7 @@ def _serialize_pqb(rec):
 
 
 @pre_qualification_bid_bp.get("")
+@pre_qualification_bid_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_pqbs():
     project_id = request.args.get("project_id", type=int)
@@ -263,6 +264,7 @@ def list_pqbs():
 
 
 @pre_qualification_bid_bp.get("/<int:rec_id>")
+@pre_qualification_bid_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_pqb(rec_id):
     rec = db.session.get(PreQualificationBid, rec_id)
@@ -272,6 +274,7 @@ def get_pqb(rec_id):
 
 
 @pre_qualification_bid_bp.post("")
+@pre_qualification_bid_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def create_pqb():
     user_id = _get_user_id()
@@ -312,6 +315,7 @@ def create_pqb():
 
 
 @pre_qualification_bid_bp.patch("/<int:rec_id>")
+@pre_qualification_bid_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def update_pqb(rec_id):
     user_id = _get_user_id()
@@ -354,6 +358,7 @@ def update_pqb(rec_id):
 
 
 @pre_qualification_bid_bp.delete("/<int:rec_id>")
+@pre_qualification_bid_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def delete_pqb(rec_id):
     rec = db.session.get(PreQualificationBid, rec_id)
@@ -542,11 +547,11 @@ def delete_pqb_doc(rec_id):
 
 
 for bp in (pqb_bid_document_bp, pqb_bid_document_singular_bp):
-    bp.route("", methods=["GET"])(jwt_required()(list_pqb_docs))
-    bp.route("/<int:rec_id>", methods=["GET"])(jwt_required()(get_pqb_doc))
-    bp.route("", methods=["POST"])(jwt_required()(create_pqb_doc))
-    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(jwt_required()(update_pqb_doc))
-    bp.route("/<int:rec_id>", methods=["DELETE"])(jwt_required()(delete_pqb_doc))
+    bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(list_pqb_docs)))
+    bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(get_pqb_doc)))
+    bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(create_pqb_doc)))
+    bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(update_pqb_doc)))
+    bp.route("/<int:rec_id>", methods=["DELETE"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(delete_pqb_doc)))
 
 
 # =========================================================================
@@ -571,6 +576,7 @@ def _serialize_corrigendum(rec):
 
 
 @corrigendum_bp.get("")
+@corrigendum_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_corrigendums():
     project_id = request.args.get("project_id", type=int)
@@ -582,6 +588,7 @@ def list_corrigendums():
 
 
 @corrigendum_bp.get("/<int:rec_id>")
+@corrigendum_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_corrigendum(rec_id):
     rec = db.session.get(Corrigendum, rec_id)
@@ -591,6 +598,7 @@ def get_corrigendum(rec_id):
 
 
 @corrigendum_bp.post("")
+@corrigendum_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def create_corrigendum():
     user_id = _get_user_id()
@@ -616,6 +624,7 @@ def create_corrigendum():
 
 
 @corrigendum_bp.patch("/<int:rec_id>")
+@corrigendum_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def update_corrigendum(rec_id):
     user_id = _get_user_id()
@@ -646,6 +655,7 @@ def update_corrigendum(rec_id):
 
 
 @corrigendum_bp.delete("/<int:rec_id>")
+@corrigendum_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def delete_corrigendum(rec_id):
     rec = db.session.get(Corrigendum, rec_id)
@@ -691,6 +701,7 @@ def _serialize_lte(rec):
 
 
 @limited_tender_enquiry_bp.get("")
+@limited_tender_enquiry_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_ltes():
     project_id = request.args.get("project_id", type=int)
@@ -702,6 +713,7 @@ def list_ltes():
 
 
 @limited_tender_enquiry_bp.get("/<int:rec_id>")
+@limited_tender_enquiry_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_lte(rec_id):
     rec = db.session.get(LimitedTenderEnquiry, rec_id)
@@ -711,6 +723,7 @@ def get_lte(rec_id):
 
 
 @limited_tender_enquiry_bp.post("")
+@limited_tender_enquiry_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def create_lte():
     user_id = _get_user_id()
@@ -746,6 +759,7 @@ def create_lte():
 
 
 @limited_tender_enquiry_bp.patch("/<int:rec_id>")
+@limited_tender_enquiry_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def update_lte(rec_id):
     user_id = _get_user_id()
@@ -788,6 +802,7 @@ def update_lte(rec_id):
 
 
 @limited_tender_enquiry_bp.delete("/<int:rec_id>")
+@limited_tender_enquiry_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def delete_lte(rec_id):
     rec = db.session.get(LimitedTenderEnquiry, rec_id)
@@ -839,6 +854,7 @@ def _serialize_nac(rec):
 
 
 @notification_award_bp.get("")
+@notification_award_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_nacs():
     project_id = request.args.get("project_id", type=int)
@@ -850,6 +866,7 @@ def list_nacs():
 
 
 @notification_award_bp.get("/<int:rec_id>")
+@notification_award_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_nac(rec_id):
     rec = db.session.get(NotificationAward, rec_id)
@@ -859,6 +876,7 @@ def get_nac(rec_id):
 
 
 @notification_award_bp.post("")
+@notification_award_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def create_nac():
     user_id = _get_user_id()
@@ -895,6 +913,7 @@ def create_nac():
 
 
 @notification_award_bp.patch("/<int:rec_id>")
+@notification_award_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def update_nac(rec_id):
     user_id = _get_user_id()
@@ -938,6 +957,7 @@ def update_nac(rec_id):
 
 
 @notification_award_bp.delete("/<int:rec_id>")
+@notification_award_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def delete_nac(rec_id):
     rec = db.session.get(NotificationAward, rec_id)
@@ -969,6 +989,7 @@ def _serialize_consultancy_invoice(rec):
 
 
 @consultancy_invoice_bp.get("")
+@consultancy_invoice_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_consultancy_invoices():
     project_id = request.args.get("project_id", type=int)
@@ -980,6 +1001,7 @@ def list_consultancy_invoices():
 
 
 @consultancy_invoice_bp.get("/<int:rec_id>")
+@consultancy_invoice_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_consultancy_invoice(rec_id):
     rec = db.session.get(ConsultancyInvoice, rec_id)
@@ -989,6 +1011,7 @@ def get_consultancy_invoice(rec_id):
 
 
 @consultancy_invoice_bp.post("")
+@consultancy_invoice_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def create_consultancy_invoice():
     user_id = _get_user_id()
@@ -1014,6 +1037,7 @@ def create_consultancy_invoice():
 
 
 @consultancy_invoice_bp.patch("/<int:rec_id>")
+@consultancy_invoice_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def update_consultancy_invoice(rec_id):
     user_id = _get_user_id()
@@ -1044,6 +1068,7 @@ def update_consultancy_invoice(rec_id):
 
 
 @consultancy_invoice_bp.delete("/<int:rec_id>")
+@consultancy_invoice_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def delete_consultancy_invoice(rec_id):
     rec = db.session.get(ConsultancyInvoice, rec_id)
@@ -1087,6 +1112,7 @@ def _serialize_eoi(rec):
 
 
 @expression_of_interest_bp.get("")
+@expression_of_interest_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_eois():
     project_id = request.args.get("project_id", type=int)
@@ -1098,6 +1124,7 @@ def list_eois():
 
 
 @expression_of_interest_bp.get("/<int:rec_id>")
+@expression_of_interest_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_eoi(rec_id):
     rec = db.session.get(ExpressionOfInterest, rec_id)
@@ -1107,6 +1134,7 @@ def get_eoi(rec_id):
 
 
 @expression_of_interest_bp.post("")
+@expression_of_interest_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def create_eoi():
     user_id = _get_user_id()
@@ -1142,6 +1170,7 @@ def create_eoi():
 
 
 @expression_of_interest_bp.patch("/<int:rec_id>")
+@expression_of_interest_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def update_eoi(rec_id):
     user_id = _get_user_id()
@@ -1184,6 +1213,7 @@ def update_eoi(rec_id):
 
 
 @expression_of_interest_bp.delete("/<int:rec_id>")
+@expression_of_interest_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def delete_eoi(rec_id):
     rec = db.session.get(ExpressionOfInterest, rec_id)

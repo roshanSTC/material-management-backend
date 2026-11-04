@@ -452,6 +452,7 @@ def delete_supplier_invoice(supplier_invoice_id):
 
 
 @supplier_invoice_bp.get("/<int:supplier_invoice_id>")
+@supplier_invoice_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_supplier_invoice_by_id(supplier_invoice_id: int):
     try:

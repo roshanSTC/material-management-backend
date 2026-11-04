@@ -468,6 +468,7 @@ def delete_transport_detail(transport_detail_id):
 
 
 @transport_detail_bp.get("/<int:transport_detail_id>")
+@transport_detail_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_transport_detail_by_id(transport_detail_id: int):
     try:

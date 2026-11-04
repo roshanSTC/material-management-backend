@@ -451,6 +451,7 @@ def delete_warranty_certificate(warranty_certificate_id):
 
 
 @warranty_certificate_bp.get("/<int:warranty_certificate_id>")
+@warranty_certificate_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_warranty_certificate_by_id(warranty_certificate_id: int):
     try:

@@ -580,6 +580,7 @@ def delete_customer_payment(customer_payment_id):
 
 
 @customer_payment_bp.get("/<int:customer_payment_id>")
+@customer_payment_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_customer_payment_by_id(customer_payment_id: int):
     try:

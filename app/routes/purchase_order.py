@@ -564,6 +564,7 @@ def delete_purchase_order(purchase_order_id):
 
 
 @purchase_order_bp.get("/<int:purchase_order_id>")
+@purchase_order_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_purchase_order_by_id(purchase_order_id: int):
     try:

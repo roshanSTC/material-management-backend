@@ -539,6 +539,7 @@ def delete_supplier_proforma_invoice(proforma_invoice_id):
 
 
 @supplier_proforma_invoice_bp.get("/<int:proforma_invoice_id>")
+@supplier_proforma_invoice_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_proforma_invoice_by_id(proforma_invoice_id: int):
     try:

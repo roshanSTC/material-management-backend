@@ -713,6 +713,7 @@ def delete(customer_query_id):
         }, 500
 
 @customer_query_bp.get("/<int:customer_query_id>")
+@customer_query_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_customer_query_by_id(customer_query_id: int):
     try:

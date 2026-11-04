@@ -594,6 +594,7 @@ def delete_customer_delivery_invoice(customer_delivery_invoice_id):
 
 
 @customer_delivery_invoice_bp.get("/<int:customer_delivery_invoice_id>")
+@customer_delivery_invoice_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def get_customer_delivery_invoice(customer_delivery_invoice_id: int):
     return _handle_get_customer_delivery_invoice(customer_delivery_invoice_id)

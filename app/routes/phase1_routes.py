@@ -337,20 +337,16 @@ def _handle_get_latest_pqb(args=None):
     if not rec:
         return _error("NOT_FOUND", "Pre-qualification bid not found.", 404)
 
-    return jsonify({
-        "pqb_title": rec.pqb_title,
-        "pqb_no": rec.pqb_no,
-    }), 200
+    return jsonify(_serialize_pqb(rec)), 200
 
 
 @pre_qualification_bid_bp.get("/latest")
 @pre_qualification_bid_bp.doc(
     security=[{"BearerAuth": []}],
     summary="Get Latest Pre-Qualification Bid",
-    description="Retrieve only pqb_title and pqb_no for the latest pre-qualification bid.",
+    description="Retrieve latest pre-qualification bid with all specifications and items.",
 )
 @pre_qualification_bid_bp.arguments(LatestPreQualificationBidQuerySchema, location="query")
-@pre_qualification_bid_bp.response(200, LatestPreQualificationBidResponseSchema)
 @jwt_required()
 def get_latest_pqb(args=None):
     return _handle_get_latest_pqb(args)
@@ -360,10 +356,9 @@ def get_latest_pqb(args=None):
 @pre_qualification_bid_singular_bp.doc(
     security=[{"BearerAuth": []}],
     summary="Get Latest Pre-Qualification Bid (Singular)",
-    description="Retrieve only pqb_title and pqb_no for the latest pre-qualification bid.",
+    description="Retrieve latest pre-qualification bid with all specifications and items.",
 )
 @pre_qualification_bid_singular_bp.arguments(LatestPreQualificationBidQuerySchema, location="query")
-@pre_qualification_bid_singular_bp.response(200, LatestPreQualificationBidResponseSchema)
 @jwt_required()
 def get_latest_pqb_singular(args=None):
     return _handle_get_latest_pqb(args)
@@ -821,6 +816,95 @@ def delete_corrigendum(rec_id):
     return jsonify({"success": True, "message": "Corrigendum deleted successfully."}), 200
 
 
+@corrigendum_bp.get("/latest")
+@corrigendum_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Corrigendum",
+    description="Retrieve latest corrigendum for a given project_id",
+)
+@jwt_required()
+def get_latest_corrigendum():
+    project_id = request.args.get("project_id", type=int) or request.args.get("projectId", type=int)
+    query = Corrigendum.query
+    if project_id:
+        query = query.filter_by(project_id=project_id)
+    rec = query.order_by(Corrigendum.id.desc()).first()
+    if not rec:
+        return _error("NOT_FOUND", "Corrigendum not found.", 404)
+    return jsonify(_serialize_corrigendum(rec)), 200
+
+
+@corrigendum_bp.get("/latest-tender")
+@corrigendum_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Preceding Tender for Corrigendum",
+    description="Find and return the latest preceding tender/enquiry step (ICB, Techno Commercial, PAC, EOI, PQB, LTE, STE) with all specifications and line items.",
+)
+@jwt_required()
+def get_corrigendum_latest_tender():
+    project_id = request.args.get("project_id", type=int) or request.args.get("projectId", type=int)
+    if not project_id:
+        return _error("PROJECT_ID_REQUIRED", "project_id query parameter is required.", 400)
+
+    from app.models.techno_commercial_tender import TechnoCommercialTender
+    from app.models.international_competitive_bidding import InternationalCompetitiveBidding
+    from app.models.customer_tender import CustomerTender
+    from app.routes.phase1_extra_routes import (
+        _serialize_techno_commercial_tender,
+        _serialize_international_competitive_bidding,
+    )
+    from app.routes.customer_tender import _customer_tender_response
+
+    candidates = []
+
+    # 1. Limited Tender Enquiry (LTE)
+    lte_rec = LimitedTenderEnquiry.query.filter_by(project_id=project_id).order_by(LimitedTenderEnquiry.id.desc()).first()
+    if lte_rec:
+        t = lte_rec.updated_at or lte_rec.created_at or datetime.min
+        candidates.append((t, "FORM_04_LTE", "Limited Tender Enquiry (LTE)", _serialize_lte(lte_rec)))
+
+    # 2. Techno Commercial Tender / STE
+    tct_rec = TechnoCommercialTender.query.filter_by(project_id=project_id).order_by(TechnoCommercialTender.id.desc()).first()
+    if tct_rec:
+        t = tct_rec.updated_at or tct_rec.created_at or datetime.min
+        fcode = tct_rec.form_code or "FORM_30_TECHNO_COMMERCIAL_TENDER"
+        sname = "Single Tender Enquiry (STE)" if "33" in fcode or "STE" in fcode else "Techno Commercial Tender"
+        candidates.append((t, fcode, sname, _serialize_techno_commercial_tender(tct_rec)))
+
+    # 3. International Competitive Bidding (ICB)
+    icb_rec = InternationalCompetitiveBidding.query.filter_by(project_id=project_id).order_by(InternationalCompetitiveBidding.id.desc()).first()
+    if icb_rec:
+        t = icb_rec.updated_at or icb_rec.created_at or datetime.min
+        candidates.append((t, "FORM_35_ICB", "International Competitive Bidding (ICB)", _serialize_international_competitive_bidding(icb_rec)))
+
+    # 4. PAC Tender
+    pac_rec = CustomerTender.query.filter_by(project_id=project_id).order_by(CustomerTender.id.desc()).first()
+    if pac_rec:
+        t = pac_rec.updated_at or pac_rec.created_at or datetime.min
+        candidates.append((t, "FORM_13_PAC_TENDER", "PAC Tender", _customer_tender_response(pac_rec)))
+
+    # 5. Expression of Interest (EOI)
+    eoi_rec = ExpressionOfInterest.query.filter_by(project_id=project_id).order_by(ExpressionOfInterest.id.desc()).first()
+    if eoi_rec:
+        t = eoi_rec.updated_at or eoi_rec.created_at or datetime.min
+        candidates.append((t, "FORM_07_EOI", "Expression of Interest (EOI)", _serialize_eoi(eoi_rec)))
+
+    # 6. National Pre-Qualification Bid (PQB)
+    pqb_rec = PreQualificationBid.query.filter_by(project_id=project_id).order_by(PreQualificationBid.id.desc()).first()
+    if pqb_rec:
+        t = pqb_rec.updated_at or pqb_rec.created_at or datetime.min
+        candidates.append((t, "FORM_01_PQB", "National Pre-Qualification Bid (PQB)", _serialize_pqb(pqb_rec)))
+
+    if not candidates:
+        return _error("NOT_FOUND", f"No preceding tender/enquiry records found for project {project_id}.", 404)
+
+    candidates.sort(key=lambda c: c[0], reverse=True)
+    _, best_fcode, best_sname, best_data = candidates[0]
+    best_data["form_code"] = best_fcode
+    best_data["step_name"] = best_sname
+    return jsonify(best_data), 200
+
+
 # =========================================================================
 # 4. LIMITED TENDER ENQUIRY (FORM_04_LTE)
 # =========================================================================
@@ -895,20 +979,16 @@ def _handle_get_latest_lte(args=None):
     if not rec:
         return _error("NOT_FOUND", "Limited tender enquiry not found.", 404)
 
-    return jsonify({
-        "tender_title": rec.tender_title,
-        "tender_enquiry_no": rec.tender_enquiry_no,
-    }), 200
+    return jsonify(_serialize_lte(rec)), 200
 
 
 @limited_tender_enquiry_bp.get("/latest")
 @limited_tender_enquiry_bp.doc(
     security=[{"BearerAuth": []}],
     summary="Get Latest Limited Tender Enquiry",
-    description="Retrieve only tender_title and tender_enquiry_no for the latest limited tender enquiry.",
+    description="Retrieve latest limited tender enquiry with all specifications and items.",
 )
 @limited_tender_enquiry_bp.arguments(LatestLimitedTenderEnquiryQuerySchema, location="query")
-@limited_tender_enquiry_bp.response(200, LatestLimitedTenderEnquiryResponseSchema)
 @jwt_required()
 def get_latest_lte(args=None):
     return _handle_get_latest_lte(args)
@@ -918,10 +998,9 @@ def get_latest_lte(args=None):
 @limited_tender_enquiry_singular_bp.doc(
     security=[{"BearerAuth": []}],
     summary="Get Latest Limited Tender Enquiry (Singular)",
-    description="Retrieve only tender_title and tender_enquiry_no for the latest limited tender enquiry.",
+    description="Retrieve latest limited tender enquiry with all specifications and items.",
 )
 @limited_tender_enquiry_singular_bp.arguments(LatestLimitedTenderEnquiryQuerySchema, location="query")
-@limited_tender_enquiry_singular_bp.response(200, LatestLimitedTenderEnquiryResponseSchema)
 @jwt_required()
 def get_latest_lte_singular(args=None):
     return _handle_get_latest_lte(args)
@@ -1360,10 +1439,7 @@ def handle_get_latest_expression_of_interest(args=None):
     if not rec:
         return _error("NOT_FOUND", "Expression of interest not found.", 404)
 
-    return jsonify({
-        "tender_title": rec.eoi_title,
-        "tender_enquiry_no": rec.eoi_no,
-    }), 200
+    return jsonify(_serialize_eoi(rec)), 200
 
 
 @expression_of_interest_bp.get("")
@@ -1486,12 +1562,10 @@ for bp in (expression_of_interest_bp, expression_of_interest_singular_bp, eoi_bp
         bp.doc(
             security=[{"BearerAuth": []}],
             summary="Get Latest Expression of Interest",
-            description="Retrieve only tender_title and tender_enquiry_no for the latest expression of interest.",
+            description="Retrieve latest expression of interest with all specifications and items.",
         )(
             bp.arguments(LatestExpressionOfInterestQuerySchema, location="query")(
-                bp.response(200, LatestExpressionOfInterestResponseSchema)(
-                    jwt_required()(handle_get_latest_expression_of_interest)
-                )
+                jwt_required()(handle_get_latest_expression_of_interest)
             )
         )
     )

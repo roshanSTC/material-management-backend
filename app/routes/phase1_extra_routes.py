@@ -895,10 +895,7 @@ def handle_get_latest_techno_commercial_tender(args=None):
     if not rec:
         return _error("NOT_FOUND", "Single tender enquiry not found.", 404)
 
-    return jsonify({
-        "tender_title": rec.tender_title,
-        "tender_enquiry_no": rec.tender_enquiry_no or rec.tender_no,
-    }), 200
+    return jsonify(_serialize_techno_commercial_tender(rec)), 200
 
 
 def handle_get_techno_commercial_tender(rec_id=None):
@@ -1068,13 +1065,11 @@ for bp in (
     bp.route("/latest", methods=["GET"])(
         bp.doc(
             security=[{"BearerAuth": []}],
-            summary="Get Latest Single Tender Enquiry",
-            description="Retrieve only tender_title and tender_enquiry_no for the latest single tender enquiry.",
+            summary="Get Latest Single Tender Enquiry / Techno Commercial Tender",
+            description="Retrieve latest tender enquiry with all specifications and items.",
         )(
             bp.arguments(LatestSingleTenderEnquiryQuerySchema, location="query")(
-                bp.response(200, LatestSingleTenderEnquiryResponseSchema)(
-                    jwt_required()(handle_get_latest_techno_commercial_tender)
-                )
+                jwt_required()(handle_get_latest_techno_commercial_tender)
             )
         )
     )
@@ -2003,10 +1998,7 @@ def handle_get_latest_international_competitive_bidding(args=None):
     if not rec:
         return _error("NOT_FOUND", "International competitive bidding not found.", 404)
 
-    return jsonify({
-        "tender_title": rec.tender_title,
-        "tender_enquiry_no": rec.tender_no or rec.tender_number,
-    }), 200
+    return jsonify(_serialize_international_competitive_bidding(rec)), 200
 
 
 def handle_get_international_competitive_bidding(rec_id=None):
@@ -2152,12 +2144,10 @@ for bp in (international_competitive_biddings_bp, international_competitive_bidd
         bp.doc(
             security=[{"BearerAuth": []}],
             summary="Get Latest International Competitive Bidding (ICB)",
-            description="Retrieve only tender_title and tender_enquiry_no for the latest international competitive bidding.",
+            description="Retrieve latest international competitive bidding with all specifications and items.",
         )(
             bp.arguments(LatestInternationalCompetitiveBiddingQuerySchema, location="query")(
-                bp.response(200, LatestInternationalCompetitiveBiddingResponseSchema)(
-                    jwt_required()(handle_get_latest_international_competitive_bidding)
-                )
+                jwt_required()(handle_get_latest_international_competitive_bidding)
             )
         )
     )

@@ -380,10 +380,7 @@ def _handle_get_latest_pac_tender(args=None):
     if not rec:
         return _error("NOT_FOUND", "PAC tender not found.", 404)
 
-    return jsonify({
-        "tender_title": rec.tender_title,
-        "tender_enquiry_no": rec.tender_number,
-    }), 200
+    return jsonify(_customer_tender_response(rec)), 200
 
 
 def _handle_get_latest_customer_tender(args=None):
@@ -592,13 +589,11 @@ for bp in (pac_tenders_bp, pac_tender_bp, pac_bp):
         bp.doc(
             security=[{"BearerAuth": []}],
             summary="Get Latest PAC Tender",
-            description="Retrieve only tender_title and tender_enquiry_no for the latest PAC tender.",
+            description="Retrieve latest PAC tender with all specifications and items.",
         )(
             jwt_required()(
                 bp.arguments(LatestPacTenderQuerySchema, location="query")(
-                    bp.response(200, LatestPacTenderResponseSchema)(
-                        _handle_get_latest_pac_tender
-                    )
+                    _handle_get_latest_pac_tender
                 )
             )
         )

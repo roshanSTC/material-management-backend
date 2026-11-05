@@ -871,12 +871,53 @@ def _get_step_item_date(project, step):
                     return _format_date_val(bdtc.tender_issue_date), "Tender Date"
 
         elif form_code_upper == "FORM_30_TECHNO_COMMERCIAL_TENDER":
-            tct = TechnoCommercialTender.query.filter_by(project_id=project.id).order_by(TechnoCommercialTender.id.desc()).first()
+            tct = TechnoCommercialTender.query.filter(
+                TechnoCommercialTender.project_id == project.id,
+                TechnoCommercialTender.form_code.in_(["FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30"])
+            ).order_by(TechnoCommercialTender.id.desc()).first()
             if tct:
                 if getattr(tct, "bid_submission_due_date_time", None):
                     return _format_date_val(tct.bid_submission_due_date_time), "Due Date"
                 if getattr(tct, "tender_issue_date", None):
                     return _format_date_val(tct.tender_issue_date), "Tender Date"
+
+        elif form_code_upper in ("FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_STE"):
+            ste = TechnoCommercialTender.query.filter(
+                TechnoCommercialTender.project_id == project.id,
+                TechnoCommercialTender.form_code.in_(["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE"])
+            ).order_by(TechnoCommercialTender.id.desc()).first()
+            if ste:
+                if getattr(ste, "bid_submission_due_date_time", None):
+                    return _format_date_val(ste.bid_submission_due_date_time), "Due Date"
+                if getattr(ste, "tender_issue_date", None):
+                    return _format_date_val(ste.tender_issue_date), "Tender Date"
+
+        elif form_code_upper in ("FORM_34_BID_DOC_STE", "FORM_34_BID_DOCUMENT_STE"):
+            from app.models.bid_document_ste import BidDocumentSte
+            bd_ste = BidDocumentSte.query.filter_by(project_id=project.id).order_by(BidDocumentSte.id.desc()).first()
+            if bd_ste:
+                if getattr(bd_ste, "bid_submission_date", None):
+                    return _format_date_val(bd_ste.bid_submission_date), "Submission Date"
+                if getattr(bd_ste, "tender_issue_date", None):
+                    return _format_date_val(bd_ste.tender_issue_date), "Tender Date"
+
+        elif form_code_upper in ("FORM_35_ICB", "FORM_35_INTERNATIONAL_COMPETITIVE_BIDDING"):
+            from app.models.international_competitive_bidding import InternationalCompetitiveBidding
+            icb = InternationalCompetitiveBidding.query.filter_by(project_id=project.id).order_by(InternationalCompetitiveBidding.id.desc()).first()
+            if icb:
+                if getattr(icb, "bid_submission_due_date_time", None):
+                    return _format_date_val(icb.bid_submission_due_date_time), "Due Date"
+                if getattr(icb, "tender_issue_date", None):
+                    return _format_date_val(icb.tender_issue_date), "Tender Date"
+
+        elif form_code_upper in ("FORM_36_BID_DOC_ICB", "FORM_36_BID_DOCUMENT_ICB"):
+            from app.models.bid_document_icb import BidDocumentIcb
+            bd_icb = BidDocumentIcb.query.filter_by(project_id=project.id).order_by(BidDocumentIcb.id.desc()).first()
+            if bd_icb:
+                if getattr(bd_icb, "bid_submission_date", None):
+                    return _format_date_val(bd_icb.bid_submission_date), "Submission Date"
+                if getattr(bd_icb, "tender_issue_date", None):
+                    return _format_date_val(bd_icb.tender_issue_date), "Tender Date"
 
         elif form_code_upper == "FORM_31_BID_DOC_LTE":
             bdl = BidDocumentLte.query.filter_by(project_id=project.id).order_by(BidDocumentLte.id.desc()).first()

@@ -87,7 +87,6 @@ def handle_get_form_by_code(form_code: str):
 
 
 # =========================================================================
-# =========================================================================
 # 2. FORM RELATIONSHIP MAPPING
 # =========================================================================
 FORM_REL_MAP = [
@@ -149,6 +148,8 @@ def sync_project_steps_from_records(project):
                 steps_by_code.setdefault(s.form_code, []).append(s)
 
         existing_steps = {}
+        changed = False
+        deleted_any = False
         for fcode, slist in steps_by_code.items():
             if len(slist) > 1:
                 # Keep best step: prefer completed, then earliest id
@@ -165,14 +166,58 @@ def sync_project_steps_from_records(project):
                 existing_steps[fcode] = slist[0]
         max_order = max([s.step_order or s.step_number or 0 for s in project.steps], default=0)
         max_step_num = max([s.step_number or 0 for s in project.steps], default=0)
-        changed = False
-        deleted_any = False
 
         try:
             form_defs = {f.form_code: f for f in FormDefinition.query.filter_by(is_active=True).all()}
+            # Sync any updated names/phases in form_definitions
+            f30 = form_defs.get("FORM_30_TECHNO_COMMERCIAL_TENDER")
+            if f30 and f30.name != "Techno Commercial Tender":
+                f30.name = "Techno Commercial Tender"
+                f30.description = "Techno commercial tender enquiry terms, submission deadlines, EMD, fee, and requirements"
+                f30.icon = "pi pi-file-edit"
+                db.session.commit()
+            f13 = form_defs.get("FORM_13_PAC_TENDER")
+            if f13 and f13.phase_id != "phase-1":
+                f13.phase_id = "phase-1"
+                db.session.commit()
         except Exception:
             db.session.rollback()
             form_defs = {}
+
+        # Self-healing: if FORM_30 step mistakenly contains FORM_33 data from previous bug
+        step_30 = existing_steps.get("FORM_30_TECHNO_COMMERCIAL_TENDER")
+        if step_30 and isinstance(step_30.data, dict) and step_30.data.get("form_code") in ("FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE"):
+            ste_data = dict(step_30.data)
+            step_30.data = {"_is_attached": True, "_manually_completed": True}
+            step_30.status = "completed"
+            step_30.progress_percentage = 100
+
+            step_33 = existing_steps.get("FORM_33_STE")
+            if not step_33:
+                fdef33 = form_defs.get("FORM_33_STE")
+                max_order += 1
+                max_step_num = max(max_order, max_step_num) + 1
+                step_33 = ProjectStep(
+                    project_id=project.id,
+                    step_order=max_order,
+                    step_number=max_step_num,
+                    form_code="FORM_33_STE",
+                    step_name=fdef33.name if fdef33 else "Single Tender Enquiry (STE)",
+                    description=fdef33.description if fdef33 else "Single tender enquiry (STE) terms, submission deadlines, EMD, fee, and requirements",
+                    status="completed",
+                    progress_percentage=100,
+                    completed_at=step_30.completed_at or datetime.utcnow(),
+                    data=ste_data,
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow(),
+                )
+                db.session.add(step_33)
+                existing_steps["FORM_33_STE"] = step_33
+            else:
+                step_33.data = ste_data
+                step_33.status = "completed"
+                step_33.progress_percentage = 100
+            changed = True
 
         for form_code, attrs in form_rel_map:
             if form_code not in form_defs:
@@ -185,16 +230,29 @@ def sync_project_steps_from_records(project):
                     if not ste_recs:
                         has_record = False
                     else:
-                        if "FORM_30_TECHNO_COMMERCIAL_TENDER" in existing_steps:
-                            has_record = (form_code == "FORM_30_TECHNO_COMMERCIAL_TENDER")
-                        elif "FORM_33_STE" in existing_steps:
-                            has_record = (form_code == "FORM_33_STE")
+                        if form_code == "FORM_30_TECHNO_COMMERCIAL_TENDER":
+                            has_record = any(
+                                getattr(r, "form_code", None) in (
+                                    "FORM_30_TECHNO_COMMERCIAL_TENDER",
+                                    "FORM_30_TCT",
+                                    "FORM_30",
+                                )
+                                for r in ste_recs
+                            )
+                        elif form_code == "FORM_33_STE":
+                            has_record = any(
+                                getattr(r, "form_code", None) in (
+                                    "FORM_33_STE",
+                                    "FORM_33_SINGLE_TENDER_ENQUIRY",
+                                    "FORM_33",
+                                    "FORM_STE",
+                                    "FORM_30_SINGLE_TENDER_ENQUIRY",
+                                    "FORM_30_STE",
+                                )
+                                for r in ste_recs
+                            )
                         else:
-                            has_form_33 = any(getattr(r, "form_code", None) in ("FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY") for r in ste_recs)
-                            if has_form_33:
-                                has_record = (form_code == "FORM_33_STE")
-                            else:
-                                has_record = (form_code == "FORM_30_TECHNO_COMMERCIAL_TENDER")
+                            has_record = False
                 elif isinstance(attrs, list):
                     has_record = any(bool(getattr(project, a, None)) for a in attrs)
                 else:
@@ -207,6 +265,17 @@ def sync_project_steps_from_records(project):
                     step = existing_steps[form_code]
                     step_data = dict(step.data or {}) if isinstance(step.data, dict) else {}
                     step_data["_synced_from_record"] = True
+                    # If this step is FORM_33_STE, attach the STE record data if not present or empty
+                    if form_code == "FORM_33_STE" and (not step.data or step.data.get("form_code") != "FORM_33_STE"):
+                        match_rec = next((r for r in ste_recs if getattr(r, "form_code", None) in ("FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE")), None)
+                        if match_rec:
+                            from app.routes.phase1_extra_routes import _serialize_techno_commercial_tender
+                            step_data.update(_serialize_techno_commercial_tender(match_rec))
+                    elif form_code == "FORM_30_TECHNO_COMMERCIAL_TENDER":
+                        match_rec = next((r for r in ste_recs if getattr(r, "form_code", None) in ("FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30")), None)
+                        if match_rec:
+                            from app.routes.phase1_extra_routes import _serialize_techno_commercial_tender
+                            step_data.update(_serialize_techno_commercial_tender(match_rec))
                     step.data = step_data
                     if step.status != "completed" or step.progress_percentage != 100:
                         step.status = "completed"
@@ -218,6 +287,17 @@ def sync_project_steps_from_records(project):
                     fdef = form_defs.get(form_code)
                     max_order += 1
                     max_step_num = max(max_order, max_step_num) + 1
+                    init_data = {"_auto_created": True, "_synced_from_record": True}
+                    if form_code == "FORM_33_STE":
+                        match_rec = next((r for r in ste_recs if getattr(r, "form_code", None) in ("FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE")), None)
+                        if match_rec:
+                            from app.routes.phase1_extra_routes import _serialize_techno_commercial_tender
+                            init_data.update(_serialize_techno_commercial_tender(match_rec))
+                    elif form_code == "FORM_30_TECHNO_COMMERCIAL_TENDER":
+                        match_rec = next((r for r in ste_recs if getattr(r, "form_code", None) in ("FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30")), None)
+                        if match_rec:
+                            from app.routes.phase1_extra_routes import _serialize_techno_commercial_tender
+                            init_data.update(_serialize_techno_commercial_tender(match_rec))
                     new_step = ProjectStep(
                         project_id=project.id,
                         step_order=max_order,
@@ -228,7 +308,7 @@ def sync_project_steps_from_records(project):
                         status="completed",
                         progress_percentage=100,
                         completed_at=datetime.utcnow(),
-                        data={"_auto_created": True, "_synced_from_record": True},
+                        data=init_data,
                         created_at=datetime.utcnow(),
                         updated_at=datetime.utcnow(),
                     )
@@ -239,8 +319,8 @@ def sync_project_steps_from_records(project):
                 if form_code in existing_steps:
                     step = existing_steps[form_code]
                     step_data = dict(step.data or {}) if isinstance(step.data, dict) else {}
-                    # Do not revert if the step was explicitly completed by user via Step API
-                    if step_data.get("_manually_completed"):
+                    # Do not revert or delete if the step was explicitly completed by user via Step API or attached
+                    if step_data.get("_manually_completed") or step_data.get("_is_attached"):
                         continue
 
                     if step_data.get("_auto_created"):
@@ -253,12 +333,8 @@ def sync_project_steps_from_records(project):
                             step.progress_percentage = 0
                             step.completed_at = None
                             step_data.pop("_synced_from_record", None)
-                            if step_data.get("_is_attached"):
-                                step.status = "in_progress"
-                                step.data = step_data
-                            else:
-                                step.status = "pending"
-                                step.data = {}
+                            step.status = "pending"
+                            step.data = {}
                             changed = True
 
         # Clean up legacy steps without a form_code
@@ -306,19 +382,19 @@ def sync_project_steps_from_records(project):
                     changed = True
                     deleted_any = True
 
-        if deleted_any:
-            db.session.flush()
-            remaining_steps = (
-                ProjectStep.query.filter_by(project_id=project.id)
-                .order_by(ProjectStep.step_order.asc(), ProjectStep.id.asc())
-                .all()
-            )
-            for idx, s in enumerate(remaining_steps, start=1):
-                if s.step_order != idx:
-                    s.step_order = idx
-            project.updated_at = datetime.utcnow()
-            db.session.commit()
-        elif changed:
+        db.session.flush()
+        remaining_steps = (
+            ProjectStep.query.filter_by(project_id=project.id)
+            .order_by(ProjectStep.step_order.asc(), ProjectStep.id.asc())
+            .all()
+        )
+        for idx, s in enumerate(remaining_steps, start=1):
+            if s.step_order != idx or s.step_number != idx:
+                s.step_order = idx
+                s.step_number = idx
+                changed = True
+
+        if changed or deleted_any:
             project.updated_at = datetime.utcnow()
             db.session.commit()
     except Exception as exc:

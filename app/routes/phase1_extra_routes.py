@@ -383,8 +383,11 @@ def _sync_step(project_id: int, form_code: str, status: str, data_dict: dict):
         sync_project_steps_from_records(project)
 
         possible_codes = [form_code]
-        if form_code in ("FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE", "FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY"):
-            possible_codes = ["FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE", "FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY"]
+        if form_code in ("FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30"):
+            possible_codes = ["FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30"]
+        elif form_code in ("FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE"):
+            possible_codes = ["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE"]
+            # Canonical single tender enquiry codes
         elif form_code in ("FORM_29_BID_DOC_TECHNO_COMMERCIAL", "FORM_29_BID_DOCUMENT_TECHNO_COMMERCIAL"):
             possible_codes = ["FORM_29_BID_DOC_TECHNO_COMMERCIAL", "FORM_29_BID_DOCUMENT_TECHNO_COMMERCIAL"]
         elif form_code in ("FORM_31_BID_DOC_LTE", "FORM_31_BID_DOCUMENT_LTE"):
@@ -396,6 +399,36 @@ def _sync_step(project_id: int, form_code: str, status: str, data_dict: dict):
             ProjectStep.project_id == project_id,
             ProjectStep.form_code.in_(possible_codes),
         ).first()
+
+        if not step:
+            from app.models.form_definition import FormDefinition
+            fdef = FormDefinition.query.filter(FormDefinition.form_code.in_(possible_codes)).first()
+            max_order = (
+                db.session.query(db.func.max(ProjectStep.step_order))
+                .filter_by(project_id=project_id)
+                .scalar()
+                or 0
+            )
+            max_step_num = (
+                db.session.query(db.func.max(ProjectStep.step_number))
+                .filter_by(project_id=project_id)
+                .scalar()
+                or 0
+            )
+            step = ProjectStep(
+                project_id=project_id,
+                step_order=max_order + 1,
+                step_number=max(max_order + 1, max_step_num + 1),
+                form_code=form_code,
+                step_name=fdef.name if fdef else form_code,
+                description=fdef.description if fdef else "",
+                status=status or "completed",
+                progress_percentage=100 if (status or "completed") == "completed" else 50,
+                completed_at=datetime.utcnow() if (status or "completed") == "completed" else None,
+                data={},
+            )
+            db.session.add(step)
+            db.session.flush()
 
         if step:
             step.status = status or "completed"
@@ -562,6 +595,13 @@ def handle_get_bid_doc_techno_commercial(rec_id=None):
     q = BidDocumentTechnoCommercial.query
     if project_id:
         q = q.filter_by(project_id=project_id)
+
+
+
+
+
+
+
     records = q.order_by(BidDocumentTechnoCommercial.id.desc()).all()
     return jsonify([_serialize_bid_doc_techno_commercial(r) for r in records]), 200
 
@@ -674,7 +714,7 @@ def _serialize_techno_commercial_tender(rec):
 
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE", "FORM_30_TECHNO_COMMERCIAL_TENDER"],
+        ["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE"] if (rec.form_code and any(k in rec.form_code.upper() for k in ("33", "STE"))) else ["FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30"],
         default=30,
     )
     remarks = get_step_remarks_for_response(
@@ -733,7 +773,7 @@ def _serialize_techno_commercial_tender(rec):
         "attachments": atts,
         "attachments_count": len(atts),
         "status": rec.status or "completed",
-        "form_code": rec.form_code or "FORM_33_STE",
+        "form_code": rec.form_code or ("FORM_33_STE" if (request and any(k in getattr(request, "path", "") for k in ("single-tender", "ste"))) else "FORM_30_TECHNO_COMMERCIAL_TENDER"),
         "created_at": rec.created_at.isoformat() if rec.created_at else None,
         "updated_at": rec.updated_at.isoformat() if rec.updated_at else None,
     }
@@ -757,7 +797,7 @@ def handle_create_techno_commercial_tender():
     data.pop("remarks", None)
     data.pop("remark", None)
     status_val = data.pop("status", None) or raw_payload.get("status") or "completed"
-    form_code_val = raw_payload.get("form_code") or data.pop("form_code", None) or "FORM_33_STE"
+    form_code_val = raw_payload.get("form_code") or data.pop("form_code", None) or ("FORM_30_TECHNO_COMMERCIAL_TENDER" if "techno-commercial" in getattr(request, "path", "") else "FORM_33_STE")
     data.pop("attachments_count", None)
     data.pop("form_code", None)
 
@@ -816,7 +856,7 @@ def handle_create_techno_commercial_tender():
     _save_attachments(files, "techno_commercial_tender", rec.id, user_id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE", "FORM_30_TECHNO_COMMERCIAL_TENDER"],
+        ["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE"] if (rec.form_code and any(k in rec.form_code.upper() for k in ("33", "STE"))) else ["FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30"],
         default=30,
     )
     _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
@@ -878,6 +918,20 @@ def handle_get_techno_commercial_tender(rec_id=None):
     q = TechnoCommercialTender.query
     if project_id:
         q = q.filter_by(project_id=project_id)
+
+
+
+
+
+
+
+    form_filter = request.args.get("form_code")
+    if form_filter:
+        q = q.filter(TechnoCommercialTender.form_code == form_filter)
+    elif any(k in getattr(request, "path", "") for k in ("single-tender", "/ste")):
+        q = q.filter(TechnoCommercialTender.form_code.in_(["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE"]))
+    elif "techno-commercial" in getattr(request, "path", ""):
+        q = q.filter(TechnoCommercialTender.form_code.in_(["FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30"]))
     records = q.order_by(TechnoCommercialTender.id.desc()).all()
     return jsonify([_serialize_techno_commercial_tender(r) for r in records]), 200
 
@@ -965,7 +1019,7 @@ def handle_update_techno_commercial_tender(rec_id: int):
     _save_attachments(files, "techno_commercial_tender", rec.id, user_id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE", "FORM_30_TECHNO_COMMERCIAL_TENDER"],
+        ["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE"] if (rec.form_code and any(k in rec.form_code.upper() for k in ("33", "STE"))) else ["FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30"],
         default=30,
     )
     _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
@@ -1228,6 +1282,13 @@ def handle_get_bid_doc_lte(rec_id=None):
     q = BidDocumentLte.query
     if project_id:
         q = q.filter_by(project_id=project_id)
+
+
+
+
+
+
+
     records = q.order_by(BidDocumentLte.id.desc()).all()
     return jsonify([_serialize_bid_doc_lte(r) for r in records]), 200
 
@@ -1600,6 +1661,13 @@ def handle_get_bid_doc_ste(rec_id=None):
     q = BidDocumentSte.query
     if project_id:
         q = q.filter_by(project_id=project_id)
+
+
+
+
+
+
+
     records = q.order_by(BidDocumentSte.id.desc()).all()
     return jsonify([_serialize_bid_doc_ste(r) for r in records]), 200
 
@@ -1954,6 +2022,13 @@ def handle_get_international_competitive_bidding(rec_id=None):
     q = InternationalCompetitiveBidding.query
     if project_id:
         q = q.filter_by(project_id=project_id)
+
+
+
+
+
+
+
     records = q.order_by(InternationalCompetitiveBidding.id.desc()).all()
     return jsonify([_serialize_international_competitive_bidding(r) for r in records]), 200
 
@@ -2300,6 +2375,13 @@ def handle_get_bid_doc_icb(rec_id=None):
     q = BidDocumentIcb.query
     if project_id:
         q = q.filter_by(project_id=project_id)
+
+
+
+
+
+
+
     records = q.order_by(BidDocumentIcb.id.desc()).all()
     return jsonify([_serialize_bid_doc_icb(r) for r in records]), 200
 

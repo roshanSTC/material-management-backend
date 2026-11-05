@@ -84,7 +84,7 @@ FORM_DEFINITIONS_SEED = [
     (12, 'FORM_12_CUSTOMER_QUOTATION', 'Quotation to Customer', 'Sourcing & Quotations', 'phase-1', 'pi pi-file-o', 'Final commercial offer sent to customer with itemized rates and validity', True),
 
     # 13..17: Phase-2 (Tenders & Supplier Orders)
-    (13, 'FORM_13_PAC_TENDER', 'PAC Tender', 'Pre-Bidding & Tenders', 'phase-2', 'pi pi-building', 'Proprietary Article Certificate (PAC) tender enquiry terms, dates, and specifications', True),
+    (13, 'FORM_13_PAC_TENDER', 'PAC Tender', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-building', 'Proprietary Article Certificate (PAC) tender enquiry terms, dates, and specifications', True),
     (14, 'FORM_14_PURCHASE_ORDER', 'Purchase Order (PO)', 'Supplier Orders & Invoices', 'phase-2', 'pi pi-shopping-bag', 'Formal purchase order contractual commitment with delivery dates and items', True),
     (15, 'FORM_15_BID_DOCUMENT', 'Bid Document', 'Pre-Bidding & Tenders', 'phase-2', 'pi pi-folder-open', 'Bid submission submission data, corrigendum counts, and quoted tender pricing', True),
     (16, 'FORM_16_ORDER_CONFIRMATION', 'Order Confirmation to Supplier', 'Supplier Orders & Invoices', 'phase-2', 'pi pi-check-square', 'Acknowledgement and formal confirmation placed with supplier for production', True),
@@ -107,7 +107,7 @@ FORM_DEFINITIONS_SEED = [
 
     # 29..31: Additional Pre-Bidding & Tender Forms
     (29, 'FORM_29_BID_DOC_TECHNO_COMMERCIAL', 'Bid Document (Techno-Commercial)', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-file-edit', 'Techno-commercial bid document submission, terms, corrigendum count, and items', True),
-    (30, 'FORM_30_TECHNO_COMMERCIAL_TENDER', 'Single Tender Enquiry (STE)', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-briefcase', 'Single Tender Enquiry (STE) terms, tender fee, EMD, schedule, and items', True),
+    (30, 'FORM_30_TECHNO_COMMERCIAL_TENDER', 'Techno Commercial Tender', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-file-edit', 'Techno commercial tender enquiry terms, submission deadlines, EMD, fee, and requirements', True),
     (31, 'FORM_31_BID_DOC_LTE', 'Bid Document for LTE', 'Pre-Bidding & Tenders', 'phase-1', 'pi pi-book', 'Limited Tender Enquiry (LTE) bid document submission, terms, corrigendum, and items', True),
 
     # 32: Logistics & Customs

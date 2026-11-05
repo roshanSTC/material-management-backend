@@ -24,7 +24,7 @@ class TechnoCommercialTender(db.Model):
     tender_validity = db.Column(db.String(100), nullable=True)
     remark = db.Column(db.Text, nullable=True)
     status = db.Column(db.String(30), default="completed", nullable=True)
-    form_code = db.Column(db.String(100), default="FORM_30_SINGLE_TENDER_ENQUIRY", nullable=True)
+    form_code = db.Column(db.String(100), default="FORM_30_TECHNO_COMMERCIAL_TENDER", nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = db.Column(
         db.DateTime,

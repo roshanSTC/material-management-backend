@@ -282,6 +282,27 @@ class CorrigendumUpdateSchema(BasePhase1Schema):
     table_items = fields.List(fields.Nested(CorrigendumItemSchema), allow_none=True)
 
 
+class LatestCorrigendumQuerySchema(BasePhase1Schema):
+    project_id = FlexibleInt(required=False, allow_none=True)
+
+
+class LatestCorrigendumResponseSchema(BasePhase1Schema):
+    id = fields.Int(allow_none=True)
+    project_id = fields.Int(allow_none=True)
+    corrigendum_no = fields.Str(allow_none=True)
+    against_tender_no = fields.Str(allow_none=True)
+    against_ref_no = fields.Str(allow_none=True)
+    tender_title = fields.Str(allow_none=True)
+    ref_title = fields.Str(allow_none=True)
+    issue_date = fields.Str(allow_none=True)
+    items = fields.List(fields.Nested(CorrigendumItemSchema), allow_none=True)
+    remark = fields.Str(allow_none=True)
+    remarks = fields.Raw(allow_none=True)
+    attachments = fields.List(fields.Raw(), allow_none=True)
+    created_at = fields.Str(allow_none=True)
+    updated_at = fields.Str(allow_none=True)
+
+
 # =========================================================================
 # 4. LIMITED TENDER ENQUIRY (FORM_04_LTE)
 # =========================================================================

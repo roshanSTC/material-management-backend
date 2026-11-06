@@ -31,6 +31,8 @@ from app.schemas.phase1 import (
     CorrigendumUpdateSchema,
     ExpressionOfInterestCreateSchema,
     ExpressionOfInterestUpdateSchema,
+    LatestCorrigendumQuerySchema,
+    LatestCorrigendumResponseSchema,
     LatestExpressionOfInterestQuerySchema,
     LatestExpressionOfInterestResponseSchema,
     LatestLimitedTenderEnquiryQuerySchema,
@@ -89,6 +91,13 @@ corrigendum_bp = Blueprint(
     __name__,
     url_prefix="/api/v1/corrigendums",
     description="Corrigendums APIs",
+)
+
+corrigendum_singular_bp = Blueprint(
+    "corrigendum_singular",
+    __name__,
+    url_prefix="/api/v1/corrigendum",
+    description="Corrigendum (Singular) APIs",
 )
 
 limited_tender_enquiry_bp = Blueprint(
@@ -153,6 +162,7 @@ PHASE1_BLUEPRINTS = [
     pqb_bid_document_bp,
     pqb_bid_document_singular_bp,
     corrigendum_bp,
+    corrigendum_singular_bp,
     limited_tender_enquiry_bp,
     limited_tender_enquiry_singular_bp,
     notification_award_bp,
@@ -701,7 +711,9 @@ def _serialize_corrigendum(rec):
 @corrigendum_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
 def list_corrigendums():
-    project_id = request.args.get("project_id", type=int)
+    if request.args.get("latest") in ("true", "1"):
+        return get_latest_corrigendum()
+    project_id = request.args.get("project_id", type=int) or request.args.get("projectId", type=int)
     query = Corrigendum.query
     if project_id:
         query = query.filter_by(project_id=project_id)
@@ -816,21 +828,32 @@ def delete_corrigendum(rec_id):
     return jsonify({"success": True, "message": "Corrigendum deleted successfully."}), 200
 
 
-@corrigendum_bp.get("/latest")
-@corrigendum_bp.doc(
-    security=[{"BearerAuth": []}],
-    summary="Get Latest Corrigendum",
-    description="Retrieve latest corrigendum for a given project_id",
-)
-@jwt_required()
-def get_latest_corrigendum():
-    project_id = request.args.get("project_id", type=int) or request.args.get("projectId", type=int)
-    query = Corrigendum.query
-    if project_id:
-        query = query.filter_by(project_id=project_id)
-    rec = query.order_by(Corrigendum.id.desc()).first()
+def get_latest_corrigendum(args=None):
+    if args is None:
+        args = {}
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    if not project_id:
+        return _error("PROJECT_ID_REQUIRED", "project_id query parameter is required.", 400)
+
+    try:
+        pid = int(project_id)
+        if pid <= 0:
+            return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+    except (ValueError, TypeError):
+        return _error("INVALID_PROJECT_ID", "project_id must be an integer.", 400)
+
+    project = db.session.get(Project, pid)
+    if not project:
+        return _error("PROJECT_NOT_FOUND", f"Project {pid} not found.", 404)
+
+    rec = Corrigendum.query.filter_by(project_id=pid).order_by(Corrigendum.id.desc()).first()
     if not rec:
-        return _error("NOT_FOUND", "Corrigendum not found.", 404)
+        return _error("NOT_FOUND", f"No corrigendum found for project {pid}.", 404)
+
     return jsonify(_serialize_corrigendum(rec)), 200
 
 
@@ -903,6 +926,32 @@ def get_corrigendum_latest_tender():
     best_data["form_code"] = best_fcode
     best_data["step_name"] = best_sname
     return jsonify(best_data), 200
+
+
+# Wire Corrigendum Blueprints
+for bp in (corrigendum_bp, corrigendum_singular_bp):
+    bp.route("/latest", methods=["GET"])(
+        bp.doc(
+            security=[{"BearerAuth": []}],
+            summary="Get Latest Corrigendum",
+            description="Retrieve latest corrigendum for a given project_id.",
+        )(
+            jwt_required()(
+                bp.arguments(LatestCorrigendumQuerySchema, location="query")(
+                    bp.response(200, LatestCorrigendumResponseSchema)(
+                        get_latest_corrigendum
+                    )
+                )
+            )
+        )
+    )
+    if bp != corrigendum_bp:
+        bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(list_corrigendums)))
+        bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(get_corrigendum)))
+        bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(create_corrigendum)))
+        bp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(update_corrigendum)))
+        bp.route("/<int:rec_id>", methods=["DELETE"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(delete_corrigendum)))
+        bp.route("/latest-tender", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(get_corrigendum_latest_tender)))
 
 
 # =========================================================================
@@ -1390,6 +1439,8 @@ def _serialize_eoi(rec):
         "project_id": rec.project_id,
         "eoi_title": rec.eoi_title,
         "eoi_no": rec.eoi_no,
+        "tender_title": rec.eoi_title,
+        "tender_enquiry_no": rec.eoi_no,
         "eoi_date": rec.eoi_date.isoformat() if rec.eoi_date else None,
         "eoi_closing_date_time": rec.eoi_closing_date_time.isoformat() if rec.eoi_closing_date_time else None,
         "eoi_opening_date_time": rec.eoi_opening_date_time.isoformat() if rec.eoi_opening_date_time else None,

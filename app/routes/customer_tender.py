@@ -103,6 +103,7 @@ def _customer_tender_response(customer_tender):
         "tender_title": customer_tender.tender_title,
         "tender_number": customer_tender.tender_number,
         "tender_no": customer_tender.tender_number,
+        "tender_enquiry_no": customer_tender.tender_number,
         "tender_date": customer_tender.tender_date,
         "tender_issue_date": customer_tender.tender_date,
         "opening_date_time": customer_tender.opening_date_time,

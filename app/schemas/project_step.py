@@ -1,4 +1,4 @@
-from marshmallow import EXCLUDE, Schema, fields, validate
+from marshmallow import EXCLUDE, Schema, fields, validate, post_dump
 
 
 class FormDefinitionResponseSchema(Schema):
@@ -67,6 +67,9 @@ class ProjectStepAttachmentResponseSchema(Schema):
 
 
 class ProjectStepResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     id = fields.Integer(allow_none=True)
     project_id = fields.Integer(required=True)
     step_order = fields.Integer(required=True)
@@ -83,3 +86,13 @@ class ProjectStepResponseSchema(Schema):
     data = fields.Dict(allow_none=True)
     remarks = fields.List(fields.Raw(), dump_only=True, allow_none=True)
     attachments = fields.List(fields.Raw(), dump_only=True, allow_none=True)
+
+    @post_dump(pass_original=True)
+    def include_dynamic_fields(self, data, original, **kwargs):
+        if isinstance(original, dict):
+            if "data" not in original:
+                data.pop("data", None)
+            for k, v in original.items():
+                if k not in data:
+                    data[k] = v
+        return data

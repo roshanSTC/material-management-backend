@@ -425,7 +425,8 @@ def handle_get_project_steps(project_id: int):
         .order_by(ProjectStep.step_order.asc(), ProjectStep.id.asc())
         .all()
     )
-    return [s.to_dict() for s in steps], 200
+    include_data = request.args.get("include_data") in ("true", "1")
+    return [s.to_dict(include_data=include_data) for s in steps], 200
 
 
 # =========================================================================

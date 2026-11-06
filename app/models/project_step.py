@@ -7,6 +7,33 @@ from sqlalchemy.orm import foreign
 from app.extensions.database import db
 
 
+def is_date_key_name(k: str) -> bool:
+    if not isinstance(k, str):
+        return False
+    k_lower = k.lower().strip()
+    EXCLUSIONS = {
+        "liquidated_damages", "liquidated", "ld",
+        "candidate", "candidates",
+        "update", "updated", "updates", "updated_at",
+        "validate", "validation", "validations",
+        "accommodate", "mandate", "created_at", "completed_at",
+    }
+    if k_lower in EXCLUSIONS or k_lower.startswith("_"):
+        return False
+    if any(ex in k_lower for ex in ("liquidated", "candidate", "update", "validation")):
+        return False
+
+    if k_lower in ("valid_from", "valid_until", "date"):
+        return True
+    if k_lower.endswith(("_date", "_time", "_datetime", "_due")):
+        return True
+    if k_lower.startswith(("date_", "time_")):
+        return True
+    if "_date_" in k_lower or "_time_" in k_lower or "_datetime_" in k_lower:
+        return True
+    return False
+
+
 class ProjectStep(db.Model):
     __tablename__ = "project_steps"
 
@@ -124,7 +151,57 @@ class ProjectStep(db.Model):
         ),
     )
 
-    def to_dict(self) -> dict:
+    def _extract_date_fields(self) -> dict:
+        dates = {}
+        # 1. From self.data
+        if isinstance(self.data, dict):
+            for k, v in self.data.items():
+                if is_date_key_name(k):
+                    dates[k] = v.isoformat() if hasattr(v, "isoformat") else v
+
+        # 2. Check underlying entity if attached to project
+        if self.project and self.form_code:
+            try:
+                from app.routes.project_step import FORM_REL_DICT
+                rel_attr = FORM_REL_DICT.get(self.form_code)
+                if rel_attr:
+                    attrs = [rel_attr] if isinstance(rel_attr, str) else rel_attr
+                    recs = []
+                    for a in attrs:
+                        val = getattr(self.project, a, None)
+                        if val:
+                            if hasattr(val, "__iter__"):
+                                recs.extend(list(val))
+                            else:
+                                recs.append(val)
+                    if recs:
+                        recs.sort(key=lambda r: getattr(r, "id", 0) or 0, reverse=True)
+                        latest_rec = recs[0]
+                        if self.form_code == "FORM_33_STE":
+                            m = [r for r in recs if getattr(r, "form_code", "") in ("FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE")]
+                            if m:
+                                latest_rec = m[0]
+                        elif self.form_code == "FORM_30_TECHNO_COMMERCIAL_TENDER":
+                            m = [r for r in recs if getattr(r, "form_code", "") in ("FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30")]
+                            if m:
+                                latest_rec = m[0]
+                        for col in latest_rec.__table__.columns:
+                            c_name = col.name
+                            if is_date_key_name(c_name):
+                                if c_name not in dates or dates[c_name] is None:
+                                    val = getattr(latest_rec, c_name, None)
+                                    if val is not None:
+                                        dates[c_name] = val.isoformat() if hasattr(val, "isoformat") else str(val)
+            except Exception:
+                pass
+        return dates
+
+    def to_dict(self, include_data: bool = False) -> dict:
+        from flask import has_request_context, request
+        if not include_data and has_request_context():
+            if request.args.get("include_data") in ("true", "1"):
+                include_data = True
+
         order_val = self.step_order or self.step_number or 1
         fdef = self.form_definition
         if self.data is None:
@@ -136,7 +213,10 @@ class ProjectStep(db.Model):
                 clean_data.pop("_is_attached", None)
                 clean_data.pop("_synced_from_record", None)
                 clean_data.pop("_manually_completed", None)
-        return {
+
+        dates = self._extract_date_fields()
+
+        res = {
             "id": self.id,
             "project_id": self.project_id,
             "step_order": order_val,
@@ -150,10 +230,13 @@ class ProjectStep(db.Model):
             "status": self.status or "in_progress",
             "progress_percentage": self.progress_percentage if self.progress_percentage is not None else 0,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
-            "data": clean_data,
             "remarks": [r.to_dict() for r in (self.remarks or [])],
             "attachments": [a.to_dict() for a in (self.step_attachments or [])],
         }
+        if include_data:
+            res["data"] = clean_data
+        res.update(dates)
+        return res
 
     def __repr__(self) -> str:
         return f"<ProjectStep {self.project_id}: order={self.step_order or self.step_number} form={self.form_code}>"

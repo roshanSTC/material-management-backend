@@ -1,6 +1,6 @@
 import json
 
-from flask import current_app, request
+from flask import current_app, jsonify, make_response, request
 from flask_jwt_extended import (
     get_jwt_identity,
     jwt_required,
@@ -9,6 +9,7 @@ from app.extensions.database import db
 from flask_smorest import Blueprint
 
 from app.schemas.quotation_request import (
+    LatestQuotationRequestQuerySchema,
     QuotationRequestCreateSchema,
     QuotationRequestQuerySchema,
     QuotationRequestResponseSchema,
@@ -23,6 +24,7 @@ from app.services.quotation_request_service import (
     QuotationRequestNotFoundError,
     create_quotation_request_transaction,
     delete_quotation_request_transaction,
+    get_latest_quotation_request_record,
     get_quotation_request_record,
     list_quotation_request_records,
     update_quotation_request_transaction,
@@ -36,6 +38,20 @@ quotation_request_bp = Blueprint(
     url_prefix="/api/v1/quotation-requests",
     description="Quotation Request APIs",
 )
+
+quotation_request_singular_bp = Blueprint(
+    "quotation_request_singular",
+    __name__,
+    url_prefix="/api/v1/quotation-request",
+    description="Singular Quotation Request APIs",
+)
+
+
+def _error(code: str, message: str, status: int):
+    return make_response(
+        jsonify({"success": False, "error": {"code": code, "message": message}}),
+        status,
+    )
 
 
 def _quotation_request_response(
@@ -63,9 +79,6 @@ def _quotation_request_response(
             quotation_request.quotation_requested_date
         ),
         "request_date": (
-            quotation_request.quotation_requested_date
-        ),
-        "rfq_date": (
             quotation_request.quotation_requested_date
         ),
 
@@ -361,6 +374,9 @@ def list_all(args=None):
     if args is None:
         args = {}
 
+    if request.args.get("latest") in ("true", "1") or str(args.get("latest", "")).lower() in ("true", "1"):
+        return _handle_get_latest_quotation_request(args)
+
     project_id = args.get("project_id")
     if project_id is None:
         raw_pid = (
@@ -491,13 +507,34 @@ def update(quotation_request_id):
 
         try:
 
-            qo_date_input = data.get("quotation_requested_date") or data.get("rfq_date")
+            qo_date_input = (
+                data.get("request_date")
+                or data.get("quotation_requested_date")
+                or data.get("rfq_date")
+            )
+
+            supp_id = data.get("supplier_id") or data.get("supplierId")
+            req_supp_name = (data.get("supplier_name") or data.get("supplierName") or "").strip()
+            if req_supp_name and not supp_id:
+                from app.models import Supplier
+                supp = Supplier.query.filter_by(name=req_supp_name).first()
+                if not supp:
+                    supp = Supplier(name=req_supp_name)
+                    db.session.add(supp)
+                    db.session.flush()
+                supp_id = supp.id
+            elif req_supp_name and supp_id:
+                from app.models import Supplier
+                supp_obj = db.session.get(Supplier, supp_id)
+                if supp_obj:
+                    supp_obj.name = req_supp_name
+                    db.session.flush()
 
             quotation_request = (
                 update_quotation_request_transaction(
                     quotation_request_id=quotation_request_id,
-                    project_id=data.get("project_id"),
-                    supplier_id=data.get("supplier_id"),
+                    project_id=data.get("project_id") or data.get("projectId"),
+                    supplier_id=supp_id,
                     quotation_requested_date=qo_date_input,
                     supplier_contacted=data.get(
                         "supplier_contacted"
@@ -508,17 +545,10 @@ def update(quotation_request_id):
                 )
             )
 
-            req_supp_name = (data.get("supplier_name") or "").strip()
-            if req_supp_name:
-                from app.models import Supplier
-                supp = Supplier.query.filter_by(name=req_supp_name).first()
-                if not supp:
-                    supp = Supplier(name=req_supp_name)
-                    db.session.add(supp)
-                    db.session.flush()
-                quotation_request.supplier_id = supp.id
-                if quotation_request.project:
-                    quotation_request.project.supplier_id = supp.id
+            if supp_id:
+                quotation_request.supplier_id = supp_id
+                if quotation_request.project and not quotation_request.project.supplier_id:
+                    quotation_request.project.supplier_id = supp_id
                 db.session.flush()
 
             # Add new attachments
@@ -719,6 +749,51 @@ def delete(quotation_request_id):
 
 
 
+def _handle_get_latest_quotation_request(args=None):
+    if args is None:
+        args = {}
+
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+        or request.args.get("product_id")
+        or request.args.get("productId")
+    )
+    if not project_id:
+        return _error("PROJECT_ID_REQUIRED", "project_id query parameter is required.", 400)
+
+    try:
+        project_id = int(project_id)
+        if project_id <= 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+
+    try:
+        record = get_latest_quotation_request_record(project_id)
+        return jsonify(_quotation_request_response(record)), 200
+    except ProjectNotFoundError as exc:
+        return _error("PROJECT_NOT_FOUND", str(exc), 404)
+    except QuotationRequestNotFoundError as exc:
+        return _error("QUOTATION_REQUEST_NOT_FOUND", str(exc), 404)
+    except Exception:
+        current_app.logger.exception("Failed to get latest quotation request")
+        return _error("QUOTATION_REQUEST_GET_FAILED", "Failed to get latest quotation request.", 500)
+
+
+@quotation_request_bp.get("/latest")
+@quotation_request_bp.doc(
+    security=[{"BearerAuth": []}],
+    summary="Get Latest Quotation Request for Project",
+    description="Retrieve the latest quotation request for a project.",
+)
+@quotation_request_bp.arguments(LatestQuotationRequestQuerySchema, location="query")
+@jwt_required()
+def get_latest_quotation_request(args=None):
+    return _handle_get_latest_quotation_request(args)
+
+
 @quotation_request_bp.get("/<int:quotation_request_id>")
 @quotation_request_bp.doc(security=[{"BearerAuth": []}])
 @jwt_required()
@@ -728,3 +803,15 @@ def get_quotation_request_by_id(quotation_request_id: int):
         return jsonify(_quotation_request_response(record)), 200
     except QuotationRequestNotFoundError as exc:
         return _error("QUOTATION_REQUEST_NOT_FOUND", str(exc), 404)
+
+
+quotation_request_singular_bp.add_url_rule(
+    "/latest",
+    view_func=get_latest_quotation_request,
+    methods=["GET"],
+)
+quotation_request_singular_bp.add_url_rule(
+    "/<int:quotation_request_id>",
+    view_func=get_quotation_request_by_id,
+    methods=["GET"],
+)

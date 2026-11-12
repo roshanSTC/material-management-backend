@@ -8,6 +8,7 @@ from app.models import QuotationRequest
 from app.models.quotation_request_item import QuotationRequestItem
 from app.repositories.quotation_request_repository import (
     create_quotation_request,
+    get_latest_quotation_request,
     get_project,
     get_quotation_request,
     get_supplier,
@@ -71,6 +72,24 @@ def get_quotation_request_record(
         )
 
     return quotation_request
+
+
+def get_latest_quotation_request_record(
+    project_id: int,
+) -> QuotationRequest:
+    project = get_project(project_id)
+    if not project:
+        raise ProjectNotFoundError(
+            f"Project with id {project_id} was not found."
+        )
+
+    record = get_latest_quotation_request(project_id)
+    if not record:
+        raise QuotationRequestNotFoundError(
+            f"No quotation request found for project {project_id}."
+        )
+
+    return record
 
 
 def create_quotation_request_transaction(
@@ -178,37 +197,23 @@ def update_quotation_request_transaction(
     previous_project_id = quotation_request.project_id
 
     # Validate project and supplier if either is being updated
-    if project_id is not None or supplier_id is not None:
-        final_project_id = (
-            project_id
-            if project_id is not None
-            else quotation_request.project_id
-        )
-        final_supplier_id = (
-            supplier_id
-            if supplier_id is not None
-            else quotation_request.supplier_id
-        )
-
-        project = get_project(final_project_id)
+    if project_id is not None:
+        project = get_project(project_id)
         if not project:
             raise ProjectNotFoundError(
-                f"Project with id {final_project_id} was not found."
+                f"Project with id {project_id} was not found."
             )
+        quotation_request.project_id = project_id
 
-        supplier = get_supplier(final_supplier_id)
+    if supplier_id is not None:
+        supplier = get_supplier(supplier_id)
         if not supplier:
             raise SupplierNotFoundError(
-                f"Supplier with id {final_supplier_id} was not found."
+                f"Supplier with id {supplier_id} was not found."
             )
-
-        if project.supplier_id != supplier.id:
-            raise SupplierProjectMismatchError(
-                "The selected supplier does not belong to the selected project."
-            )
-
-        quotation_request.project_id = final_project_id
-        quotation_request.supplier_id = final_supplier_id
+        quotation_request.supplier_id = supplier_id
+        if quotation_request.project and not quotation_request.project.supplier_id:
+            quotation_request.project.supplier_id = supplier.id
 
     # Update scalar fields only when supplied
     if quotation_requested_date is not None:

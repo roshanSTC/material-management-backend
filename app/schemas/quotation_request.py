@@ -55,7 +55,7 @@ class QuotationRequestCreateSchema(Schema):
     supplier_name = fields.String(required=False, allow_none=True)
 
     quotation_requested_date = FlexibleDate(required=False, allow_none=True)
-    rfq_date = FlexibleDate(required=False, allow_none=True)
+    request_date = FlexibleDate(required=False, allow_none=True)
     supplier_contacted = fields.Boolean(required=False, allow_none=True)
 
     form_code = fields.String(required=False, allow_none=True)
@@ -82,7 +82,9 @@ class QuotationRequestCreateSchema(Schema):
         if not isinstance(data, (dict, Mapping)):
             return data
         normalized = dict(data)
-        if "rfq_date" in normalized and not normalized.get("quotation_requested_date"):
+        if "request_date" in normalized and not normalized.get("quotation_requested_date"):
+            normalized["quotation_requested_date"] = normalized["request_date"]
+        elif "rfq_date" in normalized and not normalized.get("quotation_requested_date"):
             normalized["quotation_requested_date"] = normalized["rfq_date"]
         if not normalized.get("quotation_requested_date"):
             normalized["quotation_requested_date"] = date.today().isoformat()
@@ -111,7 +113,7 @@ class QuotationRequestResponseSchema(Schema):
     supplier_name = fields.String(allow_none=True)
 
     quotation_requested_date = fields.Date()
-    rfq_date = fields.Date(allow_none=True)
+    request_date = fields.Date(allow_none=True)
     supplier_contacted = fields.Boolean()
 
     remarks = fields.Raw(
@@ -177,5 +179,39 @@ class QuotationRequestQuerySchema(Schema):
         else:
             normalized.pop("supplier_id", None)
             normalized.pop("supplierId", None)
+
+        return normalized
+
+
+class LatestQuotationRequestQuerySchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
+    project_id = fields.Integer(
+        required=False,
+        validate=validate.Range(min=1),
+    )
+
+    @pre_load
+    def normalize_keys(self, data, **kwargs):
+        if not isinstance(data, (dict, Mapping)):
+            return data
+        normalized = dict(data)
+        resolved_id = (
+            normalized.get("project_id")
+            if normalized.get("project_id") is not None
+            else normalized.get("projectId")
+            if normalized.get("projectId") is not None
+            else normalized.get("product_id")
+            if normalized.get("product_id") is not None
+            else normalized.get("productId")
+        )
+        if resolved_id is not None and str(resolved_id).strip() != "":
+            normalized["project_id"] = str(resolved_id).strip()
+        else:
+            normalized.pop("project_id", None)
+            normalized.pop("projectId", None)
+            normalized.pop("product_id", None)
+            normalized.pop("productId", None)
 
         return normalized

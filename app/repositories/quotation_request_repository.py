@@ -57,6 +57,15 @@ def get_quotation_request(
     )
 
 
+def get_latest_quotation_request(project_id: int) -> QuotationRequest | None:
+    statement = (
+        db.select(QuotationRequest)
+        .where(QuotationRequest.project_id == project_id)
+        .order_by(QuotationRequest.id.desc())
+    )
+    return db.session.execute(statement).scalars().first()
+
+
 def list_quotation_requests(
     *,
     project_id: int | None = None,

@@ -54,7 +54,7 @@ def create_app(config_class=Config):
     from app.routes.project_step import project_step_bp, project_step_v2_bp
     from app.routes.material import material_bp
     from app.routes.attachment import attachment_bp
-    from app.routes.quotation_request import quotation_request_bp
+    from app.routes.quotation_request import quotation_request_bp, quotation_request_singular_bp
     from app.routes.supplier_quotation import (
         supplier_quotation_bp,
     )
@@ -143,6 +143,7 @@ def create_app(config_class=Config):
     api.register_blueprint(material_bp)
     api.register_blueprint(attachment_bp)
     api.register_blueprint(quotation_request_bp)
+    api.register_blueprint(quotation_request_singular_bp)
     api.register_blueprint(supplier_quotation_bp)
     api.register_blueprint(cost_sheet_bp)
     api.register_blueprint(customer_quotation_bp)

@@ -177,12 +177,28 @@ def sync_project_steps_from_records(project):
                 f30.icon = "pi pi-file-edit"
                 db.session.commit()
             f13 = form_defs.get("FORM_13_PAC_TENDER")
-            if f13 and f13.phase_id != "phase-1":
+            if f13 and (f13.name != "PAC Tender" or f13.phase_id != "phase-1"):
+                f13.name = "PAC Tender"
+                f13.description = "Proprietary Article Certificate (PAC) tender enquiry terms, dates, and specifications"
                 f13.phase_id = "phase-1"
                 db.session.commit()
         except Exception:
             db.session.rollback()
             form_defs = {}
+
+        # Migrate any legacy Customer Tender step names or form_code to PAC Tender
+        for s in list(project.steps):
+            if s.form_code in ("FORM_13_PAC_TENDER", "FORM_13_CUSTOMER_TENDER") or s.step_name == "Customer Tender":
+                f13_def = form_defs.get("FORM_13_PAC_TENDER")
+                s.form_code = "FORM_13_PAC_TENDER"
+                s.step_name = "PAC Tender"
+                s.description = (
+                    f13_def.description
+                    if f13_def
+                    else "Proprietary Article Certificate (PAC) tender enquiry terms, dates, and specifications"
+                )
+                existing_steps["FORM_13_PAC_TENDER"] = s
+                changed = True
 
         # Self-healing: if FORM_30 step mistakenly contains FORM_33 data from previous bug
         step_30 = existing_steps.get("FORM_30_TECHNO_COMMERCIAL_TENDER")

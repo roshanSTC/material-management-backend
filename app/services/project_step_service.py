@@ -64,8 +64,8 @@ STEP_DEFINITIONS = {
         },
     },
     6: {
-        "name": "Customer Tender",
-        "description": "Customer issues tender",
+        "name": "PAC Tender",
+        "description": "Proprietary Article Certificate (PAC) tender enquiry terms, dates, and specifications",
         "required_fields": {
             "tender_number",
             "tender_date",
@@ -1632,10 +1632,22 @@ def sync_customer_tender_step(project_id: int):
             else str(customer_tender.tender_date)[:10]
         )
 
+    t_date = None
+    if customer_tender.tender_date:
+        t_date = (
+            customer_tender.tender_date.isoformat()
+            if hasattr(customer_tender.tender_date, "isoformat")
+            else str(customer_tender.tender_date)
+        )
+
     step_data = {
         "tender_number": customer_tender.tender_number,
+        "tender_enquiry_no": customer_tender.tender_number,
+        "tender_no": customer_tender.tender_number,
+        "pac_no": customer_tender.tender_number,
         "tender_title": customer_tender.tender_title,
-        "tender_date": customer_tender.tender_date.isoformat(),
+        "pac_title": customer_tender.tender_title,
+        "tender_date": t_date,
         "submission_date": sub_date,
         "submitted_date": sub_date,
         "remarks": customer_tender.remark,

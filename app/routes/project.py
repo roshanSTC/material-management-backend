@@ -69,7 +69,7 @@ STEP_NAMES = {
     3: "Supplier Quotation",
     4: "Cost Sheet",
     5: "Quotation to Customer",
-    6: "Customer Tender",
+    6: "PAC Tender",
     7: "Bid Submission",
     8: "Purchase Order (PO)",
     9: "Order Confirmation to Supplier",
@@ -86,7 +86,7 @@ STEP_NEXT_ACTIONS = {
     2: "Supplier Quotation",
     3: "Cost Sheet",
     4: "Quotation to Customer",
-    5: "Customer Tender",
+    5: "PAC Tender",
     6: "Bid Submission",
     7: "Purchase Order (PO)",
     8: "Order Confirmation to Supplier",
@@ -436,9 +436,10 @@ def _get_project_latest_items(project_id):
             .order_by(CustomerTender.id.desc())
             .all()
         )
+        # Step 6: PAC Tender
         for ct in cts:
             if ct.items:
-                return 6, "Customer Tender", [
+                return 6, "PAC Tender", [
                     {
                         "id": item.id,
                         "material_name": item.material_name or getattr(item, "description", None),
@@ -447,7 +448,7 @@ def _get_project_latest_items(project_id):
                         "net_amount": None,
                         "hsn_code": None,
                         "step_number": 6,
-                        "step_name": "Customer Tender",
+                        "step_name": "PAC Tender",
                     }
                     for item in ct.items
                 ]

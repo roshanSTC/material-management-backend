@@ -1,4 +1,5 @@
 import json
+from datetime import date, datetime
 
 from flask import current_app, jsonify, make_response, request, send_file
 from flask_jwt_extended import get_jwt_identity, jwt_required
@@ -89,6 +90,14 @@ def _customer_tender_response(customer_tender):
     if not customer_name:
         customer_name = customer_tender.officer_name
 
+    submission_dt = customer_tender.closing_date_time or customer_tender.tender_date
+    submission_date_str = None
+    if submission_dt:
+        if isinstance(submission_dt, (datetime, date)):
+            submission_date_str = submission_dt.strftime("%Y-%m-%d")
+        else:
+            submission_date_str = str(submission_dt)
+
     return {
         "id": customer_tender.id,
         "project_id": customer_tender.project_id,
@@ -104,6 +113,10 @@ def _customer_tender_response(customer_tender):
         "tender_number": customer_tender.tender_number,
         "tender_no": customer_tender.tender_number,
         "tender_enquiry_no": customer_tender.tender_number,
+        "pac_no": customer_tender.tender_number,
+        "pac_title": customer_tender.tender_title,
+        "submission_date": submission_date_str,
+        "submitted_date": submission_date_str,
         "tender_date": customer_tender.tender_date,
         "tender_issue_date": customer_tender.tender_date,
         "opening_date_time": customer_tender.opening_date_time,
@@ -116,6 +129,11 @@ def _customer_tender_response(customer_tender):
         "payment_terms": customer_tender.payment_terms,
         "warranty_period": customer_tender.warranty_period,
         "remarks": get_step_remarks_for_response(
+            customer_tender.project_id,
+            5,
+            fallback_raw=customer_tender.remark,
+            entity_id=customer_tender.id,
+        ) or get_step_remarks_for_response(
             customer_tender.project_id,
             6,
             fallback_raw=customer_tender.remark,
@@ -330,10 +348,18 @@ def list_customer_tenders(args=None):
     if args is None:
         args = {}
 
+    latest_val = (
+        request.args.get("latest")
+        or (args.get("latest") if isinstance(args, dict) else None)
+    )
+    if str(latest_val).strip().lower() in ("true", "1", "yes"):
+        return _handle_get_latest_pac_tender(args)
+
     project_id = (
         args.get("project_id")
         or request.args.get("project_id")
         or request.args.get("projectId")
+        or request.args.get("product_id")
     )
     if project_id is not None:
         try:
@@ -345,6 +371,24 @@ def list_customer_tenders(args=None):
         tenders = list_customer_tender_records(
             project_id=project_id,
         )
+        if (
+            request.args.get("enquiry_only") in ("true", "1")
+            or request.args.get("tender_only") in ("true", "1")
+            or (isinstance(args, dict) and (str(args.get("enquiry_only")).lower() in ("true", "1", "yes") or str(args.get("tender_only")).lower() in ("true", "1", "yes")))
+        ):
+            return jsonify([
+                {
+                    "id": ct.id,
+                    "tender_title": ct.tender_title,
+                    "tender_enquiry_no": ct.tender_number,
+                    "tender_number": ct.tender_number,
+                    "tender_no": ct.tender_number,
+                    "pac_no": ct.tender_number,
+                    "pac_title": ct.tender_title,
+                }
+                for ct in tenders
+            ]), 200
+
         return [_customer_tender_response(ct) for ct in tenders], 200
     except Exception:
         current_app.logger.exception("Failed to list customer tenders")

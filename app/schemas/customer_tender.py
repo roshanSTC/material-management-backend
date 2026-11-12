@@ -233,6 +233,8 @@ class CustomerTenderCreateSchema(Schema):
             normalized.get("project_id")
             if normalized.get("project_id") is not None
             else normalized.get("projectId")
+            if normalized.get("projectId") is not None
+            else normalized.get("product_id")
         )
         if resolved_pid is not None and str(resolved_pid).strip() != "":
             normalized["project_id"] = resolved_pid
@@ -262,15 +264,29 @@ class CustomerTenderCreateSchema(Schema):
         if "remarks" in normalized and not normalized.get("remark"):
             normalized["remark"] = normalized["remarks"]
 
-        # tender_number / tender_no / tenderNumber / tender_id
+        # tender_number / tender_no / tenderNumber / tender_id / tender_enquiry_no / pac_no
         if not normalized.get("tender_number"):
             t_no = (
                 normalized.get("tender_no")
                 or normalized.get("tenderNumber")
                 or normalized.get("tender_id")
+                or normalized.get("tender_enquiry_no")
+                or normalized.get("tenderEnquiryNo")
+                or normalized.get("pac_no")
+                or normalized.get("pacNo")
             )
             if t_no:
                 normalized["tender_number"] = str(t_no).strip()
+
+        # tender_title / pac_title
+        if not normalized.get("tender_title"):
+            t_title = (
+                normalized.get("tenderTitle")
+                or normalized.get("pac_title")
+                or normalized.get("pacTitle")
+            )
+            if t_title:
+                normalized["tender_title"] = str(t_title).strip()
 
         # tender_date / tender_issue_date / issue_date
         if not normalized.get("tender_date"):
@@ -281,6 +297,19 @@ class CustomerTenderCreateSchema(Schema):
             )
             if t_date:
                 normalized["tender_date"] = t_date
+
+        # closing_date_time / submission_date
+        if not normalized.get("closing_date_time"):
+            c_date = (
+                normalized.get("closing_date")
+                or normalized.get("closingDate")
+                or normalized.get("submission_date")
+                or normalized.get("submitted_date")
+                or normalized.get("submissionDate")
+                or normalized.get("submittedDate")
+            )
+            if c_date:
+                normalized["closing_date_time"] = c_date
 
         return normalized
 
@@ -320,8 +349,16 @@ class CustomerTenderUpdateSchema(Schema):
             return data
         normalized = dict(data)
 
-        if "projectId" in normalized and "project_id" not in normalized:
-            normalized["project_id"] = normalized["projectId"]
+        resolved_pid = (
+            normalized.get("project_id")
+            if normalized.get("project_id") is not None
+            else normalized.get("projectId")
+            if normalized.get("projectId") is not None
+            else normalized.get("product_id")
+        )
+        if resolved_pid is not None and str(resolved_pid).strip() != "":
+            normalized["project_id"] = resolved_pid
+
         if "customerId" in normalized and "customer_id" not in normalized:
             normalized["customer_id"] = normalized["customerId"]
         if "company_business_name" in normalized and not normalized.get("officer_name"):
@@ -338,9 +375,22 @@ class CustomerTenderUpdateSchema(Schema):
                 normalized.get("tender_no")
                 or normalized.get("tenderNumber")
                 or normalized.get("tender_id")
+                or normalized.get("tender_enquiry_no")
+                or normalized.get("tenderEnquiryNo")
+                or normalized.get("pac_no")
+                or normalized.get("pacNo")
             )
             if t_no:
                 normalized["tender_number"] = str(t_no).strip()
+
+        if not normalized.get("tender_title"):
+            t_title = (
+                normalized.get("tenderTitle")
+                or normalized.get("pac_title")
+                or normalized.get("pacTitle")
+            )
+            if t_title:
+                normalized["tender_title"] = str(t_title).strip()
 
         if not normalized.get("tender_date"):
             t_date = (
@@ -350,6 +400,18 @@ class CustomerTenderUpdateSchema(Schema):
             )
             if t_date:
                 normalized["tender_date"] = t_date
+
+        if not normalized.get("closing_date_time"):
+            c_date = (
+                normalized.get("closing_date")
+                or normalized.get("closingDate")
+                or normalized.get("submission_date")
+                or normalized.get("submitted_date")
+                or normalized.get("submissionDate")
+                or normalized.get("submittedDate")
+            )
+            if c_date:
+                normalized["closing_date_time"] = c_date
 
         return normalized
 
@@ -362,6 +424,9 @@ class CustomerTenderQuerySchema(Schema):
         required=False,
         validate=validate.Range(min=1),
     )
+    latest = fields.Raw(required=False, allow_none=True)
+    enquiry_only = fields.Raw(required=False, allow_none=True)
+    tender_only = fields.Raw(required=False, allow_none=True)
 
     @pre_load
     def normalize_keys(self, data, **kwargs):
@@ -372,12 +437,15 @@ class CustomerTenderQuerySchema(Schema):
             normalized.get("project_id")
             if normalized.get("project_id") is not None
             else normalized.get("projectId")
+            if normalized.get("projectId") is not None
+            else normalized.get("product_id")
         )
         if resolved_id is not None and str(resolved_id).strip() != "":
             normalized["project_id"] = str(resolved_id).strip()
         else:
             normalized.pop("project_id", None)
             normalized.pop("projectId", None)
+            normalized.pop("product_id", None)
         return normalized
 
 
@@ -439,6 +507,11 @@ class CustomerTenderResponseSchema(Schema):
     tender_title = fields.String(allow_none=True)
     tender_number = fields.String(required=True)
     tender_no = fields.String(allow_none=True)
+    tender_enquiry_no = fields.String(allow_none=True)
+    pac_no = fields.String(allow_none=True)
+    pac_title = fields.String(allow_none=True)
+    submission_date = fields.Raw(allow_none=True)
+    submitted_date = fields.Raw(allow_none=True)
     tender_date = fields.Date(allow_none=True)
     tender_issue_date = fields.Date(allow_none=True)
     opening_date_time = fields.DateTime(allow_none=True)
@@ -496,8 +569,16 @@ class LatestPacTenderResponseSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
+    id = fields.Integer(allow_none=True)
+    project_id = fields.Integer(allow_none=True)
     tender_title = fields.String(allow_none=True)
     tender_enquiry_no = fields.String(allow_none=True)
+    tender_number = fields.String(allow_none=True)
+    tender_no = fields.String(allow_none=True)
+    pac_no = fields.String(allow_none=True)
+    pac_title = fields.String(allow_none=True)
+    submission_date = fields.Raw(allow_none=True)
+    submitted_date = fields.Raw(allow_none=True)
 
 
 class LatestPacTenderQuerySchema(Schema):

@@ -216,14 +216,24 @@ class ProjectStep(db.Model):
 
         dates = self._extract_date_fields()
 
+        step_name = self.step_name or (fdef.name if fdef else "")
+        description = self.description or (fdef.description if fdef else "")
+        if self.form_code in ("FORM_13_PAC_TENDER", "FORM_13_CUSTOMER_TENDER") or step_name == "Customer Tender":
+            step_name = "PAC Tender"
+            description = (
+                fdef.description
+                if (fdef and fdef.description)
+                else "Proprietary Article Certificate (PAC) tender enquiry terms, dates, and specifications"
+            )
+
         res = {
             "id": self.id,
             "project_id": self.project_id,
             "step_order": order_val,
             "step_number": order_val,
-            "form_code": self.form_code or "",
-            "step_name": self.step_name or (fdef.name if fdef else ""),
-            "description": self.description or (fdef.description if fdef else ""),
+            "form_code": "FORM_13_PAC_TENDER" if self.form_code == "FORM_13_CUSTOMER_TENDER" else (self.form_code or ""),
+            "step_name": step_name,
+            "description": description,
             "phase_id": fdef.phase_id if fdef else "",
             "category": fdef.category if fdef else "",
             "icon": fdef.icon if fdef else "pi pi-file",

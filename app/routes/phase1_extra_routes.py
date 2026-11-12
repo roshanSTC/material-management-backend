@@ -64,13 +64,6 @@ bid_document_techno_commercial_bp = Blueprint(
     description="Bid Document Techno-Commercial APIs",
 )
 
-bid_document_techno_commercial_plural_bp = Blueprint(
-    "bid_document_techno_commercial_plural",
-    __name__,
-    url_prefix="/api/v1/bid-document-techno-commercials",
-    description="Bid Document Techno-Commercials (Plural) APIs",
-)
-
 
 # 2. Form 30/33: Techno-Commercial Tender / Single Tender Enquiry (STE)
 techno_commercial_tender_bp = Blueprint(
@@ -80,12 +73,7 @@ techno_commercial_tender_bp = Blueprint(
     description="Techno-Commercial Tenders APIs",
 )
 
-techno_commercial_tender_singular_bp = Blueprint(
-    "techno_commercial_tender_singular",
-    __name__,
-    url_prefix="/api/v1/techno-commercial-tender",
-    description="Techno-Commercial Tender (Singular) APIs",
-)
+
 
 single_tender_enquiries_bp = Blueprint(
     "single_tender_enquiries",
@@ -94,47 +82,7 @@ single_tender_enquiries_bp = Blueprint(
     description="Single Tender Enquiry APIs",
 )
 
-single_tender_enquiry_bp = Blueprint(
-    "single_tender_enquiry",
-    __name__,
-    url_prefix="/api/v1/single-tender-enquiry",
-    description="Single Tender Enquiry (Singular) APIs",
-)
 
-single_tender_enquiry_ste_bp = Blueprint(
-    "single_tender_enquiry_ste",
-    __name__,
-    url_prefix="/api/v1/single-tender-enquiry-ste",
-    description="Single Tender Enquiry STE APIs",
-)
-
-ste_bp = Blueprint(
-    "ste",
-    __name__,
-    url_prefix="/api/v1/ste",
-    description="STE APIs",
-)
-
-stes_bp = Blueprint(
-    "stes",
-    __name__,
-    url_prefix="/api/v1/stes",
-    description="STEs APIs",
-)
-
-tct_bp = Blueprint(
-    "tct",
-    __name__,
-    url_prefix="/api/v1/tct",
-    description="TCT APIs",
-)
-
-tcts_bp = Blueprint(
-    "tcts",
-    __name__,
-    url_prefix="/api/v1/tcts",
-    description="TCTs APIs",
-)
 
 
 # 3. Bid Document LTE
@@ -143,13 +91,6 @@ bid_document_lte_bp = Blueprint(
     __name__,
     url_prefix="/api/v1/bid-document-lte",
     description="Bid Document LTE APIs",
-)
-
-bid_document_lte_plural_bp = Blueprint(
-    "bid_document_lte_plural",
-    __name__,
-    url_prefix="/api/v1/bid-document-ltes",
-    description="Bid Document LTE (Plural) APIs",
 )
 
 
@@ -161,20 +102,6 @@ bid_document_ste_bp = Blueprint(
     description="Bid Document STE APIs",
 )
 
-bid_document_stes_bp = Blueprint(
-    "bid_document_stes",
-    __name__,
-    url_prefix="/api/v1/bid-document-stes",
-    description="Bid Document STEs (Plural) APIs",
-)
-
-bid_document_for_ste_bp = Blueprint(
-    "bid_document_for_ste",
-    __name__,
-    url_prefix="/api/v1/bid-document-for-ste",
-    description="Bid Document for STE APIs",
-)
-
 
 # 5. Form 35: International Competitive Bidding (ICB)
 international_competitive_biddings_bp = Blueprint(
@@ -182,27 +109,6 @@ international_competitive_biddings_bp = Blueprint(
     __name__,
     url_prefix="/api/v1/international-competitive-biddings",
     description="International Competitive Biddings APIs",
-)
-
-international_competitive_bidding_bp = Blueprint(
-    "international_competitive_bidding",
-    __name__,
-    url_prefix="/api/v1/international-competitive-bidding",
-    description="International Competitive Bidding (Singular) APIs",
-)
-
-icb_bp = Blueprint(
-    "icb",
-    __name__,
-    url_prefix="/api/v1/icb",
-    description="ICB APIs",
-)
-
-icbs_bp = Blueprint(
-    "icbs",
-    __name__,
-    url_prefix="/api/v1/icbs",
-    description="ICBs APIs",
 )
 
 
@@ -214,45 +120,15 @@ bid_document_icb_bp = Blueprint(
     description="Bid Document ICB APIs",
 )
 
-bid_document_icbs_bp = Blueprint(
-    "bid_document_icbs",
-    __name__,
-    url_prefix="/api/v1/bid-document-icbs",
-    description="Bid Document ICBs (Plural) APIs",
-)
-
-bid_document_for_icb_bp = Blueprint(
-    "bid_document_for_icb",
-    __name__,
-    url_prefix="/api/v1/bid-document-for-icb",
-    description="Bid Document for ICB APIs",
-)
-
 
 EXTRA_BLUEPRINTS = [
     bid_document_techno_commercial_bp,
-    bid_document_techno_commercial_plural_bp,
     techno_commercial_tender_bp,
-    techno_commercial_tender_singular_bp,
     single_tender_enquiries_bp,
-    single_tender_enquiry_bp,
-    single_tender_enquiry_ste_bp,
-    ste_bp,
-    stes_bp,
-    tct_bp,
-    tcts_bp,
     bid_document_lte_bp,
-    bid_document_lte_plural_bp,
     bid_document_ste_bp,
-    bid_document_stes_bp,
-    bid_document_for_ste_bp,
     international_competitive_biddings_bp,
-    international_competitive_bidding_bp,
-    icb_bp,
-    icbs_bp,
     bid_document_icb_bp,
-    bid_document_icbs_bp,
-    bid_document_for_icb_bp,
 ]
 
 
@@ -696,7 +572,7 @@ def handle_delete_bid_doc_techno_commercial(rec_id: int):
 
 
 # Wire routes to blueprints
-for bp in (bid_document_techno_commercial_bp, bid_document_techno_commercial_plural_bp):
+for bp in (bid_document_techno_commercial_bp,):
     bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_techno_commercial)))
     bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_techno_commercial)))
     bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_bid_doc_techno_commercial)))
@@ -1053,14 +929,7 @@ def handle_delete_techno_commercial_tender(rec_id: int):
 # Wire routes to blueprints
 for bp in (
     techno_commercial_tender_bp,
-    techno_commercial_tender_singular_bp,
     single_tender_enquiries_bp,
-    single_tender_enquiry_bp,
-    single_tender_enquiry_ste_bp,
-    ste_bp,
-    stes_bp,
-    tct_bp,
-    tcts_bp,
 ):
     bp.route("/latest", methods=["GET"])(
         bp.doc(
@@ -1382,7 +1251,7 @@ def handle_delete_bid_doc_lte(rec_id: int):
 
 
 # Wire routes to blueprints
-for bp in (bid_document_lte_bp, bid_document_lte_plural_bp):
+for bp in (bid_document_lte_bp,):
     bp.route("/latest", methods=["GET"])(
         bp.doc(
             security=[{"BearerAuth": []}],
@@ -1793,7 +1662,7 @@ def handle_delete_bid_doc_ste(rec_id: int):
 
 
 # Wire routes to blueprints
-for bp in (bid_document_ste_bp, bid_document_stes_bp, bid_document_for_ste_bp):
+for bp in (bid_document_ste_bp,):
     bp.route("/latest", methods=["GET"])(
         bp.doc(
             security=[{"BearerAuth": []}],
@@ -2139,7 +2008,7 @@ def handle_delete_international_competitive_bidding(rec_id: int):
 
 
 # Wire routes to ICB blueprints
-for bp in (international_competitive_biddings_bp, international_competitive_bidding_bp, icb_bp, icbs_bp):
+for bp in (international_competitive_biddings_bp,):
     bp.route("/latest", methods=["GET"])(
         bp.doc(
             security=[{"BearerAuth": []}],
@@ -2498,7 +2367,7 @@ def handle_delete_bid_doc_icb(rec_id: int):
 
 
 # Wire routes to Bid Document ICB blueprints
-for bp in (bid_document_icb_bp, bid_document_icbs_bp, bid_document_for_icb_bp):
+for bp in (bid_document_icb_bp,):
     bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_icb)))
     bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_icb)))
     bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_bid_doc_icb)))

@@ -54,7 +54,7 @@ def create_app(config_class=Config):
     from app.routes.project_step import project_step_bp, project_step_v2_bp
     from app.routes.material import material_bp
     from app.routes.attachment import attachment_bp
-    from app.routes.quotation_request import quotation_request_bp, quotation_request_singular_bp
+    from app.routes.quotation_request import quotation_request_bp
     from app.routes.supplier_quotation import (
         supplier_quotation_bp,
     )
@@ -69,7 +69,6 @@ def create_app(config_class=Config):
         pac_tenders_bp,
     )
     from app.routes.bid_submission import (
-        bid_submission_singular_bp,
         bid_submission_bp,
     )
     from app.routes.purchase_order import (
@@ -91,7 +90,6 @@ def create_app(config_class=Config):
         import_logistics_bp,
     )
     from app.routes.bill_of_entry import (
-        bill_of_entry_singular_bp,
         bill_of_entry_bp,
     )
     from app.routes.customs_clearance import (
@@ -128,7 +126,7 @@ def create_app(config_class=Config):
     from app.routes.phase1_routes import PHASE1_BLUEPRINTS
     from app.routes.phase1_extra_routes import EXTRA_BLUEPRINTS
     from app.routes.eway_bill import eway_bill_bp
-    from app.routes.cost_sheet import cost_sheet_v1_bp, cost_sheet_v1_singular_bp
+    from app.routes.cost_sheet import cost_sheet_v1_bp
     from app.routes.bill_of_entry import bill_of_entry_alias_bp
 
     api.register_blueprint(auth_bp)
@@ -143,7 +141,6 @@ def create_app(config_class=Config):
     api.register_blueprint(material_bp)
     api.register_blueprint(attachment_bp)
     api.register_blueprint(quotation_request_bp)
-    api.register_blueprint(quotation_request_singular_bp)
     api.register_blueprint(supplier_quotation_bp)
     api.register_blueprint(cost_sheet_bp)
     api.register_blueprint(customer_quotation_bp)
@@ -152,7 +149,6 @@ def create_app(config_class=Config):
     api.register_blueprint(pac_tender_bp)
     api.register_blueprint(pac_bp)
     api.register_blueprint(bid_submission_bp)
-    api.register_blueprint(bid_submission_singular_bp)
     api.register_blueprint(purchase_order_bp)
     api.register_blueprint(order_confirmation_bp)
     api.register_blueprint(supplier_proforma_invoice_bp)
@@ -174,9 +170,7 @@ def create_app(config_class=Config):
         api.register_blueprint(bp)
     api.register_blueprint(eway_bill_bp)
     api.register_blueprint(cost_sheet_v1_bp)
-    api.register_blueprint(cost_sheet_v1_singular_bp)
     api.register_blueprint(bill_of_entry_alias_bp)
-    api.register_blueprint(bill_of_entry_singular_bp)
     api.register_blueprint(ai_assistant_bp)
     return app
 

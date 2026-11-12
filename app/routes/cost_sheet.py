@@ -41,12 +41,6 @@ cost_sheet_v1_bp = Blueprint(
     description="Cost Sheet REST APIs (v1)",
 )
 
-cost_sheet_v1_singular_bp = Blueprint(
-    "cost_sheet_v1_singular",
-    __name__,
-    url_prefix="/api/v1/cost-sheet",
-    description="Cost Sheet REST APIs (v1 Singular)",
-)
 
 
 
@@ -556,7 +550,7 @@ def _handle_export_cost_sheet(cost_sheet_id):
 
 
 # Register routes on all cost sheet blueprints (legacy and v1 plural/singular)
-for bp in [cost_sheet_bp, cost_sheet_v1_bp, cost_sheet_v1_singular_bp]:
+for bp in [cost_sheet_bp, cost_sheet_v1_bp,]:
     bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(_handle_create_cost_sheet)))
     bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(_handle_list_cost_sheets)))
     bp.route("/latest", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(_handle_get_latest_cost_sheet)))

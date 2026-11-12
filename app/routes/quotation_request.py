@@ -39,13 +39,6 @@ quotation_request_bp = Blueprint(
     description="Quotation Request APIs",
 )
 
-quotation_request_singular_bp = Blueprint(
-    "quotation_request_singular",
-    __name__,
-    url_prefix="/api/v1/quotation-request",
-    description="Singular Quotation Request APIs",
-)
-
 
 def _error(code: str, message: str, status: int):
     return make_response(
@@ -804,14 +797,3 @@ def get_quotation_request_by_id(quotation_request_id: int):
     except QuotationRequestNotFoundError as exc:
         return _error("QUOTATION_REQUEST_NOT_FOUND", str(exc), 404)
 
-
-quotation_request_singular_bp.add_url_rule(
-    "/latest",
-    view_func=get_latest_quotation_request,
-    methods=["GET"],
-)
-quotation_request_singular_bp.add_url_rule(
-    "/<int:quotation_request_id>",
-    view_func=get_quotation_request_by_id,
-    methods=["GET"],
-)

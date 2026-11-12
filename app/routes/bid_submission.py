@@ -42,12 +42,6 @@ bid_submission_bp = Blueprint(
     description="Bid Submission APIs",
 )
 
-bid_submission_singular_bp = Blueprint(
-    "bid_submissions_singular",
-    __name__,
-    url_prefix="/api/v1/bid-submission",
-    description="Bid Submission Singular Alias APIs",
-)
 
 
 def _error(code: str, message: str, status: int):
@@ -566,5 +560,3 @@ def get_bid_submission_by_id(bid_submission_id: int):
     except BidSubmissionNotFoundError as exc:
         return _error("BID_SUBMISSION_NOT_FOUND", str(exc), 404)
 
-
-bid_submission_singular_bp.add_url_rule("/latest", view_func=get_latest_bid_submission, methods=["GET"])

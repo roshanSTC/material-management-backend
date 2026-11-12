@@ -65,25 +65,12 @@ pre_qualification_bid_bp = Blueprint(
     description="Pre-Qualification Bids APIs",
 )
 
-pre_qualification_bid_singular_bp = Blueprint(
-    "pre_qualification_bid_singular",
-    __name__,
-    url_prefix="/api/v1/pre-qualification-bid",
-    description="Pre-Qualification Bid (Singular) APIs",
-)
 
 pqb_bid_document_bp = Blueprint(
     "pqb_bid_documents",
     __name__,
     url_prefix="/api/v1/pqb-bid-documents",
     description="PQB Bid Documents APIs",
-)
-
-pqb_bid_document_singular_bp = Blueprint(
-    "pqb_bid_document_singular",
-    __name__,
-    url_prefix="/api/v1/pqb-bid-document",
-    description="PQB Bid Document (Singular) APIs",
 )
 
 corrigendum_bp = Blueprint(
@@ -93,25 +80,11 @@ corrigendum_bp = Blueprint(
     description="Corrigendums APIs",
 )
 
-corrigendum_singular_bp = Blueprint(
-    "corrigendum_singular",
-    __name__,
-    url_prefix="/api/v1/corrigendum",
-    description="Corrigendum (Singular) APIs",
-)
-
 limited_tender_enquiry_bp = Blueprint(
     "limited_tender_enquiries",
     __name__,
     url_prefix="/api/v1/limited-tender-enquiries",
     description="Limited Tender Enquiries APIs",
-)
-
-limited_tender_enquiry_singular_bp = Blueprint(
-    "limited_tender_enquiry_singular",
-    __name__,
-    url_prefix="/api/v1/limited-tender-enquiry",
-    description="Limited Tender Enquiry (Singular) APIs",
 )
 
 notification_award_bp = Blueprint(
@@ -135,42 +108,16 @@ expression_of_interest_bp = Blueprint(
     description="Expressions of Interest APIs",
 )
 
-expression_of_interest_singular_bp = Blueprint(
-    "expression_of_interest_singular",
-    __name__,
-    url_prefix="/api/v1/expression-of-interest",
-    description="Expression of Interest (Singular) APIs",
-)
 
-eoi_bp = Blueprint(
-    "eoi",
-    __name__,
-    url_prefix="/api/v1/eoi",
-    description="EOI APIs",
-)
-
-eois_bp = Blueprint(
-    "eois",
-    __name__,
-    url_prefix="/api/v1/eois",
-    description="EOIs APIs",
-)
 
 PHASE1_BLUEPRINTS = [
     pre_qualification_bid_bp,
-    pre_qualification_bid_singular_bp,
     pqb_bid_document_bp,
-    pqb_bid_document_singular_bp,
     corrigendum_bp,
-    corrigendum_singular_bp,
     limited_tender_enquiry_bp,
-    limited_tender_enquiry_singular_bp,
     notification_award_bp,
     consultancy_invoice_bp,
     expression_of_interest_bp,
-    expression_of_interest_singular_bp,
-    eoi_bp,
-    eois_bp,
 ]
 
 
@@ -361,17 +308,6 @@ def _handle_get_latest_pqb(args=None):
 def get_latest_pqb(args=None):
     return _handle_get_latest_pqb(args)
 
-
-@pre_qualification_bid_singular_bp.get("/latest")
-@pre_qualification_bid_singular_bp.doc(
-    security=[{"BearerAuth": []}],
-    summary="Get Latest Pre-Qualification Bid (Singular)",
-    description="Retrieve latest pre-qualification bid with all specifications and items.",
-)
-@pre_qualification_bid_singular_bp.arguments(LatestPreQualificationBidQuerySchema, location="query")
-@jwt_required()
-def get_latest_pqb_singular(args=None):
-    return _handle_get_latest_pqb(args)
 
 
 @pre_qualification_bid_bp.get("/<int:rec_id>")
@@ -665,7 +601,7 @@ def delete_pqb_doc(rec_id):
     return jsonify({"success": True, "message": "PQB Bid document deleted successfully."}), 200
 
 
-for bp in (pqb_bid_document_bp, pqb_bid_document_singular_bp):
+for bp in (pqb_bid_document_bp,):
     bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(list_pqb_docs)))
     bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(get_pqb_doc)))
     bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(create_pqb_doc)))
@@ -929,7 +865,7 @@ def get_corrigendum_latest_tender():
 
 
 # Wire Corrigendum Blueprints
-for bp in (corrigendum_bp, corrigendum_singular_bp):
+for bp in (corrigendum_bp,):
     bp.route("/latest", methods=["GET"])(
         bp.doc(
             security=[{"BearerAuth": []}],
@@ -1041,19 +977,6 @@ def _handle_get_latest_lte(args=None):
 @jwt_required()
 def get_latest_lte(args=None):
     return _handle_get_latest_lte(args)
-
-
-@limited_tender_enquiry_singular_bp.get("/latest")
-@limited_tender_enquiry_singular_bp.doc(
-    security=[{"BearerAuth": []}],
-    summary="Get Latest Limited Tender Enquiry (Singular)",
-    description="Retrieve latest limited tender enquiry with all specifications and items.",
-)
-@limited_tender_enquiry_singular_bp.arguments(LatestLimitedTenderEnquiryQuerySchema, location="query")
-@jwt_required()
-def get_latest_lte_singular(args=None):
-    return _handle_get_latest_lte(args)
-
 
 @limited_tender_enquiry_bp.get("/<int:rec_id>")
 @limited_tender_enquiry_bp.doc(security=[{"BearerAuth": []}])
@@ -1608,7 +1531,7 @@ def delete_eoi(rec_id):
     return jsonify({"success": True, "message": "Expression of interest deleted successfully."}), 200
 
 
-for bp in (expression_of_interest_bp, expression_of_interest_singular_bp, eoi_bp, eois_bp):
+for bp in (expression_of_interest_bp,):
     bp.route("/latest", methods=["GET"])(
         bp.doc(
             security=[{"BearerAuth": []}],

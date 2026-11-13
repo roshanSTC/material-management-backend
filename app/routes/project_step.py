@@ -339,7 +339,10 @@ def sync_project_steps_from_records(project):
                     if step_data.get("_manually_completed") or step_data.get("_is_attached"):
                         continue
 
-                    if step_data.get("_auto_created"):
+                    if step_data.get("_auto_created") or form_code in (
+                        "FORM_13_PAC_TENDER",
+                        "FORM_13_CUSTOMER_TENDER",
+                    ):
                         db.session.delete(step)
                         del existing_steps[form_code]
                         changed = True

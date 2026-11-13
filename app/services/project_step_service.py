@@ -1607,14 +1607,32 @@ def sync_customer_tender_step(project_id: int):
     )
 
     if customer_tender is None:
-        step = (
-            ProjectStep.query.filter_by(
-                project_id=project_id,
-                step_number=6,
-            ).first()
+        matching_steps = (
+            ProjectStep.query.filter(
+                ProjectStep.project_id == project_id,
+                (
+                    ProjectStep.form_code.in_(
+                        ["FORM_13_PAC_TENDER", "FORM_13_CUSTOMER_TENDER"]
+                    )
+                )
+                | (
+                    (ProjectStep.step_number == 6)
+                    & (ProjectStep.form_code.is_(None))
+                ),
+            ).all()
         )
-        if step is not None:
+        for step in matching_steps:
             db.session.delete(step)
+        if matching_steps:
+            db.session.flush()
+            remaining_steps = (
+                ProjectStep.query.filter_by(project_id=project_id)
+                .order_by(ProjectStep.step_order.asc(), ProjectStep.id.asc())
+                .all()
+            )
+            for idx, s in enumerate(remaining_steps, start=1):
+                s.step_order = idx
+                s.step_number = idx
             db.session.flush()
         return None
 
@@ -1652,6 +1670,8 @@ def sync_customer_tender_step(project_id: int):
         "submitted_date": sub_date,
         "remarks": customer_tender.remark,
         "remark": customer_tender.remark,
+        "_auto_created": True,
+        "_synced_from_record": True,
     }
 
     return upsert_project_step_record(

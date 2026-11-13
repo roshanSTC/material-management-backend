@@ -579,7 +579,7 @@ def delete_customer_tender(customer_tender_id):
                     storage_key,
                 )
 
-        return jsonify({"success": True, "message": "Customer tender deleted successfully."}), 200
+        return jsonify({"success": True, "message": "PAC tender deleted successfully."}), 200
     except CustomerTenderNotFoundError as exc:
         db.session.rollback()
         return _error("CUSTOMER_TENDER_NOT_FOUND", str(exc), 404)

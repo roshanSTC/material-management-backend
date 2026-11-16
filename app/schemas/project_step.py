@@ -77,7 +77,6 @@ class ProjectStepResponseSchema(Schema):
     form_code = fields.String(required=False, allow_none=True)
     step_name = fields.String(required=True)
     description = fields.String(required=False, allow_none=True)
-    phase_id = fields.String(required=False, allow_none=True)
     category = fields.String(required=False, allow_none=True)
     icon = fields.String(required=False, allow_none=True)
     status = fields.String(required=True)

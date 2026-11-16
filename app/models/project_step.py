@@ -234,7 +234,6 @@ class ProjectStep(db.Model):
             "form_code": "FORM_13_PAC_TENDER" if self.form_code == "FORM_13_CUSTOMER_TENDER" else (self.form_code or ""),
             "step_name": step_name,
             "description": description,
-            "phase_id": fdef.phase_id if fdef else "",
             "category": fdef.category if fdef else "",
             "icon": fdef.icon if fdef else "pi pi-file",
             "status": self.status or "in_progress",

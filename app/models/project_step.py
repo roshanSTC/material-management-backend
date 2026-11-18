@@ -225,6 +225,13 @@ class ProjectStep(db.Model):
                 if (fdef and fdef.description)
                 else "Proprietary Article Certificate (PAC) tender enquiry terms, dates, and specifications"
             )
+        elif self.form_code == "FORM_15_BID_DOCUMENT" or step_name == "Bid Submission":
+            step_name = "Bid Document"
+            description = (
+                fdef.description
+                if (fdef and fdef.description)
+                else "Bid document submission data, corrigendum counts, and quoted tender pricing"
+            )
 
         res = {
             "id": self.id,

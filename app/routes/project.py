@@ -70,7 +70,7 @@ STEP_NAMES = {
     4: "Cost Sheet",
     5: "Quotation to Customer",
     6: "PAC Tender",
-    7: "Bid Submission",
+    7: "Bid Document",
     8: "Purchase Order (PO)",
     9: "Order Confirmation to Supplier",
     10: "Supplier Invoice",
@@ -87,7 +87,7 @@ STEP_NEXT_ACTIONS = {
     3: "Cost Sheet",
     4: "Quotation to Customer",
     5: "PAC Tender",
-    6: "Bid Submission",
+    6: "Bid Document",
     7: "Purchase Order (PO)",
     8: "Order Confirmation to Supplier",
     9: "Supplier Invoice",
@@ -404,7 +404,7 @@ def _get_project_latest_items(project_id):
     except Exception:
         db.session.rollback()
 
-    # Step 7: Bid Submission
+    # Step 7: Bid Document
     try:
         bss = (
             BidSubmission.query.filter_by(project_id=project_id)
@@ -413,7 +413,7 @@ def _get_project_latest_items(project_id):
         )
         for bs in bss:
             if bs.items:
-                return 7, "Bid Submission", [
+                return 7, "Bid Document", [
                     {
                         "id": item.id,
                         "material_name": item.material_name or getattr(item, "description", None),
@@ -422,7 +422,7 @@ def _get_project_latest_items(project_id):
                         "net_amount": float(item.net_total) if getattr(item, "net_total", None) is not None else None,
                         "hsn_code": getattr(item, "hsn_sac", None),
                         "step_number": 7,
-                        "step_name": "Bid Submission",
+                        "step_name": "Bid Document",
                     }
                     for item in bs.items
                 ]

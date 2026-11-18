@@ -29,7 +29,7 @@ STEP_NAMES = {
     4: "Cost Sheet",
     5: "Quotation to Customer",
     6: "PAC Tender",
-    7: "Bid Submission",
+    7: "Bid Document",
     8: "Purchase Order (PO)",
     9: "Order Confirmation to Supplier",
     10: "Supplier Invoice",

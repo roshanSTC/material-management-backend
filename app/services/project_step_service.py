@@ -73,7 +73,7 @@ STEP_DEFINITIONS = {
         },
     },
     7: {
-        "name": "Bid Submission",
+        "name": "Bid Document",
         "description": "Submit bid document to customer",
         "required_fields": {
             "tender_title",

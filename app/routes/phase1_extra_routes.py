@@ -28,6 +28,8 @@ from app.models import (
 from app.schemas.phase1 import (
     BidDocumentIcbCreateSchema,
     BidDocumentIcbUpdateSchema,
+    LatestBidDocumentIcbQuerySchema,
+    LatestBidDocumentIcbResponseSchema,
     BidDocumentLteCreateSchema,
     BidDocumentLteUpdateSchema,
     BidDocumentSteCreateSchema,
@@ -2374,7 +2376,55 @@ def handle_create_bid_doc_icb():
     return jsonify(serialized), 201
 
 
+def handle_get_latest_bid_doc_icb(args=None):
+    if args is None:
+        args = {}
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    query = BidDocumentIcb.query
+    if project_id is not None:
+        try:
+            pid = int(project_id)
+            if pid <= 0:
+                return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+        except (ValueError, TypeError):
+            return _error("INVALID_PROJECT_ID", "project_id must be an integer.", 400)
+
+        project = db.session.get(Project, pid)
+        if not project:
+            return _error("PROJECT_NOT_FOUND", f"Project {pid} not found.", 404)
+        query = query.filter_by(project_id=pid)
+
+    rec = query.order_by(BidDocumentIcb.id.desc()).first()
+    if not rec:
+        return _error("NOT_FOUND", "Bid document ICB not found.", 404)
+
+    items = [
+        {
+            "id": it.id,
+            "sr_no": it.sr_no,
+            "description": it.description,
+            "material_name": it.material_name or it.description,
+            "item_code": it.item_code,
+            "hsn_sac": it.hsn_sac,
+            "hsn_code": it.hsn_sac,
+            "quantity": float(it.quantity) if it.quantity is not None else None,
+            "unit_price": float(it.unit_price) if it.unit_price is not None else None,
+            "total_amount": float(it.total_amount) if it.total_amount is not None else None,
+        }
+        for it in (rec.items or [])
+    ]
+    return jsonify({
+        "items": items,
+    }), 200
+
+
 def handle_get_bid_doc_icb(rec_id=None):
+    if request.args.get("latest") in ("true", "1"):
+        return handle_get_latest_bid_doc_icb()
     if rec_id is not None:
         rec = db.session.get(BidDocumentIcb, rec_id)
         if not rec:
@@ -2519,6 +2569,17 @@ def handle_delete_bid_doc_icb(rec_id: int):
 
 # Wire routes to Bid Document ICB blueprints
 for bp in (bid_document_icb_bp,):
+    bp.route("/latest", methods=["GET"])(
+        bp.doc(
+            security=[{"BearerAuth": []}],
+            summary="Get Latest Bid Document ICB",
+            description="Retrieve only items for the latest bid document ICB.",
+        )(
+            bp.arguments(LatestBidDocumentIcbQuerySchema, location="query")(
+                jwt_required()(handle_get_latest_bid_doc_icb)
+            )
+        )
+    )
     bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_icb)))
     bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_icb)))
     bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_bid_doc_icb)))

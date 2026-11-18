@@ -941,3 +941,10 @@ class BidDocumentIcbUpdateSchema(BasePhase1Schema):
     requirements = fields.List(fields.Nested(BidDocumentIcbItemSchema), allow_none=True)
 
 
+class LatestBidDocumentIcbQuerySchema(BasePhase1Schema):
+    project_id = FlexibleInt(required=False, allow_none=True)
+    projectId = FlexibleInt(required=False, allow_none=True)
+
+
+class LatestBidDocumentIcbResponseSchema(BasePhase1Schema):
+    items = fields.List(fields.Nested(BidDocumentIcbItemSchema), allow_none=True)

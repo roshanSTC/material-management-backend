@@ -37,6 +37,8 @@ from app.schemas.phase1 import (
     LatestExpressionOfInterestResponseSchema,
     LatestLimitedTenderEnquiryQuerySchema,
     LatestLimitedTenderEnquiryResponseSchema,
+    LatestPqbBidDocumentQuerySchema,
+    LatestPqbBidDocumentResponseSchema,
     LatestPreQualificationBidQuerySchema,
     LatestPreQualificationBidResponseSchema,
     LimitedTenderEnquiryCreateSchema,
@@ -65,12 +67,26 @@ pre_qualification_bid_bp = Blueprint(
     description="Pre-Qualification Bids APIs",
 )
 
+pre_qualification_bid_singular_bp = Blueprint(
+    "pre_qualification_bid_singular",
+    __name__,
+    url_prefix="/api/v1/pre-qualification-bid",
+    description="Pre-Qualification Bid Singular APIs",
+)
+
 
 pqb_bid_document_bp = Blueprint(
     "pqb_bid_documents",
     __name__,
     url_prefix="/api/v1/pqb-bid-documents",
     description="PQB Bid Documents APIs",
+)
+
+pqb_bid_document_singular_bp = Blueprint(
+    "pqb_bid_document_singular",
+    __name__,
+    url_prefix="/api/v1/pqb-bid-document",
+    description="PQB Bid Document Singular APIs",
 )
 
 corrigendum_bp = Blueprint(
@@ -112,7 +128,9 @@ expression_of_interest_bp = Blueprint(
 
 PHASE1_BLUEPRINTS = [
     pre_qualification_bid_bp,
+    pre_qualification_bid_singular_bp,
     pqb_bid_document_bp,
+    pqb_bid_document_singular_bp,
     corrigendum_bp,
     limited_tender_enquiry_bp,
     notification_award_bp,
@@ -294,7 +312,11 @@ def _handle_get_latest_pqb(args=None):
     if not rec:
         return _error("NOT_FOUND", "Pre-qualification bid not found.", 404)
 
-    return jsonify(_serialize_pqb(rec)), 200
+    serialized = _serialize_pqb(rec)
+    return jsonify({
+        "pqb_no": rec.pqb_no,
+        "items": serialized.get("items", []),
+    }), 200
 
 
 @pre_qualification_bid_bp.get("/latest")
@@ -424,6 +446,25 @@ def delete_pqb(rec_id):
     return jsonify({"success": True, "message": "Pre-qualification bid deleted successfully."}), 200
 
 
+for sbp in (pre_qualification_bid_singular_bp,):
+    sbp.route("/latest", methods=["GET"])(
+        sbp.doc(
+            security=[{"BearerAuth": []}],
+            summary="Get Latest Pre-Qualification Bid",
+            description="Retrieve latest pre-qualification bid with all specifications and items.",
+        )(
+            sbp.arguments(LatestPreQualificationBidQuerySchema, location="query")(
+                jwt_required()(_handle_get_latest_pqb)
+            )
+        )
+    )
+    sbp.route("", methods=["GET"])(sbp.doc(security=[{"BearerAuth": []}])(jwt_required()(list_pqbs)))
+    sbp.route("/<int:rec_id>", methods=["GET"])(sbp.doc(security=[{"BearerAuth": []}])(jwt_required()(get_pqb)))
+    sbp.route("", methods=["POST"])(sbp.doc(security=[{"BearerAuth": []}])(jwt_required()(create_pqb)))
+    sbp.route("/<int:rec_id>", methods=["PATCH", "PUT"])(sbp.doc(security=[{"BearerAuth": []}])(jwt_required()(update_pqb)))
+    sbp.route("/<int:rec_id>", methods=["DELETE"])(sbp.doc(security=[{"BearerAuth": []}])(jwt_required()(delete_pqb)))
+
+
 # =========================================================================
 # 2. BID DOCUMENT FOR PQB (FORM_02_PQB_BID_DOCUMENT)
 # =========================================================================
@@ -466,7 +507,42 @@ def _serialize_pqb_doc(rec):
     }
 
 
+def _handle_get_latest_pqb_doc(args=None):
+    if args is None:
+        args = {}
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    query = PqbBidDocument.query
+    if project_id is not None:
+        try:
+            pid = int(project_id)
+            if pid <= 0:
+                return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+        except (ValueError, TypeError):
+            return _error("INVALID_PROJECT_ID", "project_id must be an integer.", 400)
+
+        project = db.session.get(Project, pid)
+        if not project:
+            return _error("PROJECT_NOT_FOUND", f"Project {pid} not found.", 404)
+        query = query.filter_by(project_id=pid)
+
+    rec = query.order_by(PqbBidDocument.id.desc()).first()
+    if not rec:
+        return _error("NOT_FOUND", "PQB bid document not found.", 404)
+
+    serialized = _serialize_pqb_doc(rec)
+    return jsonify({
+        "pqb_no": rec.pqb_no,
+        "items": serialized.get("items", []),
+    }), 200
+
+
 def list_pqb_docs():
+    if request.args.get("latest") in ("true", "1"):
+        return _handle_get_latest_pqb_doc()
     project_id = request.args.get("project_id", type=int)
     query = PqbBidDocument.query
     if project_id:
@@ -477,6 +553,10 @@ def list_pqb_docs():
 
 def get_pqb_doc(rec_id):
     rec = db.session.get(PqbBidDocument, rec_id)
+    if not rec:
+        step = db.session.get(ProjectStep, rec_id)
+        if step and step.project_id:
+            rec = PqbBidDocument.query.filter_by(project_id=step.project_id).order_by(PqbBidDocument.id.desc()).first()
     if not rec:
         return _error("NOT_FOUND", f"PqbBidDocument {rec_id} not found.", 404)
     return jsonify(_serialize_pqb_doc(rec)), 200
@@ -601,7 +681,20 @@ def delete_pqb_doc(rec_id):
     return jsonify({"success": True, "message": "PQB Bid document deleted successfully."}), 200
 
 
-for bp in (pqb_bid_document_bp,):
+for bp in (pqb_bid_document_bp, pqb_bid_document_singular_bp):
+    bp.route("/latest", methods=["GET"])(
+        bp.doc(
+            security=[{"BearerAuth": []}],
+            summary="Get Latest PQB Bid Document",
+            description="Retrieve latest PQB bid document with all specifications and items.",
+        )(
+            jwt_required()(
+                bp.arguments(LatestPqbBidDocumentQuerySchema, location="query")(
+                    _handle_get_latest_pqb_doc
+                )
+            )
+        )
+    )
     bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(list_pqb_docs)))
     bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(get_pqb_doc)))
     bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(create_pqb_doc)))

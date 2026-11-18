@@ -187,8 +187,8 @@ class LatestPreQualificationBidQuerySchema(BasePhase1Schema):
 
 
 class LatestPreQualificationBidResponseSchema(BasePhase1Schema):
-    pqb_title = fields.Str(allow_none=True)
     pqb_no = fields.Str(allow_none=True)
+    items = fields.List(fields.Nested(PreQualificationBidItemSchema), allow_none=True)
 
 
 # =========================================================================
@@ -236,6 +236,16 @@ class PqbBidDocumentUpdateSchema(BasePhase1Schema):
     items = fields.List(fields.Nested(PqbBidDocumentItemSchema), allow_none=True)
     form_code = fields.Str(allow_none=True)
     attachments_count = FlexibleInt(allow_none=True)
+
+
+class LatestPqbBidDocumentQuerySchema(BasePhase1Schema):
+    project_id = FlexibleInt(required=False, allow_none=True)
+    projectId = FlexibleInt(required=False, allow_none=True)
+
+
+class LatestPqbBidDocumentResponseSchema(BasePhase1Schema):
+    pqb_no = fields.Str(allow_none=True)
+    items = fields.List(fields.Nested(PqbBidDocumentItemSchema), allow_none=True)
 
 
 # =========================================================================

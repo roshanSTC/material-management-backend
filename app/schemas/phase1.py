@@ -536,6 +536,11 @@ class LatestBidDocumentTechnoCommercialResponseSchema(BasePhase1Schema):
     tender_no = fields.Str(allow_none=True)
     tender_number = fields.Str(allow_none=True)
     tender_issue_date = fields.Str(allow_none=True)
+    delivery_term = fields.Str(allow_none=True)
+    delivery_terms = fields.Str(allow_none=True)
+    gst_pct = FlexibleFloat(allow_none=True)
+    payment_terms = fields.Str(allow_none=True)
+    warranty_period = fields.Str(allow_none=True)
     items = fields.List(fields.Dict(), allow_none=True)
 
 
@@ -947,4 +952,9 @@ class LatestBidDocumentIcbQuerySchema(BasePhase1Schema):
 
 
 class LatestBidDocumentIcbResponseSchema(BasePhase1Schema):
+    delivery_term = fields.Str(allow_none=True)
+    delivery_terms = fields.Str(allow_none=True)
+    gst_pct = FlexibleFloat(allow_none=True)
+    payment_terms = fields.Str(allow_none=True)
+    warranty_period = fields.Str(allow_none=True)
     items = fields.List(fields.Nested(BidDocumentIcbItemSchema), allow_none=True)

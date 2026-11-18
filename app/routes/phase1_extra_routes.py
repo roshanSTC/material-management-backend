@@ -536,6 +536,11 @@ def handle_get_latest_bid_doc_techno_commercial(args=None):
             "tender_no": bdtc.tender_no,
             "tender_number": bdtc.tender_no,
             "tender_issue_date": bdtc.tender_issue_date.isoformat() if bdtc.tender_issue_date else None,
+            "delivery_term": bdtc.delivery_terms,
+            "delivery_terms": bdtc.delivery_terms,
+            "gst_pct": float(bdtc.gst_pct) if bdtc.gst_pct is not None else None,
+            "payment_terms": bdtc.payment_terms,
+            "warranty_period": bdtc.warranty_period,
             "items": [
                 {
                     "id": it.id,
@@ -551,6 +556,30 @@ def handle_get_latest_bid_doc_techno_commercial(args=None):
     tender_title = tct.tender_title if tct else None
     tender_no = tct.tender_no if tct else None
     tender_issue_date = tct.tender_issue_date.isoformat() if (tct and tct.tender_issue_date) else None
+
+    # Fetch commercial terms (delivery_term, payment_terms, warranty_period, gst_pct)
+    bdtc_query = BidDocumentTechnoCommercial.query
+    if pid is not None:
+        bdtc_query = bdtc_query.filter_by(project_id=pid)
+    bdtc = bdtc_query.order_by(BidDocumentTechnoCommercial.id.desc()).first()
+
+    delivery_term = None
+    payment_terms = None
+    warranty_period = None
+    gst_pct = None
+
+    if bdtc:
+        delivery_term = bdtc.delivery_terms
+        payment_terms = bdtc.payment_terms
+        warranty_period = bdtc.warranty_period
+        gst_pct = float(bdtc.gst_pct) if bdtc.gst_pct is not None else None
+    elif pid is not None:
+        b_ste = BidDocumentSte.query.filter_by(project_id=pid).order_by(BidDocumentSte.id.desc()).first()
+        if b_ste:
+            delivery_term = b_ste.delivery_terms
+            payment_terms = b_ste.payment_terms
+            warranty_period = b_ste.warranty_period
+            gst_pct = float(b_ste.gst_pct) if b_ste.gst_pct is not None else None
 
     # Requirements data from PQB step returned as items
     items = []
@@ -571,6 +600,11 @@ def handle_get_latest_bid_doc_techno_commercial(args=None):
         "tender_no": tender_no,
         "tender_number": tender_no,
         "tender_issue_date": tender_issue_date,
+        "delivery_term": delivery_term,
+        "delivery_terms": delivery_term,
+        "gst_pct": gst_pct,
+        "payment_terms": payment_terms,
+        "warranty_period": warranty_period,
         "items": items,
     }), 200
 
@@ -2418,6 +2452,11 @@ def handle_get_latest_bid_doc_icb(args=None):
         for it in (rec.items or [])
     ]
     return jsonify({
+        "delivery_term": rec.delivery_terms,
+        "delivery_terms": rec.delivery_terms,
+        "gst_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
+        "payment_terms": rec.payment_terms,
+        "warranty_period": rec.warranty_period,
         "items": items,
     }), 200
 

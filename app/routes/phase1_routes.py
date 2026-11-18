@@ -493,10 +493,7 @@ def _serialize_pqb_doc(rec):
                 "sr_no": it.sr_no,
                 "description": it.description,
                 "material_name": it.material_name or it.description,
-                "hsn_sac": it.hsn_sac,
                 "quantity": float(it.quantity) if it.quantity is not None else None,
-                "unit_price": float(it.unit_price) if it.unit_price is not None else None,
-                "total_amount": float(it.total_amount) if it.total_amount is not None else None,
                 "created_at": it.created_at.isoformat() if it.created_at else None,
                 "updated_at": it.updated_at.isoformat() if it.updated_at else None,
             }
@@ -587,10 +584,7 @@ def create_pqb_doc():
             sr_no=it.get("sr_no") or idx,
             description=it.get("description", ""),
             material_name=it.get("material_name") or it.get("description", ""),
-            hsn_sac=it.get("hsn_sac"),
             quantity=it.get("quantity"),
-            unit_price=it.get("unit_price"),
-            total_amount=it.get("total_amount") or ((float(it.get("unit_price") or 0) * float(it.get("quantity") or 0)) if it.get("unit_price") and it.get("quantity") else None),
         ))
 
     db.session.add(rec)
@@ -638,10 +632,7 @@ def update_pqb_doc(rec_id):
                 sr_no=it.get("sr_no") or idx,
                 description=it.get("description", ""),
                 material_name=it.get("material_name") or it.get("description", ""),
-                hsn_sac=it.get("hsn_sac"),
                 quantity=it.get("quantity"),
-                unit_price=it.get("unit_price"),
-                total_amount=it.get("total_amount") or ((float(it.get("unit_price") or 0) * float(it.get("quantity") or 0)) if it.get("unit_price") and it.get("quantity") else None),
             ))
 
     _save_attachments(files, "pqb_bid_document", rec.id, user_id)

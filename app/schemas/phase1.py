@@ -199,10 +199,7 @@ class PqbBidDocumentItemSchema(BasePhase1Schema):
     sr_no = FlexibleInt(allow_none=True)
     description = fields.Str(allow_none=True)
     material_name = fields.Str(allow_none=True)
-    hsn_sac = fields.Str(allow_none=True)
     quantity = FlexibleFloat(allow_none=True)
-    unit_price = FlexibleFloat(allow_none=True)
-    total_amount = FlexibleFloat(allow_none=True)
 
 
 class PqbBidDocumentCreateSchema(BasePhase1Schema):

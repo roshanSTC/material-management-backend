@@ -19,6 +19,7 @@ from app.models import (
     BidDocumentTechnoCommercialItem,
     InternationalCompetitiveBidding,
     InternationalCompetitiveBiddingItem,
+    PreQualificationBid,
     Project,
     ProjectStep,
     TechnoCommercialTender,
@@ -33,6 +34,8 @@ from app.schemas.phase1 import (
     BidDocumentSteUpdateSchema,
     BidDocumentTechnoCommercialCreateSchema,
     BidDocumentTechnoCommercialUpdateSchema,
+    LatestBidDocumentTechnoCommercialQuerySchema,
+    LatestBidDocumentTechnoCommercialResponseSchema,
     InternationalCompetitiveBiddingCreateSchema,
     InternationalCompetitiveBiddingUpdateSchema,
     LatestBidDocumentLteQuerySchema,
@@ -43,6 +46,8 @@ from app.schemas.phase1 import (
     LatestInternationalCompetitiveBiddingResponseSchema,
     LatestSingleTenderEnquiryQuerySchema,
     LatestSingleTenderEnquiryResponseSchema,
+    LatestTechnoCommercialTenderQuerySchema,
+    LatestTechnoCommercialTenderResponseSchema,
     TechnoCommercialTenderCreateSchema,
     TechnoCommercialTenderUpdateSchema,
 )
@@ -460,7 +465,117 @@ def handle_create_bid_doc_techno_commercial():
     return jsonify(serialized), 201
 
 
+def handle_get_latest_bid_doc_techno_commercial(args=None):
+    if args is None:
+        args = {}
+    project_id = (
+        args.get("project_id")
+        or request.args.get("project_id")
+        or request.args.get("projectId")
+    )
+    pid = None
+    if project_id is not None:
+        try:
+            pid = int(project_id)
+            if pid <= 0:
+                return _error("INVALID_PROJECT_ID", "project_id must be a positive integer.", 400)
+        except (ValueError, TypeError):
+            return _error("INVALID_PROJECT_ID", "project_id must be an integer.", 400)
+
+        project = db.session.get(Project, pid)
+        if not project:
+            return _error("PROJECT_NOT_FOUND", f"Project {pid} not found.", 404)
+
+    # 1. Fetch Tender Title, Tender No. and Tender Issue Date from Techno-Commercial Tender step
+    tct_query = TechnoCommercialTender.query
+    if pid is not None:
+        tct_query = tct_query.filter_by(project_id=pid)
+    tct = (
+        tct_query.filter(
+            TechnoCommercialTender.form_code.in_([
+                "FORM_30_TECHNO_COMMERCIAL_TENDER",
+                "FORM_30_TCT",
+                "FORM_30",
+            ])
+        ).order_by(TechnoCommercialTender.id.desc()).first()
+    )
+    if not tct:
+        tct_fallback_query = TechnoCommercialTender.query
+        if pid is not None:
+            tct_fallback_query = tct_fallback_query.filter_by(project_id=pid)
+        tct = tct_fallback_query.order_by(TechnoCommercialTender.id.desc()).first()
+
+    if not tct and pid is not None:
+        b_ste = BidDocumentSte.query.filter_by(project_id=pid).order_by(BidDocumentSte.id.desc()).first()
+        if b_ste and (b_ste.tender_title or b_ste.tender_no):
+            tct = b_ste
+
+    if pid is None and tct:
+        pid = tct.project_id
+
+    # 2. Fetch Requirements data from PQB step
+    pqb_query = PreQualificationBid.query
+    if pid is not None:
+        pqb_query = pqb_query.filter_by(project_id=pid)
+    pqb = pqb_query.order_by(PreQualificationBid.id.desc()).first()
+
+    if pid is None and pqb:
+        pid = pqb.project_id
+
+    if not tct and not pqb:
+        bdtc_query = BidDocumentTechnoCommercial.query
+        if pid is not None:
+            bdtc_query = bdtc_query.filter_by(project_id=pid)
+        bdtc = bdtc_query.order_by(BidDocumentTechnoCommercial.id.desc()).first()
+        if not bdtc:
+            return _error("NOT_FOUND", "Techno-commercial tender or PQB record not found.", 404)
+        return jsonify({
+            "tender_title": bdtc.tender_title,
+            "tender_no": bdtc.tender_no,
+            "tender_number": bdtc.tender_no,
+            "tender_issue_date": bdtc.tender_issue_date.isoformat() if bdtc.tender_issue_date else None,
+            "items": [
+                {
+                    "id": it.id,
+                    "sr_no": it.sr_no,
+                    "description": it.description,
+                    "material_name": it.material_name or it.description,
+                    "quantity": float(it.quantity) if it.quantity is not None else None,
+                }
+                for it in (bdtc.items or [])
+            ],
+        }), 200
+
+    tender_title = tct.tender_title if tct else None
+    tender_no = tct.tender_no if tct else None
+    tender_issue_date = tct.tender_issue_date.isoformat() if (tct and tct.tender_issue_date) else None
+
+    # Requirements data from PQB step returned as items
+    items = []
+    if pqb and pqb.items:
+        for it in pqb.items:
+            items.append({
+                "id": it.id,
+                "sr_no": it.sr_no,
+                "description": it.description,
+                "material_name": getattr(it, "material_name", None) or it.description,
+                "unit": getattr(it, "unit", None),
+                "quantity": float(it.quantity) if it.quantity is not None else None,
+                "specifications": getattr(it, "specifications", None),
+            })
+
+    return jsonify({
+        "tender_title": tender_title,
+        "tender_no": tender_no,
+        "tender_number": tender_no,
+        "tender_issue_date": tender_issue_date,
+        "items": items,
+    }), 200
+
+
 def handle_get_bid_doc_techno_commercial(rec_id=None):
+    if request.args.get("latest") in ("true", "1"):
+        return handle_get_latest_bid_doc_techno_commercial()
     if rec_id is not None:
         rec = db.session.get(BidDocumentTechnoCommercial, rec_id)
         if not rec:
@@ -471,12 +586,6 @@ def handle_get_bid_doc_techno_commercial(rec_id=None):
     q = BidDocumentTechnoCommercial.query
     if project_id:
         q = q.filter_by(project_id=project_id)
-
-
-
-
-
-
 
     records = q.order_by(BidDocumentTechnoCommercial.id.desc()).all()
     return jsonify([_serialize_bid_doc_techno_commercial(r) for r in records]), 200
@@ -573,6 +682,19 @@ def handle_delete_bid_doc_techno_commercial(rec_id: int):
 
 # Wire routes to blueprints
 for bp in (bid_document_techno_commercial_bp,):
+    bp.route("/latest", methods=["GET"])(
+        bp.doc(
+            security=[{"BearerAuth": []}],
+            summary="Get Latest Bid Document Techno-Commercial",
+            description="Retrieve tender_title, tender_no, tender_issue_date from Techno-Commercial Tender and items from PQB.",
+        )(
+            jwt_required()(
+                bp.arguments(LatestBidDocumentTechnoCommercialQuerySchema, location="query")(
+                    handle_get_latest_bid_doc_techno_commercial
+                )
+            )
+        )
+    )
     bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_techno_commercial)))
     bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_bid_doc_techno_commercial)))
     bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_bid_doc_techno_commercial)))
@@ -767,9 +889,25 @@ def handle_get_latest_techno_commercial_tender(args=None):
             return _error("PROJECT_NOT_FOUND", f"Project {pid} not found.", 404)
         query = query.filter_by(project_id=pid)
 
+    is_tct = not request or "techno-commercial" in getattr(request, "path", "")
+    entity_name = "Techno-commercial tender" if is_tct else "Single tender enquiry"
     rec = query.order_by(TechnoCommercialTender.id.desc()).first()
     if not rec:
-        return _error("NOT_FOUND", "Single tender enquiry not found.", 404)
+        return _error("NOT_FOUND", f"{entity_name} not found.", 404)
+
+    if is_tct:
+        issue_date = None
+        if rec.tender_issue_date:
+            issue_date = (
+                rec.tender_issue_date.isoformat()
+                if hasattr(rec.tender_issue_date, "isoformat")
+                else str(rec.tender_issue_date)
+            )
+        return jsonify({
+            "tender_number": rec.tender_no,
+            "tender_title": rec.tender_title,
+            "tender_issue_date": issue_date,
+        }), 200
 
     return jsonify(_serialize_techno_commercial_tender(rec)), 200
 
@@ -927,21 +1065,34 @@ def handle_delete_techno_commercial_tender(rec_id: int):
 
 
 # Wire routes to blueprints
+techno_commercial_tender_bp.route("/latest", methods=["GET"])(
+    techno_commercial_tender_bp.doc(
+        security=[{"BearerAuth": []}],
+        summary="Get Latest Techno Commercial Tender",
+        description="Retrieve tender_number, tender_title and tender_issue_date.",
+    )(
+        techno_commercial_tender_bp.arguments(LatestTechnoCommercialTenderQuerySchema, location="query")(
+            jwt_required()(handle_get_latest_techno_commercial_tender)
+        )
+    )
+)
+
+single_tender_enquiries_bp.route("/latest", methods=["GET"])(
+    single_tender_enquiries_bp.doc(
+        security=[{"BearerAuth": []}],
+        summary="Get Latest Single Tender Enquiry",
+        description="Retrieve latest single tender enquiry with all specifications and items.",
+    )(
+        single_tender_enquiries_bp.arguments(LatestSingleTenderEnquiryQuerySchema, location="query")(
+            jwt_required()(handle_get_latest_techno_commercial_tender)
+        )
+    )
+)
+
 for bp in (
     techno_commercial_tender_bp,
     single_tender_enquiries_bp,
 ):
-    bp.route("/latest", methods=["GET"])(
-        bp.doc(
-            security=[{"BearerAuth": []}],
-            summary="Get Latest Single Tender Enquiry / Techno Commercial Tender",
-            description="Retrieve latest tender enquiry with all specifications and items.",
-        )(
-            bp.arguments(LatestSingleTenderEnquiryQuerySchema, location="query")(
-                jwt_required()(handle_get_latest_techno_commercial_tender)
-            )
-        )
-    )
     bp.route("", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_techno_commercial_tender)))
     bp.route("/<int:rec_id>", methods=["GET"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_get_techno_commercial_tender)))
     bp.route("", methods=["POST"])(bp.doc(security=[{"BearerAuth": []}])(jwt_required()(handle_create_techno_commercial_tender)))

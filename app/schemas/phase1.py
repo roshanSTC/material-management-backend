@@ -526,6 +526,19 @@ class BidDocumentTechnoCommercialUpdateSchema(BasePhase1Schema):
     items = fields.List(fields.Nested(BidDocumentTechnoCommercialItemSchema), allow_none=True)
 
 
+class LatestBidDocumentTechnoCommercialQuerySchema(BasePhase1Schema):
+    project_id = FlexibleInt(required=False, allow_none=True)
+    projectId = FlexibleInt(required=False, allow_none=True)
+
+
+class LatestBidDocumentTechnoCommercialResponseSchema(BasePhase1Schema):
+    tender_title = fields.Str(allow_none=True)
+    tender_no = fields.Str(allow_none=True)
+    tender_number = fields.Str(allow_none=True)
+    tender_issue_date = fields.Str(allow_none=True)
+    items = fields.List(fields.Dict(), allow_none=True)
+
+
 # =========================================================================
 # 9. TECHNO-COMMERCIAL TENDER (FORM_30_TECHNO_COMMERCIAL_TENDER)
 # =========================================================================
@@ -598,7 +611,12 @@ LatestInternationalCompetitiveBiddingQuerySchema = LatestTenderEnquiryQuerySchem
 LatestInternationalCompetitiveBiddingResponseSchema = LatestTenderEnquiryResponseSchema
 
 LatestTechnoCommercialTenderQuerySchema = LatestTenderEnquiryQuerySchema
-LatestTechnoCommercialTenderResponseSchema = LatestTenderEnquiryResponseSchema
+
+
+class LatestTechnoCommercialTenderResponseSchema(BasePhase1Schema):
+    tender_number = fields.Str(allow_none=True)
+    tender_title = fields.Str(allow_none=True)
+    tender_issue_date = fields.Str(allow_none=True)
 
 LatestPacTenderQuerySchema = LatestTenderEnquiryQuerySchema
 LatestPacTenderResponseSchema = LatestTenderEnquiryResponseSchema

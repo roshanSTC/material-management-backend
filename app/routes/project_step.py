@@ -169,6 +169,29 @@ def sync_project_steps_from_records(project):
 
         try:
             form_defs = {f.form_code: f for f in FormDefinition.query.filter_by(is_active=True).all()}
+            # Auto-seed any missing form definitions from FORM_DEFINITIONS_SEED
+            from app.models.form_definition import FORM_DEFINITIONS_SEED
+            missing_defs = [r for r in FORM_DEFINITIONS_SEED if r[1] not in form_defs]
+            if missing_defs:
+                for row in missing_defs:
+                    existing = FormDefinition.query.filter(
+                        (FormDefinition.id == row[0]) | (FormDefinition.form_code == row[1])
+                    ).first()
+                    if not existing:
+                        f = FormDefinition(
+                            id=row[0],
+                            form_code=row[1],
+                            name=row[2],
+                            category=row[3],
+                            phase_id=row[4],
+                            icon=row[5],
+                            description=row[6],
+                            has_table=row[7],
+                            is_active=True,
+                        )
+                        db.session.add(f)
+                db.session.commit()
+                form_defs = {f.form_code: f for f in FormDefinition.query.filter_by(is_active=True).all()}
             # Sync any updated names/phases in form_definitions
             f30 = form_defs.get("FORM_30_TECHNO_COMMERCIAL_TENDER")
             if f30 and f30.name != "Techno Commercial Tender":
@@ -292,6 +315,11 @@ def sync_project_steps_from_records(project):
                         if match_rec:
                             from app.routes.phase1_extra_routes import _serialize_techno_commercial_tender
                             step_data.update(_serialize_techno_commercial_tender(match_rec))
+                    elif form_code == "FORM_34_BID_DOC_STE":
+                        ste_docs = getattr(project, "bid_document_stes", None) or []
+                        if ste_docs:
+                            from app.routes.phase1_extra_routes import _serialize_bid_doc_ste
+                            step_data.update(_serialize_bid_doc_ste(ste_docs[-1]))
                     step.data = step_data
                     if step.status != "completed" or step.progress_percentage != 100:
                         step.status = "completed"
@@ -314,6 +342,11 @@ def sync_project_steps_from_records(project):
                         if match_rec:
                             from app.routes.phase1_extra_routes import _serialize_techno_commercial_tender
                             init_data.update(_serialize_techno_commercial_tender(match_rec))
+                    elif form_code == "FORM_34_BID_DOC_STE":
+                        ste_docs = getattr(project, "bid_document_stes", None) or []
+                        if ste_docs:
+                            from app.routes.phase1_extra_routes import _serialize_bid_doc_ste
+                            init_data.update(_serialize_bid_doc_ste(ste_docs[-1]))
                     new_step = ProjectStep(
                         project_id=project.id,
                         step_order=max_order,

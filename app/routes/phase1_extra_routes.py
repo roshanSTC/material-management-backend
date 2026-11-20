@@ -524,44 +524,21 @@ def handle_get_latest_bid_doc_techno_commercial(args=None):
     if pid is None and pqb:
         pid = pqb.project_id
 
-    if not tct and not pqb:
-        bdtc_query = BidDocumentTechnoCommercial.query
-        if pid is not None:
-            bdtc_query = bdtc_query.filter_by(project_id=pid)
-        bdtc = bdtc_query.order_by(BidDocumentTechnoCommercial.id.desc()).first()
-        if not bdtc:
-            return _error("NOT_FOUND", "Techno-commercial tender or PQB record not found.", 404)
-        return jsonify({
-            "tender_title": bdtc.tender_title,
-            "tender_no": bdtc.tender_no,
-            "tender_number": bdtc.tender_no,
-            "tender_issue_date": bdtc.tender_issue_date.isoformat() if bdtc.tender_issue_date else None,
-            "delivery_term": bdtc.delivery_terms,
-            "delivery_terms": bdtc.delivery_terms,
-            "gst_pct": float(bdtc.gst_pct) if bdtc.gst_pct is not None else None,
-            "payment_terms": bdtc.payment_terms,
-            "warranty_period": bdtc.warranty_period,
-            "items": [
-                {
-                    "id": it.id,
-                    "sr_no": it.sr_no,
-                    "description": it.description,
-                    "material_name": it.material_name or it.description,
-                    "quantity": float(it.quantity) if it.quantity is not None else None,
-                }
-                for it in (bdtc.items or [])
-            ],
-        }), 200
-
-    tender_title = tct.tender_title if tct else None
-    tender_no = tct.tender_no if tct else None
-    tender_issue_date = tct.tender_issue_date.isoformat() if (tct and tct.tender_issue_date) else None
-
-    # Fetch commercial terms (delivery_term, payment_terms, warranty_period, gst_pct)
+    # 3. Fetch commercial terms and saved items from Bid Document Techno-Commercial
     bdtc_query = BidDocumentTechnoCommercial.query
     if pid is not None:
         bdtc_query = bdtc_query.filter_by(project_id=pid)
     bdtc = bdtc_query.order_by(BidDocumentTechnoCommercial.id.desc()).first()
+
+    if not tct and not pqb and not bdtc:
+        return _error("NOT_FOUND", "Techno-commercial tender or PQB record not found.", 404)
+
+    tender_title = (tct.tender_title if tct and tct.tender_title else None) or (bdtc.tender_title if bdtc and bdtc.tender_title else None)
+    tender_no = (tct.tender_no if tct and tct.tender_no else None) or (bdtc.tender_no if bdtc and bdtc.tender_no else None)
+    tender_issue_date = (
+        tct.tender_issue_date.isoformat() if (tct and tct.tender_issue_date)
+        else (bdtc.tender_issue_date.isoformat() if (bdtc and bdtc.tender_issue_date) else None)
+    )
 
     delivery_term = None
     payment_terms = None
@@ -581,9 +558,24 @@ def handle_get_latest_bid_doc_techno_commercial(args=None):
             warranty_period = b_ste.warranty_period
             gst_pct = float(b_ste.gst_pct) if b_ste.gst_pct is not None else None
 
-    # Requirements data from PQB step returned as items
+    # Items priority:
+    # 1. bdtc.items (items saved in Bid Document Techno-Commercial)
+    # 2. pqb.items (requirements from PQB step)
+    # 3. tct.items (items from Techno-Commercial Tender step)
     items = []
-    if pqb and pqb.items:
+    if bdtc and bdtc.items:
+        for it in bdtc.items:
+            items.append({
+                "id": it.id,
+                "sr_no": it.sr_no,
+                "description": it.description,
+                "material_name": getattr(it, "material_name", None) or it.description,
+                "hsn_sac": getattr(it, "hsn_sac", None) or "",
+                "quantity": float(it.quantity) if it.quantity is not None else None,
+                "unit_price": float(it.unit_price) if getattr(it, "unit_price", None) is not None else None,
+                "total_amount": float(it.total_amount) if getattr(it, "total_amount", None) is not None else None,
+            })
+    elif pqb and pqb.items:
         for it in pqb.items:
             items.append({
                 "id": it.id,
@@ -593,6 +585,16 @@ def handle_get_latest_bid_doc_techno_commercial(args=None):
                 "unit": getattr(it, "unit", None),
                 "quantity": float(it.quantity) if it.quantity is not None else None,
                 "specifications": getattr(it, "specifications", None),
+            })
+    elif tct and tct.items:
+        for it in tct.items:
+            items.append({
+                "id": it.id,
+                "sr_no": it.sr_no,
+                "description": it.description,
+                "material_name": getattr(it, "material_name", None) or it.description,
+                "unit": getattr(it, "unit", None),
+                "quantity": float(it.quantity) if it.quantity is not None else None,
             })
 
     return jsonify({

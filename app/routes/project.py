@@ -1068,7 +1068,7 @@ def _get_project_fallback_item_date(project):
 
 
 def _project_response(project):
-    total_margin, margin_percentage = _get_project_margin_info(project.id)
+    _, margin_percentage = _get_project_margin_info(project.id)
     steps = project.steps if hasattr(project, "steps") and project.steps else []
     saved_steps = [s for s in steps if getattr(s, "id", None) is not None]
     current_step_date = None
@@ -1110,7 +1110,6 @@ def _project_response(project):
         "current_step_date_label": current_step_date_label,
         "step_date": current_step_date,
         "step_date_label": current_step_date_label,
-        "total_margin": total_margin,
         "margin_percentage": margin_percentage,
         "margin_percent": margin_percentage,
         "created_at": project.created_at,
@@ -1323,7 +1322,7 @@ def _project_summary_response(project):
         total_value = 0
 
     # Total margin and margin percentage resolution from Cost Sheet
-    total_margin, margin_percentage = _get_project_margin_info(project.id)
+    _, margin_percentage = _get_project_margin_info(project.id)
 
     # Payment statuses
     customer_payment_status = "pending"
@@ -1424,7 +1423,6 @@ def _project_summary_response(project):
         "next_action": next_action,
         "target_delivery_date": target_delivery_date,
         "total_value": total_value,
-        "total_margin": total_margin,
         "margin_percentage": margin_percentage,
         "margin_percent": margin_percentage,
         "currency": currency,

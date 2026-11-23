@@ -518,6 +518,19 @@ def handle_add_project_step(*args, **kwargs):
             },
         }, 400
 
+    target_pos = payload.get("target_step_order")
+    if target_pos is None and payload.get("insert_after_step_number") is not None:
+        try:
+            target_pos = int(payload.get("insert_after_step_number")) + 1
+        except (ValueError, TypeError):
+            target_pos = None
+
+    if target_pos is not None:
+        try:
+            target_pos = int(target_pos)
+        except (ValueError, TypeError):
+            target_pos = None
+
     # Prevent duplicates if a step with this form_code already exists for the project
     existing_step = ProjectStep.query.filter_by(
         project_id=project_id, form_code=form_code
@@ -539,6 +552,20 @@ def handle_add_project_step(*args, **kwargs):
             step_data["_manually_completed"] = True
         existing_step.data = step_data
         existing_step.updated_at = datetime.utcnow()
+
+        if target_pos is not None and target_pos >= 1 and existing_step.step_order != target_pos:
+            all_steps = (
+                ProjectStep.query.filter_by(project_id=project_id)
+                .filter(ProjectStep.id != existing_step.id)
+                .order_by(ProjectStep.step_order.asc(), ProjectStep.id.asc())
+                .all()
+            )
+            insert_idx = max(0, min(target_pos - 1, len(all_steps)))
+            all_steps.insert(insert_idx, existing_step)
+            for idx, s in enumerate(all_steps, start=1):
+                s.step_order = idx
+                s.step_number = idx
+
         db.session.commit()
         return existing_step.to_dict(), 200
 
@@ -565,8 +592,27 @@ def handle_add_project_step(*args, **kwargs):
         .scalar()
         or 0
     )
-    next_order = max_order + 1
-    next_step_num = max(next_order, max_step_num + 1)
+
+    if target_pos is not None and target_pos >= 1 and target_pos <= max_order:
+        # Shift all steps with step_order >= target_pos down by 1
+        steps_to_shift = (
+            ProjectStep.query.filter_by(project_id=project_id)
+            .filter(ProjectStep.step_order >= target_pos)
+            .order_by(ProjectStep.step_order.desc())
+            .all()
+        )
+        for s in steps_to_shift:
+            s.step_order = (s.step_order or 0) + 1
+            s.step_number = (s.step_number or (s.step_order - 1)) + 1
+        db.session.flush()
+
+        assigned_order = target_pos
+        assigned_step_num = target_pos
+    else:
+        next_order = max_order + 1
+        next_step_num = max(next_order, max_step_num + 1)
+        assigned_order = next_order
+        assigned_step_num = next_step_num
 
     status = payload.get("status") or "in_progress"
     progress_percentage = (
@@ -580,8 +626,8 @@ def handle_add_project_step(*args, **kwargs):
 
     new_step = ProjectStep(
         project_id=project_id,
-        step_order=next_order,
-        step_number=next_step_num,
+        step_order=assigned_order,
+        step_number=assigned_step_num,
         form_code=form_code,
         step_name=step_name,
         description=description,
@@ -601,7 +647,7 @@ def handle_add_project_step(*args, **kwargs):
         r_obj = StepRemark(
             project_id=project_id,
             step_id=new_step.id,
-            step_number=next_order,
+            step_number=assigned_order,
             user_id=user_id,
             user_name=r_author,
             remark=str(payload["remark"]).strip(),

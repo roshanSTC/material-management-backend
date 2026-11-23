@@ -28,6 +28,8 @@ class ProjectStepAttachSchema(Schema):
     remark = fields.String(required=False, allow_none=True)
     user_name = fields.String(required=False, allow_none=True)
     data = fields.Dict(required=False, allow_none=True)
+    target_step_order = fields.Integer(required=False, allow_none=True)
+    insert_after_step_number = fields.Integer(required=False, allow_none=True)
 
 
 class ProjectStepUpdateSchema(Schema):

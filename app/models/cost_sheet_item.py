@@ -13,10 +13,11 @@ class CostSheetItem(db.Model):
         nullable=False,
         index=True,
     )
+    sr_no = db.Column(db.Integer, nullable=True)
     quotation_number = db.Column(db.String(100), nullable=True)
     quotation_index = db.Column(db.String(100), nullable=True)
     item_code = db.Column(db.String(100), nullable=False)
-    item_description = db.Column(db.String(500), nullable=False)
+    description = db.Column(db.String(500), nullable=False)
     price_per_unit_eur = db.Column(db.Numeric(18, 2), nullable=False)
     quantity = db.Column(db.Numeric(18, 3), nullable=False)
     customs_duty_rate = db.Column(db.Numeric(8, 6), nullable=True)

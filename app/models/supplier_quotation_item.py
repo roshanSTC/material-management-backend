@@ -23,13 +23,13 @@ class SupplierQuotationItem(db.Model):
         nullable=True,
     )
 
-    material_name = db.Column(
-        db.String(255),
+    description = db.Column(
+        db.Text,
         nullable=False,
     )
 
-    description = db.Column(
-        db.Text,
+    hsn_sac = db.Column(
+        db.String(50),
         nullable=True,
     )
 
@@ -43,18 +43,8 @@ class SupplierQuotationItem(db.Model):
         nullable=True,
     )
 
-    net_amount = db.Column(
-        db.Numeric(18, 2),
-        nullable=True,
-    )
-
     total_amount = db.Column(
         db.Numeric(18, 2),
-        nullable=True,
-    )
-
-    hsn_code = db.Column(
-        db.String(50),
         nullable=True,
     )
 
@@ -68,14 +58,6 @@ class SupplierQuotationItem(db.Model):
         "SupplierQuotation",
         back_populates="items",
     )
-
-    @property
-    def hsn_sac(self):
-        return self.hsn_code
-
-    @hsn_sac.setter
-    def hsn_sac(self, val):
-        self.hsn_code = val
 
     def __repr__(self) -> str:
         return f"<SupplierQuotationItem {self.id}>"

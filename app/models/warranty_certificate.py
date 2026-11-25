@@ -48,22 +48,6 @@ class WarrantyCertificate(db.Model):
         nullable=True,
     )
 
-    @property
-    def po_number(self):
-        return self.po_no
-
-    @po_number.setter
-    def po_number(self, value):
-        self.po_no = value
-
-    @property
-    def invoice_number(self):
-        return self.invoice_no
-
-    @invoice_number.setter
-    def invoice_number(self, value):
-        self.invoice_no = value
-
     remark = db.Column(
         db.Text,
         nullable=True,

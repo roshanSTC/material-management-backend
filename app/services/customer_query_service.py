@@ -75,10 +75,11 @@ def get_latest_customer_query_record(project_id: int) -> CustomerQuery:
 def create_customer_query_transaction(
     *,
     project_id: int,
-    customer_id: int,
-    qo_date,
-    remark,
-    items: list[dict],
+    customer_id: int | None = None,
+    customer_name: str | None = None,
+    query_date=None,
+    remark=None,
+    items: list[dict] = (),
     user_id: int | None = None,
 ) -> CustomerQuery:
 
@@ -89,25 +90,27 @@ def create_customer_query_transaction(
             f"Project with id {project_id} was not found."
         )
 
-    customer = get_customer(customer_id)
+    if customer_id is not None:
+        customer = get_customer(customer_id)
 
-    if customer is None:
-        raise CustomerNotFoundError(
-            f"Customer with id {customer_id} was not found."
-        )
+        if customer is None:
+            raise CustomerNotFoundError(
+                f"Customer with id {customer_id} was not found."
+            )
 
-    if project.customer_id != customer.id:
-        raise CustomerProjectMismatchError(
-            "The selected customer does not belong to the selected project."
-        )
+        if project.customer_id and project.customer_id != customer.id:
+            raise CustomerProjectMismatchError(
+                "The selected customer does not belong to the selected project."
+            )
 
-    if isinstance(qo_date, str):
-        qo_date = date.fromisoformat(qo_date)
+    if isinstance(query_date, str):
+        query_date = date.fromisoformat(query_date)
 
     customer_query = create_customer_query(
         project_id=project_id,
         customer_id=customer_id,
-        qo_date=qo_date,
+        customer_name=customer_name,
+        query_date=query_date,
         remark=remark,
         items=items,
     )
@@ -133,7 +136,8 @@ def update_customer_query_transaction(
     customer_query_id: int,
     project_id: int | None = None,
     customer_id: int | None = None,
-    qo_date=None,
+    customer_name: str | None = None,
+    query_date=None,
     remark=None,
     items: list[dict] | None = None,
     user_id: int | None = None,
@@ -171,26 +175,30 @@ def update_customer_query_transaction(
                 f"Project with id {final_project_id} was not found."
             )
 
-        customer = get_customer(final_customer_id)
+        if final_customer_id is not None:
+            customer = get_customer(final_customer_id)
 
-        if customer is None:
-            raise CustomerNotFoundError(
-                f"Customer with id {final_customer_id} was not found."
-            )
+            if customer is None:
+                raise CustomerNotFoundError(
+                    f"Customer with id {final_customer_id} was not found."
+                )
 
-        if project.customer_id != customer.id:
-            raise CustomerProjectMismatchError(
-                "The selected customer does not "
-                "belong to the selected project."
-            )
+            if project.customer_id and project.customer_id != customer.id:
+                raise CustomerProjectMismatchError(
+                    "The selected customer does not "
+                    "belong to the selected project."
+                )
 
         customer_query.project_id = final_project_id
         customer_query.customer_id = final_customer_id
 
-    if qo_date is not None:
-        if isinstance(qo_date, str):
-            qo_date = date.fromisoformat(qo_date)
-        customer_query.qo_date = qo_date
+    if customer_name is not None:
+        customer_query.customer_name = customer_name.strip() if customer_name.strip() else None
+
+    if query_date is not None:
+        if isinstance(query_date, str):
+            query_date = date.fromisoformat(query_date)
+        customer_query.query_date = query_date
 
     if sync_remarks:
         customer_query.remark = normalize_remark_for_db(remark)
@@ -206,9 +214,10 @@ def update_customer_query_transaction(
     if items is not None:
         customer_query.items.clear()
 
-        for item_data in items:
+        for idx, item_data in enumerate(items, start=1):
             item = CustomerQueryItem(
-                material_name=item_data["material_name"].strip(),
+                sr_no=item_data.get("sr_no") if item_data.get("sr_no") is not None else idx,
+                description=str(item_data["description"]).strip(),
                 quantity=item_data["quantity"],
             )
 

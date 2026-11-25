@@ -18,22 +18,32 @@ class CustomerDeliveryPackingListItem(db.Model):
         index=True,
     )
 
-    material_name = db.Column(
-        db.String(255),
+    sr_no = db.Column(
+        db.Integer,
+        nullable=True,
+    )
+
+    description = db.Column(
+        db.String(500),
         nullable=False,
     )
 
-    hsn_code = db.Column(
+    hsn_sac = db.Column(
         db.String(50),
         nullable=True,
     )
 
     quantity = db.Column(
         db.Numeric(18, 3),
-        nullable=False,
+        nullable=True,
     )
 
-    weight = db.Column(
+    unit_weight = db.Column(
+        db.Numeric(18, 3),
+        nullable=True,
+    )
+
+    total_weight = db.Column(
         db.Numeric(18, 3),
         nullable=True,
     )
@@ -57,49 +67,8 @@ class CustomerDeliveryPackingListItem(db.Model):
         lazy="select",
     )
 
-    # Property aliases for backward/forward compatibility
-    @property
-    def package_no(self):
-        return None
-
-    @package_no.setter
-    def package_no(self, val):
-        pass
-
-    @property
-    def material_description(self):
-        return self.material_name
-
-    @material_description.setter
-    def material_description(self, val):
-        self.material_name = val
-
-    @property
-    def hsn_sac(self):
-        return self.hsn_code
-
-    @hsn_sac.setter
-    def hsn_sac(self, val):
-        self.hsn_code = val
-
-    @property
-    def weight_per_unit_kg(self):
-        return self.weight
-
-    @weight_per_unit_kg.setter
-    def weight_per_unit_kg(self, val):
-        self.weight = val
-
-    @property
-    def total_weight_kg(self):
-        return self.weight
-
-    @total_weight_kg.setter
-    def total_weight_kg(self, val):
-        self.weight = val
-
     def __repr__(self) -> str:
         return (
             f"<CustomerDeliveryPackingListItem "
-            f"{self.id}: {self.material_name}>"
+            f"{self.id}: {self.description}>"
         )

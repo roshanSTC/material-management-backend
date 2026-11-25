@@ -31,17 +31,17 @@ class SupplierPayment(db.Model):
         default="INR",
     )
 
-    payment_percentage = db.Column(
+    payment_pct = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )
 
-    total_supplier_value = db.Column(
+    total_contract_value = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )
 
-    amount_paid = db.Column(
+    payment_amount = db.Column(
         db.Numeric(18, 2),
         nullable=False,
     )
@@ -51,7 +51,7 @@ class SupplierPayment(db.Model):
         nullable=False,
     )
 
-    transaction_details = db.Column(
+    reference_no = db.Column(
         db.Text,
         nullable=True,
     )
@@ -61,12 +61,12 @@ class SupplierPayment(db.Model):
         nullable=True,
     )
 
-    exchange_rate = db.Column(
+    eur_to_inr_rate = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )
 
-    total_with_exchange = db.Column(
+    payment_amount_inr = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )
@@ -118,14 +118,6 @@ class SupplierPayment(db.Model):
         "Supplier",
         back_populates="supplier_payments",
     )
-
-    @property
-    def remarks(self):
-        return self.remark
-
-    @remarks.setter
-    def remarks(self, value):
-        self.remark = value
 
     def __repr__(self) -> str:
         return f"<SupplierPayment {self.id}>"

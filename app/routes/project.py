@@ -100,40 +100,31 @@ STEP_NEXT_ACTIONS = {
 
 LABEL_BY_KEY = {
     "pqb_closing_date_time": "PQB Closed",
-    "pqb_closing_date": "PQB Closed",
     "closing_date_time": "Closing Date",
     "closing_date": "Closing Date",
-    "submission_deadline": "Due Date",
     "due_date": "Due Date",
     "delivery_date": "Delivery Date",
     "expected_delivery_date": "Delivery Date",
     "target_delivery_date": "Delivery Date",
-    "qo_date": "Query Date",
     "query_date": "Query Date",
-    "quotation_requested_date": "RFQ Date",
-    "rfq_date": "RFQ Date",
     "request_date": "RFQ Date",
     "quotation_date": "Quotation Date",
-    "quote_date": "Quotation Date",
     "cost_sheet_date": "Cost Sheet Date",
     "po_date": "PO Date",
     "order_confirmation_date": "Confirmation Date",
     "proforma_invoice_date": "Proforma Date",
     "invoice_date": "Invoice Date",
     "delivery_challan_date": "Challan Date",
-    "challan_date": "Challan Date",
     "packing_list_date": "Packing List Date",
     "payment_date": "Payment Date",
+    "payment_received_date": "Payment Date",
     "certificate_date": "Certificate Date",
-    "boe_date": "BOE Date",
+    "boe_filing_date": "BOE Date",
     "duty_paid_date": "Duty Paid Date",
     "dispatch_date": "Dispatch Date",
     "eway_bill_date": "E-Way Date",
     "bid_submission_date": "Submission Date",
-    "submission_date": "Submission Date",
-    "tender_date": "Tender Date",
     "tender_issue_date": "Tender Date",
-    "pqb_issuing_date": "PQB Issue Date",
     "pqb_issue_date": "PQB Issue Date",
     "issue_date": "Issue Date",
 }
@@ -221,6 +212,21 @@ def _get_project_latest_items(project_id):
       id, material_name, quantity, unit_price, net_amount, hsn_code, step_number, step_name
     """
     # Step 13: Customer Delivery Invoice / Challan / Packing List
+    def _item_dict(item, step_num, step_name, amount_attr="total_amount", price_attr="unit_price"):
+        qty = getattr(item, "quantity", None)
+        price = getattr(item, price_attr, None) if price_attr else None
+        amt = getattr(item, amount_attr, None) if amount_attr else None
+        return {
+            "id": item.id,
+            "description": getattr(item, "description", None),
+            "quantity": float(qty) if qty is not None else None,
+            "unit_price": float(price) if price is not None else None,
+            "total_amount": float(amt) if amt is not None else None,
+            "hsn_sac": getattr(item, "hsn_sac", None),
+            "step_number": step_num,
+            "step_name": step_name,
+        }
+
     try:
         cdis = (
             CustomerDeliveryInvoice.query.filter_by(project_id=project_id)
@@ -229,19 +235,7 @@ def _get_project_latest_items(project_id):
         )
         for cdi in cdis:
             if cdi.items:
-                return 13, "Customer Invoice", [
-                    {
-                        "id": item.id,
-                        "material_name": item.material_name,
-                        "quantity": float(item.quantity) if item.quantity is not None else None,
-                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
-                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
-                        "hsn_code": getattr(item, "hsn_code", None),
-                        "step_number": 13,
-                        "step_name": "Customer Invoice",
-                    }
-                    for item in cdi.items
-                ]
+                return 13, "Customer Invoice", [_item_dict(item, 13, "Customer Invoice") for item in cdi.items]
 
         dcs = (
             DeliveryChallan.query.filter_by(project_id=project_id)
@@ -250,19 +244,7 @@ def _get_project_latest_items(project_id):
         )
         for dc in dcs:
             if dc.items:
-                return 13, "Customer Invoice", [
-                    {
-                        "id": item.id,
-                        "material_name": item.material_name,
-                        "quantity": float(item.quantity) if item.quantity is not None else None,
-                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
-                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
-                        "hsn_code": getattr(item, "hsn_code", None),
-                        "step_number": 13,
-                        "step_name": "Customer Invoice",
-                    }
-                    for item in dc.items
-                ]
+                return 13, "Customer Invoice", [_item_dict(item, 13, "Customer Invoice") for item in dc.items]
 
         cdpls = (
             CustomerDeliveryPackingList.query.filter_by(project_id=project_id)
@@ -271,19 +253,7 @@ def _get_project_latest_items(project_id):
         )
         for cdpl in cdpls:
             if cdpl.items:
-                return 13, "Customer Invoice", [
-                    {
-                        "id": item.id,
-                        "material_name": item.material_name,
-                        "quantity": float(item.quantity) if item.quantity is not None else None,
-                        "unit_price": None,
-                        "net_amount": None,
-                        "hsn_code": getattr(item, "hsn_code", None),
-                        "step_number": 13,
-                        "step_name": "Customer Invoice",
-                    }
-                    for item in cdpl.items
-                ]
+                return 13, "Customer Invoice", [_item_dict(item, 13, "Customer Invoice", amount_attr=None, price_attr=None) for item in cdpl.items]
     except Exception:
         db.session.rollback()
 
@@ -296,19 +266,7 @@ def _get_project_latest_items(project_id):
         )
         for si in sis:
             if si.items:
-                return 10, "Supplier Invoice", [
-                    {
-                        "id": item.id,
-                        "material_name": item.material_name,
-                        "quantity": float(item.quantity) if item.quantity is not None else None,
-                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
-                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
-                        "hsn_code": getattr(item, "hsn_code", None),
-                        "step_number": 10,
-                        "step_name": "Supplier Invoice",
-                    }
-                    for item in si.items
-                ]
+                return 10, "Supplier Invoice", [_item_dict(item, 10, "Supplier Invoice") for item in si.items]
 
         spls = (
             SupplierPackingList.query.filter_by(project_id=project_id)
@@ -317,19 +275,7 @@ def _get_project_latest_items(project_id):
         )
         for spl in spls:
             if spl.items:
-                return 10, "Supplier Invoice", [
-                    {
-                        "id": item.id,
-                        "material_name": item.material_name,
-                        "quantity": float(item.quantity) if item.quantity is not None else None,
-                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
-                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
-                        "hsn_code": getattr(item, "hsn_code", None),
-                        "step_number": 10,
-                        "step_name": "Supplier Invoice",
-                    }
-                    for item in spl.items
-                ]
+                return 10, "Supplier Invoice", [_item_dict(item, 10, "Supplier Invoice") for item in spl.items]
 
         spis = (
             SupplierProformaInvoice.query.filter_by(project_id=project_id)
@@ -338,19 +284,7 @@ def _get_project_latest_items(project_id):
         )
         for spi in spis:
             if spi.items:
-                return 10, "Supplier Invoice", [
-                    {
-                        "id": item.id,
-                        "material_name": item.material_name,
-                        "quantity": float(item.quantity) if item.quantity is not None else None,
-                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
-                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
-                        "hsn_code": getattr(item, "hsn_code", None),
-                        "step_number": 10,
-                        "step_name": "Supplier Invoice",
-                    }
-                    for item in spi.items
-                ]
+                return 10, "Supplier Invoice", [_item_dict(item, 10, "Supplier Invoice") for item in spi.items]
     except Exception:
         db.session.rollback()
 
@@ -363,19 +297,7 @@ def _get_project_latest_items(project_id):
         )
         for soc in socs:
             if soc.items:
-                return 9, "Order Confirmation to Supplier", [
-                    {
-                        "id": item.id,
-                        "material_name": item.material_name,
-                        "quantity": float(item.quantity) if item.quantity is not None else None,
-                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
-                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
-                        "hsn_code": getattr(item, "hsn_code", None),
-                        "step_number": 9,
-                        "step_name": "Order Confirmation to Supplier",
-                    }
-                    for item in soc.items
-                ]
+                return 9, "Order Confirmation to Supplier", [_item_dict(item, 9, "Order Confirmation to Supplier") for item in soc.items]
     except Exception:
         db.session.rollback()
 
@@ -388,19 +310,7 @@ def _get_project_latest_items(project_id):
         )
         for po in pos:
             if po.items:
-                return 8, "Purchase Order (PO)", [
-                    {
-                        "id": item.id,
-                        "material_name": item.material_name,
-                        "quantity": float(item.quantity) if item.quantity is not None else None,
-                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
-                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
-                        "hsn_code": getattr(item, "hsn_code", None),
-                        "step_number": 8,
-                        "step_name": "Purchase Order (PO)",
-                    }
-                    for item in po.items
-                ]
+                return 8, "Purchase Order (PO)", [_item_dict(item, 8, "Purchase Order (PO)", amount_attr="total_price") for item in po.items]
     except Exception:
         db.session.rollback()
 
@@ -413,19 +323,7 @@ def _get_project_latest_items(project_id):
         )
         for bs in bss:
             if bs.items:
-                return 7, "Bid Document", [
-                    {
-                        "id": item.id,
-                        "material_name": item.material_name or getattr(item, "description", None),
-                        "quantity": float(item.quantity) if item.quantity is not None else None,
-                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
-                        "net_amount": float(item.net_total) if getattr(item, "net_total", None) is not None else None,
-                        "hsn_code": getattr(item, "hsn_sac", None),
-                        "step_number": 7,
-                        "step_name": "Bid Document",
-                    }
-                    for item in bs.items
-                ]
+                return 7, "Bid Document", [_item_dict(item, 7, "Bid Document") for item in bs.items]
     except Exception:
         db.session.rollback()
 
@@ -439,19 +337,7 @@ def _get_project_latest_items(project_id):
         # Step 6: PAC Tender
         for ct in cts:
             if ct.items:
-                return 6, "PAC Tender", [
-                    {
-                        "id": item.id,
-                        "material_name": item.material_name or getattr(item, "description", None),
-                        "quantity": float(item.quantity) if item.quantity is not None else None,
-                        "unit_price": None,
-                        "net_amount": None,
-                        "hsn_code": None,
-                        "step_number": 6,
-                        "step_name": "PAC Tender",
-                    }
-                    for item in ct.items
-                ]
+                return 6, "PAC Tender", [_item_dict(item, 6, "PAC Tender", amount_attr=None, price_attr=None) for item in ct.items]
     except Exception:
         db.session.rollback()
 
@@ -464,19 +350,7 @@ def _get_project_latest_items(project_id):
         )
         for cq in cqs:
             if cq.items:
-                return 5, "Quotation to Customer", [
-                    {
-                        "id": item.id,
-                        "material_name": item.material_name,
-                        "quantity": float(item.quantity) if item.quantity is not None else None,
-                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
-                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
-                        "hsn_code": None,
-                        "step_number": 5,
-                        "step_name": "Quotation to Customer",
-                    }
-                    for item in cq.items
-                ]
+                return 5, "Quotation to Customer", [_item_dict(item, 5, "Quotation to Customer") for item in cq.items]
     except Exception:
         db.session.rollback()
 
@@ -489,19 +363,7 @@ def _get_project_latest_items(project_id):
         )
         for cs in css:
             if cs.items:
-                return 4, "Cost Sheet", [
-                    {
-                        "id": item.id,
-                        "material_name": getattr(item, "item_description", None),
-                        "quantity": float(item.quantity) if item.quantity is not None else None,
-                        "unit_price": float(item.price_per_unit_eur) if getattr(item, "price_per_unit_eur", None) is not None else None,
-                        "net_amount": None,
-                        "hsn_code": None,
-                        "step_number": 4,
-                        "step_name": "Cost Sheet",
-                    }
-                    for item in cs.items
-                ]
+                return 4, "Cost Sheet", [_item_dict(item, 4, "Cost Sheet", amount_attr=None, price_attr="price_per_unit_eur") for item in cs.items]
     except Exception:
         db.session.rollback()
 
@@ -514,19 +376,7 @@ def _get_project_latest_items(project_id):
         )
         for sq in sqs:
             if sq.items:
-                return 3, "Supplier Quotation", [
-                    {
-                        "id": item.id,
-                        "material_name": item.material_name,
-                        "quantity": float(item.quantity) if item.quantity is not None else None,
-                        "unit_price": float(item.unit_price) if getattr(item, "unit_price", None) is not None else None,
-                        "net_amount": float(item.net_amount) if getattr(item, "net_amount", None) is not None else None,
-                        "hsn_code": getattr(item, "hsn_code", None),
-                        "step_number": 3,
-                        "step_name": "Supplier Quotation",
-                    }
-                    for item in sq.items
-                ]
+                return 3, "Supplier Quotation", [_item_dict(item, 3, "Supplier Quotation") for item in sq.items]
     except Exception:
         db.session.rollback()
 
@@ -539,19 +389,7 @@ def _get_project_latest_items(project_id):
         )
         for qr in qrs:
             if qr.items:
-                return 2, "Request Supplier Quotation", [
-                    {
-                        "id": item.id,
-                        "material_name": item.material_name,
-                        "quantity": float(item.quantity) if item.quantity is not None else None,
-                        "unit_price": None,
-                        "net_amount": None,
-                        "hsn_code": None,
-                        "step_number": 2,
-                        "step_name": "Request Supplier Quotation",
-                    }
-                    for item in qr.items
-                ]
+                return 2, "Request Supplier Quotation", [_item_dict(item, 2, "Request Supplier Quotation", amount_attr=None, price_attr=None) for item in qr.items]
     except Exception:
         db.session.rollback()
 
@@ -564,19 +402,7 @@ def _get_project_latest_items(project_id):
         )
         for c_query in c_queries:
             if c_query.items:
-                return 1, "Customer Query", [
-                    {
-                        "id": item.id,
-                        "material_name": item.material_name,
-                        "quantity": float(item.quantity) if item.quantity is not None else None,
-                        "unit_price": None,
-                        "net_amount": None,
-                        "hsn_code": None,
-                        "step_number": 1,
-                        "step_name": "Customer Query",
-                    }
-                    for item in c_query.items
-                ]
+                return 1, "Customer Query", [_item_dict(item, 1, "Customer Query", amount_attr=None, price_attr=None) for item in c_query.items]
     except Exception:
         db.session.rollback()
 
@@ -632,15 +458,15 @@ def _get_step_item_date(project, step):
     elif "QUERY" in form_code_upper or step_num == 1:
         priority_keys = ["qo_date", "query_date", "date"]
     elif "RFQ" in form_code_upper or step_num == 2:
-        priority_keys = ["quotation_requested_date", "rfq_date", "request_date", "date"]
+        priority_keys = ["request_date", "date"]
     elif "QUOTATION" in form_code_upper or step_num in (3, 5):
-        priority_keys = ["quotation_date", "quote_date", "valid_till", "validity_date", "date"]
+        priority_keys = ["quotation_date", "date"]
     elif "COST_SHEET" in form_code_upper or step_num == 4:
         priority_keys = ["cost_sheet_date", "effective_date", "date"]
     elif "TENDER" in form_code_upper or step_num == 6:
-        priority_keys = ["closing_date_time", "closing_date", "tender_date", "tender_issue_date", "opening_date_time", "date"]
+        priority_keys = ["closing_date_time", "tender_issue_date", "opening_date_time", "date"]
     elif "BID" in form_code_upper or step_num == 7:
-        priority_keys = ["bid_submission_date", "submission_date", "tender_issue_date", "bid_date", "date"]
+        priority_keys = ["bid_submission_date", "tender_issue_date", "date"]
     elif "ORDER_CONFIRMATION" in form_code_upper or step_num == 9:
         priority_keys = ["order_confirmation_date", "expected_delivery_date", "delivery_date", "date"]
     elif "PROFORMA" in form_code_upper:
@@ -650,13 +476,13 @@ def _get_step_item_date(project, step):
     elif "PACKING" in form_code_upper:
         priority_keys = ["packing_list_date", "date"]
     elif "PAYMENT" in form_code_upper or step_num in (14, 15):
-        priority_keys = ["payment_date", "date"]
+        priority_keys = ["payment_received_date", "payment_date", "date"]
     elif "CHALLAN" in form_code_upper:
-        priority_keys = ["delivery_challan_date", "challan_date", "dispatch_date", "date"]
+        priority_keys = ["delivery_challan_date", "dispatch_date", "date"]
     elif "WARRANTY" in form_code_upper:
         priority_keys = ["certificate_date", "date"]
     elif "SHIPPING" in form_code_upper or "CLEARANCE" in form_code_upper or step_num in (11, 12):
-        priority_keys = ["date", "bill_of_entry_date", "boe_date", "duty_paid_date"]
+        priority_keys = ["boe_filing_date", "payment_date", "invoice_date", "duty_paid_date", "date"]
     elif "PURCHASE_ORDER" in form_code_upper or step_num == 8:
         priority_keys = ["po_date", "delivery_date", "due_date", "date"]
     else:
@@ -677,21 +503,18 @@ def _get_step_item_date(project, step):
     try:
         if form_code_upper == "FORM_08_CUSTOMER_QUERY" or step_num == 1:
             cq = CustomerQuery.query.filter_by(project_id=project.id).order_by(CustomerQuery.id.desc()).first()
-            if cq and getattr(cq, "qo_date", None):
-                return _format_date_val(cq.qo_date), "Query Date"
+            if cq and getattr(cq, "query_date", None):
+                return _format_date_val(cq.query_date), "Query Date"
 
         elif form_code_upper == "FORM_09_RFQ" or step_num == 2:
             rfq = QuotationRequest.query.filter_by(project_id=project.id).order_by(QuotationRequest.id.desc()).first()
-            if rfq and getattr(rfq, "quotation_requested_date", None):
-                return _format_date_val(rfq.quotation_requested_date), "RFQ Date"
+            if rfq and getattr(rfq, "request_date", None):
+                return _format_date_val(rfq.request_date), "RFQ Date"
 
         elif form_code_upper == "FORM_11_SUPPLIER_QUOTATION" or step_num == 3:
             sq = SupplierQuotation.query.filter_by(project_id=project.id).order_by(SupplierQuotation.id.desc()).first()
-            if sq:
-                if getattr(sq, "quotation_date", None):
-                    return _format_date_val(sq.quotation_date), "Quotation Date"
-                if getattr(sq, "valid_till", None):
-                    return _format_date_val(sq.valid_till), "Valid Till"
+            if sq and getattr(sq, "quotation_date", None):
+                return _format_date_val(sq.quotation_date), "Quotation Date"
 
         elif form_code_upper == "FORM_10_COST_SHEET" or step_num == 4:
             cs = CostSheet.query.filter_by(project_id=project.id).order_by(CostSheet.version_number.desc(), CostSheet.id.desc()).first()
@@ -711,16 +534,16 @@ def _get_step_item_date(project, step):
             if ct:
                 if getattr(ct, "closing_date_time", None):
                     return _format_date_val(ct.closing_date_time), "Closing Date"
-                if getattr(ct, "tender_date", None):
-                    return _format_date_val(ct.tender_date), "Tender Date"
+                if getattr(ct, "tender_issue_date", None):
+                    return _format_date_val(ct.tender_issue_date), "Tender Date"
                 if getattr(ct, "opening_date_time", None):
                     return _format_date_val(ct.opening_date_time), "Opening Date"
 
         elif form_code_upper == "FORM_15_BID_DOCUMENT" or step_num == 7:
             bs = BidSubmission.query.filter_by(project_id=project.id).order_by(BidSubmission.id.desc()).first()
             if bs:
-                if getattr(bs, "submission_date", None):
-                    return _format_date_val(bs.submission_date), "Submission Date"
+                if getattr(bs, "bid_submission_date", None):
+                    return _format_date_val(bs.bid_submission_date), "Submission Date"
                 if getattr(bs, "tender_issue_date", None):
                     return _format_date_val(bs.tender_issue_date), "Tender Date"
 
@@ -802,26 +625,24 @@ def _get_step_item_date(project, step):
 
         elif form_code_upper == "FORM_27_SHIPPING_CLEARANCE" or step_num == 11:
             boe = BillOfEntry.query.filter_by(project_id=project.id).order_by(BillOfEntry.id.desc()).first()
-            if boe and getattr(boe, "date", None):
-                return _format_date_val(boe.date), "BOE Date"
+            if boe and getattr(boe, "boe_filing_date", None):
+                return _format_date_val(boe.boe_filing_date), "BOE Date"
 
         elif form_code_upper == "FORM_28_FREIGHT_CHA" or step_num == 12:
             cc = CustomsClearance.query.filter_by(project_id=project.id).order_by(CustomsClearance.id.desc()).first()
             if cc:
-                if getattr(cc, "duty_paid_date", None):
-                    return _format_date_val(cc.duty_paid_date), "Duty Paid Date"
-                if getattr(cc, "boe_date", None):
-                    return _format_date_val(cc.boe_date), "BOE Date"
+                if getattr(cc, "payment_date", None):
+                    return _format_date_val(cc.payment_date), "Duty Paid Date"
+                if getattr(cc, "invoice_date", None):
+                    return _format_date_val(cc.invoice_date), "BOE Date"
 
         elif form_code_upper == "FORM_01_PQB":
             pqb = PreQualificationBid.query.filter_by(project_id=project.id).order_by(PreQualificationBid.id.desc()).first()
             if pqb:
                 if getattr(pqb, "pqb_closing_date_time", None):
                     return _format_date_val(pqb.pqb_closing_date_time), "PQB Closed"
-                if getattr(pqb, "submission_deadline", None):
-                    return _format_date_val(pqb.submission_deadline), "Submission Deadline"
-                if getattr(pqb, "pqb_issuing_date", None):
-                    return _format_date_val(pqb.pqb_issuing_date), "PQB Issue Date"
+                if getattr(pqb, "pqb_issue_date", None):
+                    return _format_date_val(pqb.pqb_issue_date), "PQB Issue Date"
 
         elif form_code_upper == "FORM_02_PQB_BID_DOCUMENT":
             pbd = PqbBidDocument.query.filter_by(project_id=project.id).order_by(PqbBidDocument.id.desc()).first()
@@ -874,7 +695,7 @@ def _get_step_item_date(project, step):
         elif form_code_upper == "FORM_30_TECHNO_COMMERCIAL_TENDER":
             tct = TechnoCommercialTender.query.filter(
                 TechnoCommercialTender.project_id == project.id,
-                TechnoCommercialTender.form_code.in_(["FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30"])
+                TechnoCommercialTender.form_code == "FORM_30_TECHNO_COMMERCIAL_TENDER",
             ).order_by(TechnoCommercialTender.id.desc()).first()
             if tct:
                 if getattr(tct, "bid_submission_due_date_time", None):
@@ -882,10 +703,10 @@ def _get_step_item_date(project, step):
                 if getattr(tct, "tender_issue_date", None):
                     return _format_date_val(tct.tender_issue_date), "Tender Date"
 
-        elif form_code_upper in ("FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_STE"):
+        elif form_code_upper == "FORM_33_STE":
             ste = TechnoCommercialTender.query.filter(
                 TechnoCommercialTender.project_id == project.id,
-                TechnoCommercialTender.form_code.in_(["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE"])
+                TechnoCommercialTender.form_code == "FORM_33_STE",
             ).order_by(TechnoCommercialTender.id.desc()).first()
             if ste:
                 if getattr(ste, "bid_submission_due_date_time", None):
@@ -893,7 +714,7 @@ def _get_step_item_date(project, step):
                 if getattr(ste, "tender_issue_date", None):
                     return _format_date_val(ste.tender_issue_date), "Tender Date"
 
-        elif form_code_upper in ("FORM_34_BID_DOC_STE", "FORM_34_BID_DOCUMENT_STE"):
+        elif form_code_upper == "FORM_34_BID_DOC_STE":
             from app.models.bid_document_ste import BidDocumentSte
             bd_ste = BidDocumentSte.query.filter_by(project_id=project.id).order_by(BidDocumentSte.id.desc()).first()
             if bd_ste:
@@ -902,7 +723,7 @@ def _get_step_item_date(project, step):
                 if getattr(bd_ste, "tender_issue_date", None):
                     return _format_date_val(bd_ste.tender_issue_date), "Tender Date"
 
-        elif form_code_upper in ("FORM_35_ICB", "FORM_35_INTERNATIONAL_COMPETITIVE_BIDDING"):
+        elif form_code_upper == "FORM_35_ICB":
             from app.models.international_competitive_bidding import InternationalCompetitiveBidding
             icb = InternationalCompetitiveBidding.query.filter_by(project_id=project.id).order_by(InternationalCompetitiveBidding.id.desc()).first()
             if icb:
@@ -911,7 +732,7 @@ def _get_step_item_date(project, step):
                 if getattr(icb, "tender_issue_date", None):
                     return _format_date_val(icb.tender_issue_date), "Tender Date"
 
-        elif form_code_upper in ("FORM_36_BID_DOC_ICB", "FORM_36_BID_DOCUMENT_ICB"):
+        elif form_code_upper == "FORM_36_BID_DOC_ICB":
             from app.models.bid_document_icb import BidDocumentIcb
             bd_icb = BidDocumentIcb.query.filter_by(project_id=project.id).order_by(BidDocumentIcb.id.desc()).first()
             if bd_icb:
@@ -991,8 +812,8 @@ def _get_project_fallback_item_date(project):
             for b in reversed(pqbs):
                 if getattr(b, "pqb_closing_date_time", None):
                     return _format_date_val(b.pqb_closing_date_time), "PQB Closed"
-                if getattr(b, "pqb_issuing_date", None):
-                    return _format_date_val(b.pqb_issuing_date), "PQB Issue Date"
+                if getattr(b, "pqb_issue_date", None):
+                    return _format_date_val(b.pqb_issue_date), "PQB Issue Date"
 
         # 5. Customer Tenders
         cts = getattr(project, "customer_tenders", None)
@@ -1000,29 +821,29 @@ def _get_project_fallback_item_date(project):
             for t in reversed(cts):
                 if getattr(t, "closing_date_time", None):
                     return _format_date_val(t.closing_date_time), "Closing Date"
-                if getattr(t, "tender_date", None):
-                    return _format_date_val(t.tender_date), "Tender Date"
+                if getattr(t, "tender_issue_date", None):
+                    return _format_date_val(t.tender_issue_date), "Tender Date"
 
         # 6. Customer Queries
         cqrys = getattr(project, "customer_queries", None)
         if cqrys:
             for q in reversed(cqrys):
-                if getattr(q, "qo_date", None):
-                    return _format_date_val(q.qo_date), "Query Date"
+                if getattr(q, "query_date", None):
+                    return _format_date_val(q.query_date), "Query Date"
 
         # 7. Quotation Requests (RFQ)
         rfqs = getattr(project, "quotation_requests", None)
         if rfqs:
             for r in reversed(rfqs):
-                if getattr(r, "quotation_requested_date", None):
-                    return _format_date_val(r.quotation_requested_date), "RFQ Date"
+                if getattr(r, "request_date", None):
+                    return _format_date_val(r.request_date), "RFQ Date"
 
         # 8. Bid Submissions
         bss = getattr(project, "bid_submissions", None)
         if bss:
             for b in reversed(bss):
-                if getattr(b, "submission_date", None):
-                    return _format_date_val(b.submission_date), "Submission Date"
+                if getattr(b, "bid_submission_date", None):
+                    return _format_date_val(b.bid_submission_date), "Submission Date"
 
         # 9. Invoices
         cdis = getattr(project, "customer_delivery_invoices", None)
@@ -1277,14 +1098,14 @@ def _project_summary_response(project):
             if bid and bid.items:
                 net_sum = 0.0
                 for item in bid.items:
-                    if item.net_total is not None:
-                        net_sum += float(item.net_total)
+                    if item.total_amount is not None:
+                        net_sum += float(item.total_amount)
                     elif item.unit_price is not None and item.quantity is not None:
                         net_sum += float(item.unit_price) * float(item.quantity)
                 if net_sum > 0:
-                    if bid.gst_rate is not None:
+                    if bid.gst_pct is not None:
                         try:
-                            total_value = round(net_sum * (1.0 + float(bid.gst_rate) / 100.0), 2)
+                            total_value = round(net_sum * (1.0 + float(bid.gst_pct) / 100.0), 2)
                         except Exception:
                             total_value = net_sum
                     else:
@@ -1371,11 +1192,11 @@ def _project_summary_response(project):
             .all()
         )
         if supp_payments:
-            paid_sum = sum(float(p.amount_paid) for p in supp_payments if p.amount_paid is not None)
+            paid_sum = sum(float(p.payment_amount) for p in supp_payments if p.payment_amount is not None)
             latest_supp = supp_payments[-1]
             supp_tsv = (
-                float(latest_supp.total_supplier_value)
-                if latest_supp.total_supplier_value is not None
+                float(latest_supp.total_contract_value)
+                if latest_supp.total_contract_value is not None
                 else 0.0
             )
             latest_pending = (
@@ -1511,7 +1332,7 @@ def search(args):
         item_matches = [
             it
             for it in latest_items
-            if it.get("material_name") and query_str in it["material_name"].lower()
+            if it.get("description") and query_str in it["description"].lower()
         ]
 
         if title_match or code_match or item_matches:

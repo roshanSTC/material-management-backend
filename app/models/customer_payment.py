@@ -18,7 +18,7 @@ class CustomerPayment(db.Model):
         index=True,
     )
 
-    invoice_no = db.Column(
+    payment_against_invoice_no = db.Column(
         db.String(100),
         nullable=False,
     )
@@ -33,22 +33,27 @@ class CustomerPayment(db.Model):
         nullable=False,
     )
 
-    payment_amount = db.Column(
+    payment_received = db.Column(
         db.Numeric(18, 2),
         nullable=False,
     )
 
-    payment_date = db.Column(
+    payment_received_date = db.Column(
         db.Date,
         nullable=False,
     )
 
-    ld = db.Column(
+    ld_deducted = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )
 
-    tds = db.Column(
+    tds_deducted = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    balance_amount = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )
@@ -75,30 +80,6 @@ class CustomerPayment(db.Model):
         "Project",
         back_populates="customer_payments",
     )
-
-    @property
-    def invoice_number(self) -> str:
-        return self.invoice_no
-
-    @invoice_number.setter
-    def invoice_number(self, value: str):
-        self.invoice_no = value
-
-    @property
-    def liquidated_damages(self):
-        return self.ld
-
-    @liquidated_damages.setter
-    def liquidated_damages(self, value):
-        self.ld = value
-
-    @property
-    def remarks(self):
-        return self.remark
-
-    @remarks.setter
-    def remarks(self, value):
-        self.remark = value
 
     def __repr__(self) -> str:
         return f"<CustomerPayment {self.id}>"

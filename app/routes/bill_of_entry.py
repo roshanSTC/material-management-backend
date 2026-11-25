@@ -69,58 +69,28 @@ def _bill_of_entry_response(record):
         entity_id=record.id,
     )
 
-    from app.models import CustomsClearance, ImportLogistics
-    cc = CustomsClearance.query.filter_by(project_id=record.project_id).order_by(CustomsClearance.id.desc()).first()
-    il = ImportLogistics.query.filter_by(project_id=record.project_id).order_by(ImportLogistics.id.desc()).first()
-
-    logistic_mode = None
-    shipment_date = None
-    awb_bl_no = None
-    flight_vessel_name = None
-    flight_vessel_no = None
-    port_loading = None
-    port_discharge = None
-
-    if il:
-        logistic_mode = il.logistic_type
-        shipment_date = il.date
-        awb_bl_no = il.airway_bill_no if il.logistic_type == "air" else il.bill_of_lading_no
-        flight_vessel_name = il.flight_name if il.logistic_type == "air" else il.vessel_name
-        flight_vessel_no = il.flight_no if il.logistic_type == "air" else il.voyage_no
-        port_loading = il.airport_of_loading if il.logistic_type == "air" else il.port_of_loading
-        port_discharge = il.port_of_discharge
-
     return {
         "id": record.id,
         "project_id": record.project_id,
-        "logistic_mode": logistic_mode,
-        "shipment_date": shipment_date,
-        "awb_bl_no": awb_bl_no,
-        "flight_vessel_name": flight_vessel_name,
-        "flight_vessel_no": flight_vessel_no,
-        "port_loading": port_loading,
-        "port_discharge": port_discharge,
+        "logistic_mode": record.logistic_mode,
+        "shipment_date": record.shipment_date,
+        "awb_bl_no": record.awb_bl_no,
+        "flight_vessel_name": record.flight_vessel_name,
+        "flight_vessel_no": record.flight_vessel_no,
+        "port_loading": record.port_loading,
+        "port_discharge": record.port_discharge,
         "bill_of_entry_no": record.bill_of_entry_no,
-        "bill_of_entry_number": record.bill_of_entry_no,
-        "boe_no": record.bill_of_entry_no,
-        "date": record.date,
-        "entry_date": record.date,
-        "boe_filing_date": record.date,
-        "boe_date": record.date,
+        "boe_filing_date": record.boe_filing_date,
         "total_assessable_value": record.total_assessable_value,
-        "bcd": record.bcd,
-        "basic_custom_duty_bcd": record.bcd,
+        "basic_custom_duty_bcd": record.basic_custom_duty_bcd,
         "sws": record.sws,
         "igst": record.igst,
-        "duty_paid_date": cc.duty_paid_date if cc else None,
-        "challan_no": cc.challan_no if cc else None,
-        "payment_ref_no": (cc.transaction_ref_no if cc else None),
-        "customs_location": cc.customs_location if cc else None,
-        "cfs_name": cc.cfs_name if cc else None,
+        "duty_paid_date": record.duty_paid_date,
+        "challan_no": record.challan_no,
+        "payment_ref_no": record.payment_ref_no,
+        "customs_location": record.customs_location,
+        "cfs_name": record.cfs_name,
         "total_duty": record.total_duty,
-        "duty": record.total_duty,
-        "duty_amount": record.total_duty,
-        "items": [],
         "form_code": "FORM_27_SHIPPING_CLEARANCE",
         "remarks": get_step_remarks_for_response(
             project_id=record.project_id,
@@ -148,21 +118,21 @@ def _bill_of_entry_response(record):
 
 
 def _latest_bill_of_entry_response(record):
-    bcd_dec = Decimal(str(record.bcd)) if record.bcd is not None else None
+    bcd_dec = Decimal(str(record.basic_custom_duty_bcd)) if record.basic_custom_duty_bcd is not None else None
     sws_dec = Decimal(str(record.sws)) if record.sws is not None else None
     igst_dec = Decimal(str(record.igst)) if record.igst is not None else None
 
-    duty_dec = None
-    if bcd_dec is not None or sws_dec is not None:
-        duty_dec = (bcd_dec or Decimal(0)) + (sws_dec or Decimal(0))
+    duty_dec = Decimal(str(record.total_duty)) if record.total_duty is not None else None
+    if duty_dec is None and (bcd_dec is not None or sws_dec is not None or igst_dec is not None):
+        duty_dec = (bcd_dec or Decimal(0)) + (sws_dec or Decimal(0)) + (igst_dec or Decimal(0))
 
     return {
         "bill_of_entry_no": record.bill_of_entry_no,
-        "date": record.date,
-        "bcd": float(bcd_dec) if bcd_dec is not None else None,
+        "boe_filing_date": record.boe_filing_date,
+        "basic_custom_duty_bcd": float(bcd_dec) if bcd_dec is not None else None,
         "sws": float(sws_dec) if sws_dec is not None else None,
         "igst": float(igst_dec) if igst_dec is not None else None,
-        "duty": float(duty_dec) if duty_dec is not None else None,
+        "total_duty": float(duty_dec) if duty_dec is not None else None,
     }
 
 
@@ -463,7 +433,7 @@ _REQUEST_BODY_CREATE_DOC = {
                     "data": {
                         "type": "string",
                         "description": "Serialized JSON string matching BillOfEntryCreateSchema",
-                        "example": '{"project_id":1,"bill_of_entry_no":"454UHF-4FRDF","date":"2026-09-15","total_assessable_value":2445,"bcd":34,"sws":245,"igst":222,"total_duty":501,"remark":"Customs Documents & Attachments\\n"}',
+                        "example": '{"project_id":1,"bill_of_entry_no":"454UHF-4FRDF","boe_filing_date":"2026-09-15","total_assessable_value":2445,"basic_custom_duty_bcd":34,"sws":245,"igst":222,"total_duty":501,"remark":"Customs Documents & Attachments\\n"}',
                     },
                     "file": {
                         "type": "array",
@@ -481,9 +451,9 @@ _REQUEST_BODY_CREATE_DOC = {
                     "value": {
                         "project_id": 1,
                         "bill_of_entry_no": "454UHF-4FRDF",
-                        "date": "2026-09-15",
+                        "boe_filing_date": "2026-09-15",
                         "total_assessable_value": 2445,
-                        "bcd": 34,
+                        "basic_custom_duty_bcd": 34,
                         "sws": 245,
                         "igst": 222,
                         "total_duty": 501,
@@ -506,7 +476,7 @@ _REQUEST_BODY_UPDATE_DOC = {
                     "data": {
                         "type": "string",
                         "description": "Serialized JSON string matching BillOfEntryUpdateSchema",
-                        "example": '{"bill_of_entry_no":"454UHF-4FRDF","date":"2026-09-15","total_assessable_value":2445,"bcd":34,"sws":245,"igst":222,"total_duty":501,"remark":"Customs Documents & Attachments\\n"}',
+                        "example": '{"bill_of_entry_no":"454UHF-4FRDF","boe_filing_date":"2026-09-15","total_assessable_value":2445,"basic_custom_duty_bcd":34,"sws":245,"igst":222,"total_duty":501,"remark":"Customs Documents & Attachments\\n"}',
                     },
                     "file": {
                         "type": "array",
@@ -556,7 +526,7 @@ def list_bills_of_entry(args=None):
 @bill_of_entry_bp.doc(
     security=[{"BearerAuth": []}],
     summary="Get Latest Bill of Entry for Project",
-    description="Retrieve bill_of_entry_no, date, bcd, sws, igst, and duty for the latest bill of entry of a project.",
+    description="Retrieve bill_of_entry_no, boe_filing_date, basic_custom_duty_bcd, sws, igst, and total_duty for the latest bill of entry of a project.",
 )
 @bill_of_entry_bp.arguments(LatestBillOfEntryQuerySchema, location="query")
 @bill_of_entry_bp.response(200, LatestBillOfEntryResponseSchema)

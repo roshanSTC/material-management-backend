@@ -69,15 +69,16 @@ def _bid_submission_response(bid_submission):
             else str(bid_submission.tender_issue_date)
         )
 
+    tender_issue_date = (
+        bid_submission.tender_issue_date.isoformat()
+        if hasattr(bid_submission.tender_issue_date, "isoformat")
+        else (str(bid_submission.tender_issue_date) if bid_submission.tender_issue_date else None)
+    )
     corrigendum_count = 0
     if bid_submission.tender:
         t = bid_submission.tender
         if not tender_issue_date:
-            t_date = (
-                getattr(t, "tender_date", None)
-                or getattr(t, "tender_issue_date", None)
-                or getattr(t, "issue_date", None)
-            )
+            t_date = getattr(t, "tender_issue_date", None)
             if t_date:
                 tender_issue_date = t_date.isoformat() if hasattr(t_date, "isoformat") else str(t_date)
         if getattr(t, "corrigendums", None) is not None:
@@ -88,11 +89,7 @@ def _bid_submission_response(bid_submission):
         first_tender = CustomerTender.query.filter_by(project_id=bid_submission.project_id).first()
         if first_tender:
             if not tender_issue_date:
-                t_date = (
-                    getattr(first_tender, "tender_date", None)
-                    or getattr(first_tender, "tender_issue_date", None)
-                    or getattr(first_tender, "issue_date", None)
-                )
+                t_date = getattr(first_tender, "tender_issue_date", None)
                 if t_date:
                     tender_issue_date = t_date.isoformat() if hasattr(t_date, "isoformat") else str(t_date)
             corrigendum_count = Corrigendum.query.filter_by(project_id=bid_submission.project_id).count()
@@ -102,7 +99,7 @@ def _bid_submission_response(bid_submission):
                     from app.models.limited_tender_enquiry import LimitedTenderEnquiry
                     lte = LimitedTenderEnquiry.query.filter_by(project_id=bid_submission.project_id).first()
                     if lte:
-                        t_date = getattr(lte, "tender_issue_date", None) or getattr(lte, "tender_date", None)
+                        t_date = getattr(lte, "tender_issue_date", None)
                         if t_date:
                             tender_issue_date = t_date.isoformat() if hasattr(t_date, "isoformat") else str(t_date)
                 except Exception:
@@ -112,7 +109,7 @@ def _bid_submission_response(bid_submission):
                     from app.models.pre_qualification_bid import PreQualificationBid
                     pqb = PreQualificationBid.query.filter_by(project_id=bid_submission.project_id).first()
                     if pqb:
-                        t_date = getattr(pqb, "pqb_issuing_date", None) or getattr(pqb, "pqb_issue_date", None)
+                        t_date = getattr(pqb, "pqb_issue_date", None)
                         if t_date:
                             tender_issue_date = t_date.isoformat() if hasattr(t_date, "isoformat") else str(t_date)
                 except Exception:
@@ -129,45 +126,40 @@ def _bid_submission_response(bid_submission):
                     pass
             corrigendum_count = Corrigendum.query.filter_by(project_id=bid_submission.project_id).count()
 
-    if not tender_issue_date and bid_submission.submission_date:
+    if not tender_issue_date and bid_submission.bid_submission_date:
         tender_issue_date = (
-            bid_submission.submission_date.date().isoformat()
-            if hasattr(bid_submission.submission_date, "date")
-            else str(bid_submission.submission_date)[:10]
+            bid_submission.bid_submission_date.date().isoformat()
+            if hasattr(bid_submission.bid_submission_date, "date")
+            else str(bid_submission.bid_submission_date)[:10]
         )
 
     sub_date = (
-        bid_submission.submission_date.isoformat()
-        if hasattr(bid_submission.submission_date, "isoformat")
-        else str(bid_submission.submission_date)
-    ) if bid_submission.submission_date else None
+        bid_submission.bid_submission_date.isoformat()
+        if hasattr(bid_submission.bid_submission_date, "isoformat")
+        else str(bid_submission.bid_submission_date)
+    ) if bid_submission.bid_submission_date else None
 
-    gst_str = str(bid_submission.gst_rate) if bid_submission.gst_rate is not None else None
+    gst_str = str(bid_submission.gst_pct) if bid_submission.gst_pct is not None else None
 
     return {
         "id": bid_submission.id,
         "project_id": bid_submission.project_id,
-        "customer_name": cust_name,
+        "customer_name": bid_submission.customer_name or cust_name,
         "tender_id": bid_submission.tender_id,
         "tender_title": bid_submission.tender_title,
-        "tender_name": bid_submission.tender_title,
-        "tender_no": bid_submission.tender_number,
-        "tender_number": bid_submission.tender_number,
+        "tender_no": bid_submission.tender_no,
         "tender_issue_date": tender_issue_date,
-        "total_no_corrigendum_issued": corrigendum_count,
-        "submission_date": bid_submission.submission_date,
+        "total_no_corrigendum_issued": (
+            bid_submission.total_no_corrigendum_issued
+            if bid_submission.total_no_corrigendum_issued is not None
+            else corrigendum_count
+        ),
         "bid_submission_date": sub_date,
-        "submission_number": bid_submission.tender_number,
-        "delivery_term": bid_submission.delivery_term,
-        "delivery_terms": bid_submission.delivery_term,
+        "delivery_terms": bid_submission.delivery_terms,
         "delivery_period": bid_submission.delivery_period,
-        "period": bid_submission.delivery_period,
-        "payment_term": bid_submission.payment_term,
-        "payment_terms": bid_submission.payment_term,
-        "validity": bid_submission.validity,
-        "bid_validity": bid_submission.validity,
+        "payment_terms": bid_submission.payment_terms,
+        "bid_validity": bid_submission.bid_validity,
         "warranty_period": bid_submission.warranty_period,
-        "gst_rate": bid_submission.gst_rate,
         "gst_pct": gst_str,
         "remarks": get_step_remarks_for_response(
             project_id=bid_submission.project_id,
@@ -180,16 +172,13 @@ def _bid_submission_response(bid_submission):
         "items": [
             {
                 "id": item.id,
-                "sr_no": idx,
+                "sr_no": item.sr_no if item.sr_no is not None else idx,
                 "bid_submission_id": item.bid_submission_id,
                 "description": item.description,
-                "material_name": item.description,
                 "hsn_sac": item.hsn_sac,
                 "unit_price": item.unit_price,
                 "quantity": item.quantity,
-                "total_amount": item.net_total,
-                "net_total": item.net_total,
-                "net_amount": item.net_total,
+                "total_amount": item.total_amount,
                 "created_at": item.created_at,
             }
             for idx, item in enumerate(bid_submission.items, start=1)
@@ -224,17 +213,20 @@ def _format_decimal_str(val, places=2):
 
 def _latest_bid_submission_response(bid_submission):
     return {
-        "delivery_term": bid_submission.delivery_term,
-        "gst_rate": _format_decimal_str(bid_submission.gst_rate, places=2),
+        "delivery_terms": bid_submission.delivery_terms,
+        "gst_pct": _format_decimal_str(bid_submission.gst_pct, places=2),
         "items": [
             {
-                "description": item.description or item.material_name or "",
+                "sr_no": item.sr_no if item.sr_no is not None else idx,
+                "description": item.description or "",
+                "hsn_sac": item.hsn_sac,
                 "quantity": _format_decimal_str(item.quantity, places=3) or "0.000",
                 "unit_price": _format_decimal_str(item.unit_price, places=2),
+                "total_amount": _format_decimal_str(item.total_amount, places=2),
             }
-            for item in bid_submission.items
+            for idx, item in enumerate(bid_submission.items, start=1)
         ],
-        "payment_terms": bid_submission.payment_term,
+        "payment_terms": bid_submission.payment_terms,
         "warranty_period": bid_submission.warranty_period,
     }
 

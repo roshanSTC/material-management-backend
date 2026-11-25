@@ -44,7 +44,7 @@ def _compute_total_duty(data: dict, existing: BillOfEntry | None = None) -> Deci
         except Exception:
             pass
 
-    bcd = data.get("bcd") if "bcd" in data else (existing.bcd if existing else None)
+    bcd = data.get("basic_custom_duty_bcd") if "basic_custom_duty_bcd" in data else (existing.basic_custom_duty_bcd if existing else None)
     sws = data.get("sws") if "sws" in data else (existing.sws if existing else None)
     igst = data.get("igst") if "igst" in data else (existing.igst if existing else None)
 
@@ -110,7 +110,7 @@ def update_bill_of_entry_transaction(
                 f"Project with ID {data['project_id']} not found."
             )
 
-    if data.get("total_duty") is None and ("bcd" in data or "sws" in data or "igst" in data):
+    if data.get("total_duty") is None and ("basic_custom_duty_bcd" in data or "sws" in data or "igst" in data):
         computed_duty = _compute_total_duty(data, existing=record)
         if computed_duty is not None:
             data["total_duty"] = computed_duty

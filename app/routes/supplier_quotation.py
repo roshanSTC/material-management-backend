@@ -78,8 +78,7 @@ def _supplier_quotation_response(supplier_quotation):
         "project_id": supplier_quotation.project_id,
         "supplier_id": supplier_quotation.supplier_id,
         "supplier_name": supplier_name,
-        "quotation_no": supplier_quotation.quotation_number,
-        "quotation_number": supplier_quotation.quotation_number,
+        "quotation_no": supplier_quotation.quotation_no,
         "quotation_date": supplier_quotation.quotation_date,
         "quotation_value": supplier_quotation.quotation_value,
         "total_net_amount": total_net_amount,
@@ -88,8 +87,7 @@ def _supplier_quotation_response(supplier_quotation):
         "currency": currency,
         "currency_unit": supplier_quotation.currency_unit or currency,
         "currency_symbol": currency_symbol,
-        "quotation_validity": supplier_quotation.validity,
-        "validity": supplier_quotation.validity,
+        "quotation_validity": supplier_quotation.quotation_validity,
         "incoterms": supplier_quotation.incoterms,
         "payment_terms": supplier_quotation.payment_terms,
         "delivery_period": supplier_quotation.delivery_period,
@@ -109,14 +107,11 @@ def _supplier_quotation_response(supplier_quotation):
             {
                 "id": item.id,
                 "sr_no": item.sr_no if item.sr_no is not None else (idx + 1),
-                "material_name": item.material_name,
-                "description": item.description or item.material_name,
-                "hsn_code": item.hsn_code,
-                "hsn_sac": item.hsn_code or "",
+                "description": item.description,
+                "hsn_sac": item.hsn_sac or "",
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
-                "net_amount": item.net_amount,
-                "total_amount": item.total_amount if item.total_amount is not None else item.net_amount,
+                "total_amount": item.total_amount,
             }
             for idx, item in enumerate(supplier_quotation.items)
         ],
@@ -196,22 +191,21 @@ def _latest_supplier_quotation_response(sq):
     for idx, item in enumerate(sq.items, start=1):
         qty = item.quantity
         price = item.unit_price
-        net_amt = item.net_amount
-        if net_amt is None and qty is not None and price is not None:
+        tot_amt = item.total_amount
+        if tot_amt is None and qty is not None and price is not None:
             try:
                 from decimal import Decimal
-                net_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
+                tot_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
             except Exception:
                 pass
 
-        total_amt = item.total_amount if getattr(item, "total_amount", None) is not None else net_amt
-
         items_list.append({
-            "material_name": item.material_name,
-            "hsn_code": item.hsn_code,
+            "sr_no": item.sr_no if item.sr_no is not None else idx,
+            "description": item.description,
+            "hsn_sac": item.hsn_sac,
             "unit_price": _format_decimal_str(price, places=2),
             "quantity": _format_decimal_str(qty, places=3) or "0.000",
-            "net_amount": _format_decimal_str(net_amt, places=2),
+            "total_amount": _format_decimal_str(tot_amt, places=2),
         })
 
     currency = getattr(sq, "currency", None) or sq.currency_unit
@@ -230,16 +224,15 @@ def _latest_supplier_quotation_response(sq):
         total_amt = total_gross or total_net or sq.quotation_value
 
     return {
+        "quotation_no": sq.quotation_no,
         "quotation_date": sq.quotation_date.isoformat() if hasattr(sq.quotation_date, "isoformat") else str(sq.quotation_date),
         "quotation_value": _format_decimal_str(sq.quotation_value, places=2),
         "total_net_amount": _format_decimal_str(total_net, places=2),
         "total_gross_amount": _format_decimal_str(total_gross, places=2),
         "total_amount": _format_decimal_str(total_amt, places=2),
-        "currency": currency,
         "currency_unit": sq.currency_unit or currency,
         "currency_symbol": currency_symbol,
-        "quotation_validity": sq.validity,
-        "validity": sq.validity,
+        "quotation_validity": sq.quotation_validity,
         "incoterms": sq.incoterms,
         "payment_terms": sq.payment_terms,
         "warranty_period": sq.warranty_period,
@@ -392,7 +385,7 @@ def _positive_query_int(name: str):
                     "properties": {
                         "data": {
                             "type": "string",
-                            "example": ('{"project_id":1,"supplier_id":1,"quotation_number":"SQ-2026-00891","quotation_date":"2026-09-02","currency_unit":"USA", "quotation_value":"15000.00","validity":"60 Days","incoterms":"FOB","payment_terms":"50% Advance, 50% against Delivery","delivery_period":"5 Weeks","remark":"Prices include standard 1-year operational warranty.","items":[{"material_name":"High-Pressure Hydraulic Valve","hsn_code":"84818090","quantity":10, "unit_price" : 100, "net_amount": 1000},{"material_name":"Stainless Steel Connecting Pipe","hsn_code":"73044100","quantity":50, "unit_price" : 2, "net_amount": 100}]}'),
+                            "example": ('{"project_id":1,"supplier_id":1,"quotation_no":"SQ-2026-00891","quotation_date":"2026-09-02","currency_unit":"USD","quotation_value":"15000.00","quotation_validity":"60 Days","incoterms":"FOB","payment_terms":"50% Advance, 50% against Delivery","delivery_period":"5 Weeks","remark":"Prices include standard 1-year operational warranty.","items":[{"description":"High-Pressure Hydraulic Valve","hsn_sac":"84818090","quantity":10,"unit_price":100,"total_amount":1000},{"description":"Stainless Steel Connecting Pipe","hsn_sac":"73044100","quantity":50,"unit_price":2,"total_amount":100}]}'),
                         },
                         "file": {
                             "type": "array",
@@ -508,7 +501,7 @@ def list_all(args=None):
                     "properties": {
                         "data": {
                             "type": "string",
-                            "example": ('{"project_id":1,"supplier_id":1,"quotation_number":"SQ-2026-00891","quotation_date":"2026-09-02","currency_unit":"USA", "quotation_value":"15000.00","validity":"60 Days","incoterms":"FOB","payment_terms":"50% Advance, 50% against Delivery","delivery_period":"5 Weeks","remark":"Prices include standard 1-year operational warranty.","items":[{"material_name":"High-Pressure Hydraulic Valve","hsn_code":"84818090","quantity":10, "unit_price":100, "net_amount": 1000 },{"material_name":"Stainless Steel Connecting Pipe","hsn_code":"73044100","quantity":50, "unit_price" : 2, "net_amount": 100 }]}'),
+                            "example": ('{"project_id":1,"supplier_id":1,"quotation_no":"SQ-2026-00891","quotation_date":"2026-09-02","currency_unit":"USD","quotation_value":"15000.00","quotation_validity":"60 Days","incoterms":"FOB","payment_terms":"50% Advance, 50% against Delivery","delivery_period":"5 Weeks","remark":"Prices include standard 1-year operational warranty.","items":[{"description":"High-Pressure Hydraulic Valve","hsn_sac":"84818090","quantity":10,"unit_price":100,"total_amount":1000},{"description":"Stainless Steel Connecting Pipe","hsn_sac":"73044100","quantity":50,"unit_price":2,"total_amount":100}]}'),
                         },
                         "file": {
                             "type": "array",

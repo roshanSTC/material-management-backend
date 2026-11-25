@@ -32,12 +32,17 @@ class PurchaseOrder(db.Model):
         index=True,
     )
 
+    customer_name = db.Column(
+        db.String(255),
+        nullable=True,
+    )
+
     po_title = db.Column(
         db.String(255),
         nullable=False,
     )
 
-    po_number = db.Column(
+    po_no = db.Column(
         db.String(100),
         nullable=False,
     )
@@ -62,7 +67,7 @@ class PurchaseOrder(db.Model):
         nullable=False,
     )
 
-    gst_rate = db.Column(
+    gst_rate_pct = db.Column(
         db.Numeric(5, 2),
         nullable=True,
     )
@@ -87,7 +92,7 @@ class PurchaseOrder(db.Model):
         nullable=True,
     )
 
-    delivery_term = db.Column(
+    delivery_terms = db.Column(
         db.String(100),
         nullable=True,
     )
@@ -147,62 +152,6 @@ class PurchaseOrder(db.Model):
         back_populates="purchase_order",
         lazy="select",
     )
-
-    @property
-    def po_no(self) -> str:
-        return self.po_number
-
-    @po_no.setter
-    def po_no(self, val: str) -> None:
-        self.po_number = val
-
-    @property
-    def gst(self):
-        return self.gst_rate
-
-    @gst.setter
-    def gst(self, val):
-        self.gst_rate = val
-
-    @property
-    def gst_rate_pct(self):
-        return self.gst_rate
-
-    @gst_rate_pct.setter
-    def gst_rate_pct(self, val):
-        self.gst_rate = val
-
-    @property
-    def gst_pct(self):
-        return self.gst_rate
-
-    @gst_pct.setter
-    def gst_pct(self, val):
-        self.gst_rate = val
-
-    @property
-    def delivery_terms(self):
-        return self.delivery_term
-
-    @delivery_terms.setter
-    def delivery_terms(self, val):
-        self.delivery_term = val
-
-    @property
-    def payment_term(self):
-        return self.payment_terms
-
-    @payment_term.setter
-    def payment_term(self, val):
-        self.payment_terms = val
-
-    @property
-    def remarks(self):
-        return self.remark
-
-    @remarks.setter
-    def remarks(self, val):
-        self.remark = val
 
     def __repr__(self) -> str:
         return f"<PurchaseOrder {self.id}>"

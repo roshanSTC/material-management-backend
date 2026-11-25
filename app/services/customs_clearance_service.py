@@ -29,52 +29,12 @@ def get_customs_clearance_record(clearance_id: int) -> CustomsClearance:
 
 def list_customs_clearances_records(
     project_id: int | None = None,
-    bill_of_entry_no: str | None = None,
-    challan_no: str | None = None,
+    invoice_no: str | None = None,
 ) -> list[CustomsClearance]:
     return repository.list_customs_clearances(
         project_id=project_id,
-        bill_of_entry_no=bill_of_entry_no,
-        challan_no=challan_no,
+        invoice_no=invoice_no,
     )
-
-
-def _compute_total_customs_amount(
-    data: dict, existing: CustomsClearance | None = None
-) -> Decimal | None:
-    if "total_customs_amount" in data and data["total_customs_amount"] is not None:
-        try:
-            return Decimal(str(data["total_customs_amount"]))
-        except Exception:
-            pass
-
-    duty = (
-        data.get("duty_amount")
-        if "duty_amount" in data
-        else (existing.duty_amount if existing else None)
-    )
-    igst = (
-        data.get("igst_amount")
-        if "igst_amount" in data
-        else (existing.igst_amount if existing else None)
-    )
-    other = (
-        data.get("other_customs_charges")
-        if "other_customs_charges" in data
-        else (existing.other_customs_charges if existing else None)
-    )
-
-    parts = [duty, igst, other]
-    if any(p is not None for p in parts):
-        total = Decimal(0)
-        for p in parts:
-            if p is not None:
-                try:
-                    total += Decimal(str(p))
-                except Exception:
-                    pass
-        return total
-    return None
 
 
 def create_customs_clearance_transaction(data: dict, user_id: int | None = None) -> CustomsClearance:
@@ -83,23 +43,14 @@ def create_customs_clearance_transaction(data: dict, user_id: int | None = None)
     if not project:
         raise ProjectNotFoundError(f"Project with ID {project_id} not found.")
 
-    # Try resolving bill_of_entry_id if omitted
-    if not data.get("bill_of_entry_id") and data.get("bill_of_entry_no"):
+    if not data.get("bill_of_entry_id"):
         boe = (
-            BillOfEntry.query.filter_by(
-                project_id=project_id,
-                bill_of_entry_no=data["bill_of_entry_no"],
-            )
+            BillOfEntry.query.filter_by(project_id=project_id)
             .order_by(BillOfEntry.id.desc())
             .first()
         )
         if boe:
             data["bill_of_entry_id"] = boe.id
-
-    if data.get("total_customs_amount") is None:
-        computed_total = _compute_total_customs_amount(data)
-        if computed_total is not None:
-            data["total_customs_amount"] = computed_total
 
     record = repository.create_customs_clearance(data)
     try:
@@ -132,35 +83,12 @@ def update_customs_clearance_transaction(
             f"Customs clearance with ID {clearance_id} not found."
         )
 
-    target_project_id = data.get("project_id", record.project_id)
     if "project_id" in data and data["project_id"] != record.project_id:
         project = repository.get_project(data["project_id"])
         if not project:
             raise ProjectNotFoundError(
                 f"Project with ID {data['project_id']} not found."
             )
-
-    boe_no = data.get("bill_of_entry_no", record.bill_of_entry_no)
-    if boe_no and not data.get("bill_of_entry_id"):
-        boe = (
-            BillOfEntry.query.filter_by(
-                project_id=target_project_id,
-                bill_of_entry_no=boe_no,
-            )
-            .order_by(BillOfEntry.id.desc())
-            .first()
-        )
-        if boe:
-            data["bill_of_entry_id"] = boe.id
-
-    if data.get("total_customs_amount") is None and (
-        "duty_amount" in data
-        or "igst_amount" in data
-        or "other_customs_charges" in data
-    ):
-        computed_total = _compute_total_customs_amount(data, existing=record)
-        if computed_total is not None:
-            data["total_customs_amount"] = computed_total
 
     updated = repository.update_customs_clearance(record, data)
     try:

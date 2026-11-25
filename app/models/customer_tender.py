@@ -25,6 +25,11 @@ class CustomerTender(db.Model):
         index=True,
     )
 
+    customer_name = db.Column(
+        db.String(255),
+        nullable=True,
+    )
+
     officer_name = db.Column(
         db.String(255),
         nullable=True,
@@ -55,12 +60,12 @@ class CustomerTender(db.Model):
         nullable=True,
     )
 
-    tender_number = db.Column(
+    tender_no = db.Column(
         db.String(100),
         nullable=False,
     )
 
-    tender_date = db.Column(
+    tender_issue_date = db.Column(
         db.DateTime,
         nullable=True,
     )
@@ -151,30 +156,6 @@ class CustomerTender(db.Model):
         back_populates="tender",
         lazy="select",
     )
-
-    @property
-    def company_business_name(self) -> str | None:
-        return self.officer_name
-
-    @company_business_name.setter
-    def company_business_name(self, val: str | None) -> None:
-        self.officer_name = val
-
-    @property
-    def incoterms(self) -> str | None:
-        return self.delivery_terms
-
-    @incoterms.setter
-    def incoterms(self, val: str | None) -> None:
-        self.delivery_terms = val
-
-    @property
-    def tender_enquiry_no(self) -> str | None:
-        return self.tender_number
-
-    @tender_enquiry_no.setter
-    def tender_enquiry_no(self, val: str | None) -> None:
-        self.tender_number = val
 
     def __repr__(self) -> str:
         return f"<CustomerTender {self.id}>"

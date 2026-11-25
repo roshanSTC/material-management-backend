@@ -33,6 +33,16 @@ class SupplierOrderConfirmation(db.Model):
         index=True,
     )
 
+    supplier_name = db.Column(
+        db.String(255),
+        nullable=True,
+    )
+
+    order_confirmation_no = db.Column(
+        db.String(100),
+        nullable=False,
+    )
+
     order_confirmation_date = db.Column(
         db.Date,
         nullable=False,
@@ -43,12 +53,7 @@ class SupplierOrderConfirmation(db.Model):
         nullable=True,
     )
 
-    ref_no = db.Column(
-        db.String(100),
-        nullable=False,
-    )
-
-    shipping_terms = db.Column(
+    incoterms = db.Column(
         db.String(100),
         nullable=True,
     )
@@ -122,47 +127,6 @@ class SupplierOrderConfirmation(db.Model):
         cascade="all, delete-orphan",
         lazy="select",
     )
-
-    # Property aliases for backward/forward compatibility
-    @property
-    def confirmation_date(self):
-        return self.order_confirmation_date
-
-    @confirmation_date.setter
-    def confirmation_date(self, val):
-        self.order_confirmation_date = val
-
-    @property
-    def reference_number(self):
-        return self.ref_no
-
-    @reference_number.setter
-    def reference_number(self, val):
-        self.ref_no = val
-
-    @property
-    def shipping_term(self):
-        return self.shipping_terms
-
-    @shipping_term.setter
-    def shipping_term(self, val):
-        self.shipping_terms = val
-
-    @property
-    def delivery_term(self):
-        return self.delivery_period
-
-    @delivery_term.setter
-    def delivery_term(self, val):
-        self.delivery_period = val
-
-    @property
-    def remarks(self):
-        return self.remark
-
-    @remarks.setter
-    def remarks(self, val):
-        self.remark = val
 
     def __repr__(self) -> str:
         return f"<SupplierOrderConfirmation {self.id}>"

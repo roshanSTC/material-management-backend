@@ -59,44 +59,49 @@ def _parse_decimal_val(val):
 
 def _replace_items(customer_quotation: CustomerQuotation, items: list[dict]) -> None:
     customer_quotation.items.clear()
-    for item in items:
+    for idx, item in enumerate(items, start=1):
         unit_price = _parse_decimal_val(item.get("unit_price"))
-        net_amount = _parse_decimal_val(item.get("net_amount"))
+        total_amount = _parse_decimal_val(item.get("total_amount"))
+        qty = Decimal(str(item["quantity"]))
+        if total_amount is None and unit_price is not None:
+            total_amount = (qty * unit_price).quantize(Decimal("0.01"))
         customs_duty_rate = item.get("customs_duty_rate")
         if customs_duty_rate is not None:
             customs_duty_rate = Decimal(str(customs_duty_rate))
 
         customer_quotation.items.append(
             CustomerQuotationItem(
+                sr_no=item.get("sr_no") if item.get("sr_no") is not None else idx,
                 cost_sheet_item_id=item.get("cost_sheet_item_id"),
                 quotation_number=_normalize_optional_string(item.get("quotation_number")),
                 item_code=_normalize_optional_string(item.get("item_code")),
-                material_name=str(item["material_name"]).strip(),
-                quantity=Decimal(str(item["quantity"])),
+                description=str(item["description"]).strip(),
+                hsn_sac=_normalize_optional_string(item.get("hsn_sac")),
+                quantity=qty,
                 unit_price=unit_price,
-                net_amount=net_amount,
+                total_amount=total_amount,
                 customs_duty_rate=customs_duty_rate,
             )
         )
 
 
 def create_customer_quotation(*, data: dict) -> CustomerQuotation:
-    q_num = data.get("quotation_number") or data.get("qo_number")
+    q_num = data.get("quotation_no")
     q_date = _parse_date_val(data.get("quotation_date"))
     q_val = _parse_decimal_val(data.get("quotation_value"))
     total_net = _parse_decimal_val(data.get("total_net_amount"))
 
     customer_quotation = CustomerQuotation(
         project_id=data["project_id"],
-        customer_id=data["customer_id"],
-        qo_number=_normalize_optional_string(q_num),
-        quotation_number=_normalize_optional_string(q_num),
+        customer_id=data.get("customer_id"),
+        customer_name=_normalize_optional_string(data.get("customer_name")),
+        quotation_no=_normalize_optional_string(q_num),
         quotation_date=q_date,
         quotation_value=q_val,
         currency_unit=_normalize_optional_string(data.get("currency_unit")),
         currency_symbol=_normalize_optional_string(data.get("currency_symbol")),
         total_net_amount=total_net,
-        validity=_normalize_optional_string(data.get("validity")),
+        quotation_validity=_normalize_optional_string(data.get("quotation_validity")),
         remark=_normalize_optional_string(data.get("remark") or data.get("remarks")),
     )
     if "items" in data and data["items"]:
@@ -129,7 +134,7 @@ def list_customer_quotations(
     *,
     project_id: int | None = None,
     customer_id: int | None = None,
-    quotation_number: str | None = None,
+    quotation_no: str | None = None,
 ) -> list[CustomerQuotation]:
     statement = db.select(CustomerQuotation).options(
         selectinload(CustomerQuotation.items)
@@ -138,13 +143,10 @@ def list_customer_quotations(
         statement = statement.where(CustomerQuotation.project_id == project_id)
     if customer_id is not None:
         statement = statement.where(CustomerQuotation.customer_id == customer_id)
-    if quotation_number:
-        clean_q = f"%{quotation_number.strip()}%"
+    if quotation_no:
+        clean_q = f"%{quotation_no.strip()}%"
         statement = statement.where(
-            db.or_(
-                CustomerQuotation.quotation_number.ilike(clean_q),
-                CustomerQuotation.qo_number.ilike(clean_q),
-            )
+            CustomerQuotation.quotation_no.ilike(clean_q)
         )
 
     return db.session.execute(
@@ -161,10 +163,10 @@ def update_customer_quotation(
         customer_quotation.project_id = data["project_id"]
     if "customer_id" in data:
         customer_quotation.customer_id = data["customer_id"]
-    if "quotation_number" in data or "qo_number" in data:
-        q_num = _normalize_optional_string(data.get("quotation_number") or data.get("qo_number"))
-        customer_quotation.quotation_number = q_num
-        customer_quotation.qo_number = q_num
+    if "customer_name" in data:
+        customer_quotation.customer_name = _normalize_optional_string(data["customer_name"])
+    if "quotation_no" in data:
+        customer_quotation.quotation_no = _normalize_optional_string(data["quotation_no"])
     if "quotation_date" in data:
         customer_quotation.quotation_date = _parse_date_val(data["quotation_date"])
     if "quotation_value" in data:
@@ -175,8 +177,8 @@ def update_customer_quotation(
         customer_quotation.currency_symbol = _normalize_optional_string(data["currency_symbol"])
     if "total_net_amount" in data:
         customer_quotation.total_net_amount = _parse_decimal_val(data["total_net_amount"])
-    if "validity" in data:
-        customer_quotation.validity = _normalize_optional_string(data["validity"])
+    if "quotation_validity" in data:
+        customer_quotation.quotation_validity = _normalize_optional_string(data["quotation_validity"])
     if "remark" in data or "remarks" in data:
         customer_quotation.remark = _normalize_optional_string(data.get("remark") or data.get("remarks"))
 

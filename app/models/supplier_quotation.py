@@ -30,7 +30,7 @@ class SupplierQuotation(db.Model):
         nullable=True,
     )
 
-    quotation_number = db.Column(
+    quotation_no = db.Column(
         db.String(100),
         nullable=False,
     )
@@ -81,7 +81,7 @@ class SupplierQuotation(db.Model):
         default="completed",
     )
 
-    validity = db.Column(
+    quotation_validity = db.Column(
         db.String(100),
         nullable=True,
     )
@@ -140,30 +140,6 @@ class SupplierQuotation(db.Model):
         cascade="all, delete-orphan",
         lazy="select",
     )
-
-    @property
-    def quotation_no(self):
-        return self.quotation_number
-
-    @quotation_no.setter
-    def quotation_no(self, val):
-        self.quotation_number = val
-
-    @property
-    def quotation_validity(self):
-        return self.validity
-
-    @quotation_validity.setter
-    def quotation_validity(self, val):
-        self.validity = val
-
-    @property
-    def remarks(self):
-        return self.remark
-
-    @remarks.setter
-    def remarks(self, val):
-        self.remark = val
 
     def __repr__(self) -> str:
         return f"<SupplierQuotation {self.id}>"

@@ -56,10 +56,10 @@ def _quotation_request_response(
         entity_id=quotation_request.id,
     )
 
-    supplier_name = ""
-    if quotation_request.supplier and quotation_request.supplier.name:
+    supplier_name = quotation_request.supplier_name or ""
+    if not supplier_name and quotation_request.supplier and quotation_request.supplier.name:
         supplier_name = quotation_request.supplier.name
-    elif quotation_request.project and quotation_request.project.supplier and quotation_request.project.supplier.name:
+    elif not supplier_name and quotation_request.project and quotation_request.project.supplier and quotation_request.project.supplier.name:
         supplier_name = quotation_request.project.supplier.name
 
     return {
@@ -68,11 +68,8 @@ def _quotation_request_response(
         "supplier_id": quotation_request.supplier_id,
         "supplier_name": supplier_name,
 
-        "quotation_requested_date": (
-            quotation_request.quotation_requested_date
-        ),
         "request_date": (
-            quotation_request.quotation_requested_date
+            quotation_request.request_date
         ),
 
         "supplier_contacted": (
@@ -92,9 +89,8 @@ def _quotation_request_response(
         "items": [
             {
                 "id": item.id,
-                "sr_no": idx,
-                "description": item.material_name,
-                "material_name": item.material_name,
+                "sr_no": item.sr_no if item.sr_no is not None else idx,
+                "description": item.description,
                 "quantity": item.quantity,
             }
             for idx, item in enumerate(quotation_request.items, start=1)
@@ -135,7 +131,7 @@ def _quotation_request_response(
                                 '"supplier_contacted":true,'
                                 '"remarks":"Please provide quotation",'
                                 '"items":['
-                                '{"material_name":"Steel",'
+                                '{"description":"Steel",'
                                 '"quantity":"10.000"}'
                                 ']}'
                             ),
@@ -246,9 +242,10 @@ def create():
         quotation_request = create_quotation_request_transaction(
             project_id=pid,
             supplier_id=supplier_id,
-            quotation_requested_date=validated_data["quotation_requested_date"],
+            supplier_name=validated_data.get("supplier_name"),
+            request_date=validated_data["request_date"],
             supplier_contacted=validated_data.get("supplier_contacted", True),
-            remarks=validated_data.get("remarks") if "remarks" in validated_data else validated_data.get("remark"),
+            remarks=validated_data.get("remarks"),
             items=validated_data["items"],
             user_id=user_id,
         )
@@ -430,7 +427,7 @@ def list_all(args=None):
                                 '{"remarks":"Updated quotation request",'
                                 '"supplier_contacted":true,'
                                 '"items":['
-                                '{"material_name":"Steel",'
+                                '{"description":"Steel",'
                                 '"quantity":"20.000"}'
                                 ']}'
                             ),
@@ -500,14 +497,10 @@ def update(quotation_request_id):
 
         try:
 
-            qo_date_input = (
-                data.get("request_date")
-                or data.get("quotation_requested_date")
-                or data.get("rfq_date")
-            )
+            req_date_input = data.get("request_date")
 
-            supp_id = data.get("supplier_id") or data.get("supplierId")
-            req_supp_name = (data.get("supplier_name") or data.get("supplierName") or "").strip()
+            supp_id = data.get("supplier_id")
+            req_supp_name = (data.get("supplier_name") or "").strip()
             if req_supp_name and not supp_id:
                 from app.models import Supplier
                 supp = Supplier.query.filter_by(name=req_supp_name).first()
@@ -526,13 +519,14 @@ def update(quotation_request_id):
             quotation_request = (
                 update_quotation_request_transaction(
                     quotation_request_id=quotation_request_id,
-                    project_id=data.get("project_id") or data.get("projectId"),
+                    project_id=data.get("project_id"),
                     supplier_id=supp_id,
-                    quotation_requested_date=qo_date_input,
+                    supplier_name=req_supp_name or None,
+                    request_date=req_date_input,
                     supplier_contacted=data.get(
                         "supplier_contacted"
                     ),
-                    remarks=data.get("remarks") if "remarks" in data else data.get("remark"),
+                    remarks=data.get("remarks"),
                     items=data.get("items"),
                     user_id=user_id,
                 )

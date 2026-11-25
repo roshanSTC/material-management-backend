@@ -18,8 +18,8 @@ class PurchaseOrderItem(db.Model):
         index=True,
     )
 
-    material_name = db.Column(
-        db.String(255),
+    sr_no = db.Column(
+        db.Integer,
         nullable=True,
     )
 
@@ -28,7 +28,7 @@ class PurchaseOrderItem(db.Model):
         nullable=False,
     )
 
-    hsn_code = db.Column(
+    hsn_sac = db.Column(
         db.String(50),
         nullable=True,
     )
@@ -43,7 +43,7 @@ class PurchaseOrderItem(db.Model):
         nullable=False,
     )
 
-    net_amount = db.Column(
+    total_price = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )
@@ -69,22 +69,6 @@ class PurchaseOrderItem(db.Model):
         "PurchaseOrder",
         back_populates="items",
     )
-
-    @property
-    def hsn_sac(self):
-        return self.hsn_code
-
-    @hsn_sac.setter
-    def hsn_sac(self, val):
-        self.hsn_code = val
-
-    @property
-    def total_price(self):
-        return self.net_amount
-
-    @total_price.setter
-    def total_price(self, val):
-        self.net_amount = val
 
     def __repr__(self) -> str:
         return f"<PurchaseOrderItem {self.id}>"

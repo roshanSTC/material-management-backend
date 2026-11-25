@@ -72,60 +72,44 @@ def _replace_items(
     items: list[dict],
 ) -> None:
     invoice.items.clear()
-    for item in items:
-        mat_name = _normalize_optional_string(
-            item.get("material_name") or item.get("description")
-        )
-        desc = _normalize_optional_string(
-            item.get("description") or item.get("material_name")
-        ) or ""
-        hsn = _normalize_optional_string(
-            item.get("hsn_code") or item.get("hsn_sac") or item.get("hsn")
-        )
+    for idx, item in enumerate(items, start=1):
+        desc = _normalize_optional_string(item.get("description")) or ""
+        hsn = _normalize_optional_string(item.get("hsn_sac"))
         qty = _parse_decimal_val(item.get("quantity")) or Decimal("1")
         unit_price = _parse_decimal_val(item.get("unit_price"))
         if unit_price is None:
             unit_price = Decimal("0.00")
 
-        net_amt = _parse_decimal_val(item.get("net_amount"))
-        if net_amt is None and unit_price is not None and qty is not None:
-            net_amt = (qty * unit_price).quantize(Decimal("0.01"))
+        total_amt = _parse_decimal_val(item.get("total_amount"))
+        if total_amt is None and unit_price is not None and qty is not None:
+            total_amt = (qty * unit_price).quantize(Decimal("0.01"))
 
         item_obj = SupplierProformaInvoiceItem(
-            material_name=mat_name,
+            sr_no=item.get("sr_no") if item.get("sr_no") is not None else idx,
             description=desc,
-            hsn_code=hsn,
+            hsn_sac=hsn,
             quantity=qty,
             unit_price=unit_price,
-            net_amount=net_amt,
+            total_amount=total_amt,
         )
         invoice.items.append(item_obj)
 
 
 def create_supplier_proforma_invoice(*, data: dict) -> SupplierProformaInvoice:
-    invoice_date_val = _parse_date_val(
-        data.get("proforma_invoice_date") or data.get("invoice_date")
-    )
+    invoice_date_val = _parse_date_val(data.get("proforma_invoice_date"))
     delivery_date_val = _parse_date_val(data.get("delivery_date"))
 
     invoice = SupplierProformaInvoice(
         project_id=data["project_id"],
-        supplier_id=data["supplier_id"],
+        supplier_id=data.get("supplier_id"),
+        supplier_name=_normalize_optional_string(data.get("supplier_name")),
         order_confirmation_id=data.get("order_confirmation_id"),
-        proforma_invoice_no=str(
-            data.get("proforma_invoice_no") or data.get("proforma_invoice_number")
-        ).strip(),
+        proforma_invoice_no=str(data.get("proforma_invoice_no") or "").strip(),
         proforma_invoice_date=invoice_date_val,
-        delivery_terms=_normalize_optional_string(
-            data.get("delivery_terms") or data.get("delivery_term")
-        ),
-        delivery_period=_normalize_optional_string(
-            data.get("delivery_period")
-        ),
+        incoterms=_normalize_optional_string(data.get("incoterms")),
+        delivery_period=_normalize_optional_string(data.get("delivery_period")),
         delivery_date=delivery_date_val,
-        payment_terms=_normalize_optional_string(
-            data.get("payment_terms") or data.get("payment_term")
-        ),
+        payment_terms=_normalize_optional_string(data.get("payment_terms")),
         warranty_period=_normalize_optional_string(data.get("warranty_period")),
         total_amount=_parse_decimal_val(data.get("total_amount")),
         total_net_amount=_parse_decimal_val(data.get("total_net_amount")),
@@ -188,23 +172,21 @@ def update_supplier_proforma_invoice(
         invoice.project_id = data["project_id"]
     if "supplier_id" in data:
         invoice.supplier_id = data["supplier_id"]
+    if "supplier_name" in data:
+        invoice.supplier_name = _normalize_optional_string(data["supplier_name"])
     if "order_confirmation_id" in data:
         invoice.order_confirmation_id = data["order_confirmation_id"]
 
-    if "proforma_invoice_no" in data or "proforma_invoice_number" in data:
-        invoice.proforma_invoice_no = str(
-            data.get("proforma_invoice_no") or data.get("proforma_invoice_number")
-        ).strip()
+    if "proforma_invoice_no" in data:
+        invoice.proforma_invoice_no = str(data["proforma_invoice_no"]).strip()
 
-    if "proforma_invoice_date" in data or "invoice_date" in data:
-        dt = _parse_date_val(data.get("proforma_invoice_date") or data.get("invoice_date"))
+    if "proforma_invoice_date" in data:
+        dt = _parse_date_val(data["proforma_invoice_date"])
         if dt is not None:
             invoice.proforma_invoice_date = dt
 
-    if "delivery_terms" in data or "delivery_term" in data:
-        invoice.delivery_terms = _normalize_optional_string(
-            data.get("delivery_terms") or data.get("delivery_term")
-        )
+    if "incoterms" in data:
+        invoice.incoterms = _normalize_optional_string(data["incoterms"])
 
     if "delivery_period" in data:
         invoice.delivery_period = _normalize_optional_string(data.get("delivery_period"))
@@ -212,10 +194,8 @@ def update_supplier_proforma_invoice(
     if "delivery_date" in data:
         invoice.delivery_date = _parse_date_val(data.get("delivery_date"))
 
-    if "payment_terms" in data or "payment_term" in data:
-        invoice.payment_terms = _normalize_optional_string(
-            data.get("payment_terms") or data.get("payment_term")
-        )
+    if "payment_terms" in data:
+        invoice.payment_terms = _normalize_optional_string(data["payment_terms"])
 
     if "warranty_period" in data:
         invoice.warranty_period = _normalize_optional_string(data.get("warranty_period"))

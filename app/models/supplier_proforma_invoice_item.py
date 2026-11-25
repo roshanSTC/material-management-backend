@@ -18,8 +18,8 @@ class SupplierProformaInvoiceItem(db.Model):
         index=True,
     )
 
-    material_name = db.Column(
-        db.String(255),
+    sr_no = db.Column(
+        db.Integer,
         nullable=True,
     )
 
@@ -28,7 +28,7 @@ class SupplierProformaInvoiceItem(db.Model):
         nullable=False,
     )
 
-    hsn_code = db.Column(
+    hsn_sac = db.Column(
         db.String(50),
         nullable=True,
     )
@@ -43,7 +43,7 @@ class SupplierProformaInvoiceItem(db.Model):
         nullable=False,
     )
 
-    net_amount = db.Column(
+    total_amount = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )
@@ -58,31 +58,6 @@ class SupplierProformaInvoiceItem(db.Model):
         "SupplierProformaInvoice",
         back_populates="items",
     )
-
-    # Property aliases for backward/forward compatibility
-    @property
-    def item_description(self):
-        return self.description
-
-    @item_description.setter
-    def item_description(self, val):
-        self.description = val
-
-    @property
-    def hsn(self):
-        return self.hsn_code
-
-    @hsn.setter
-    def hsn(self, val):
-        self.hsn_code = val
-
-    @property
-    def hsn_sac(self):
-        return self.hsn_code
-
-    @hsn_sac.setter
-    def hsn_sac(self, val):
-        self.hsn_code = val
 
     def __repr__(self) -> str:
         return f"<SupplierProformaInvoiceItem {self.id}>"

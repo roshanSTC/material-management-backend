@@ -53,13 +53,12 @@ def _delivery_challan_response(delivery_challan):
         "id": delivery_challan.id,
         "project_id": delivery_challan.project_id,
         "delivery_challan_no": delivery_challan.delivery_challan_no,
-        "delivery_challan_number": delivery_challan.delivery_challan_no,
-        "challan_no": delivery_challan.delivery_challan_no,
         "delivery_challan_date": delivery_challan.delivery_challan_date,
-        "gst_rate": delivery_challan.gst_rate,
+        "gst_pct": delivery_challan.gst_pct,
         "gst_amount": delivery_challan.gst_amount,
         "round_off": delivery_challan.round_off,
-        "net_total": delivery_challan.net_total,
+        "total_net_amount": delivery_challan.total_net_amount,
+        "total_gross_amount": delivery_challan.total_gross_amount,
         "remarks": get_step_remarks_for_response(
             project_id=delivery_challan.project_id,
             step_number=13,
@@ -71,19 +70,13 @@ def _delivery_challan_response(delivery_challan):
         "items": [
             {
                 "id": item.id,
-                "sr_no": idx + 1,
+                "sr_no": item.sr_no if item.sr_no is not None else (idx + 1),
                 "delivery_challan_id": item.delivery_challan_id,
-                "material_name": item.material_name,
-                "material_description": item.material_name,
-                "description": item.material_name,
-                "hsn_code": item.hsn_code,
-                "hsn_sac": item.hsn_code,
+                "description": item.description,
+                "hsn_sac": item.hsn_sac,
                 "quantity": str(item.quantity) if item.quantity is not None else None,
                 "unit_price": str(item.unit_price) if item.unit_price is not None else None,
-                "rate_per_unit": str(item.unit_price) if item.unit_price is not None else None,
-                "net_amount": str(item.net_amount) if item.net_amount is not None else None,
-                "amount": str(item.net_amount) if item.net_amount is not None else None,
-                "total_amount": str(item.net_amount) if item.net_amount is not None else None,
+                "total_amount": str(item.total_amount) if item.total_amount is not None else None,
                 "created_at": item.created_at,
                 "updated_at": item.updated_at,
             }
@@ -391,7 +384,7 @@ _REQUEST_BODY_CREATE_DOC = {
                         "type": "string",
                         "description": "Serialized JSON string matching DeliveryChallanCreateSchema",
                         "example": (
-                            '{"project_id":2,"delivery_challan_no":"DC-965TFC-T7G","delivery_challan_date":"2026-09-15","remark":"packingConditionOptions","items":[{"material_name":"steel cold","hsn_code":"65465","quantity":55,"unit_price":34,"net_amount":1870},{"material_name":"gdfhbvf","hsn_code":"5464","quantity":55,"unit_price":45,"net_amount":2475}]}'
+                            '{"project_id":2,"delivery_challan_no":"DC-965TFC-T7G","delivery_challan_date":"2026-09-15","remark":"packingConditionOptions","items":[{"description":"steel cold","hsn_sac":"65465","quantity":55,"unit_price":34,"total_amount":1870},{"description":"gdfhbvf","hsn_sac":"5464","quantity":55,"unit_price":45,"total_amount":2475}]}'
                         ),
                     },
                     "file": {

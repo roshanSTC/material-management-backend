@@ -66,7 +66,7 @@ def _resolve_total_supplier_value(project_id: int, provided_val: any = None) -> 
     # 1. Check previous payment for project
     latest_payment = get_latest_supplier_payment_for_project(project_id)
     if latest_payment:
-        val = _try_positive_decimal(latest_payment.total_supplier_value)
+        val = _try_positive_decimal(latest_payment.total_contract_value)
         if val is not None:
             return val
 
@@ -143,46 +143,46 @@ def _calculate_payment_amounts(
     if project_id is None and existing_payment is not None:
         project_id = existing_payment.project_id
 
-    provided_tsv = data.get("total_supplier_value")
+    provided_tsv = data.get("total_contract_value")
     if provided_tsv is None and existing_payment is not None:
-        provided_tsv = existing_payment.total_supplier_value
+        provided_tsv = existing_payment.total_contract_value
 
-    total_supplier_value = _resolve_total_supplier_value(project_id, provided_tsv)
-    data["total_supplier_value"] = str(total_supplier_value.quantize(Decimal("0.01")))
+    total_contract_value = _resolve_total_supplier_value(project_id, provided_tsv)
+    data["total_contract_value"] = str(total_contract_value.quantize(Decimal("0.01")))
 
-    raw_amount_paid = data.get("amount_paid")
-    raw_pct = data.get("payment_percentage")
+    raw_amount_paid = data.get("payment_amount")
+    raw_pct = data.get("payment_pct")
 
-    amount_paid = None
+    payment_amount = None
     if raw_amount_paid is not None:
         try:
-            amount_paid = Decimal(str(raw_amount_paid))
+            payment_amount = Decimal(str(raw_amount_paid))
         except Exception:
-            amount_paid = None
-    elif raw_pct is not None and total_supplier_value > Decimal("0.00"):
+            payment_amount = None
+    elif raw_pct is not None and total_contract_value > Decimal("0.00"):
         try:
             pct_dec = Decimal(str(raw_pct))
-            amount_paid = ((pct_dec / Decimal("100")) * total_supplier_value).quantize(
+            payment_amount = ((pct_dec / Decimal("100")) * total_contract_value).quantize(
                 Decimal("0.01")
             )
         except Exception:
-            amount_paid = None
-    elif existing_payment is not None and existing_payment.amount_paid is not None:
+            payment_amount = None
+    elif existing_payment is not None and existing_payment.payment_amount is not None:
         try:
-            amount_paid = Decimal(str(existing_payment.amount_paid))
+            payment_amount = Decimal(str(existing_payment.payment_amount))
         except Exception:
-            amount_paid = None
+            payment_amount = None
 
-    if amount_paid is None:
+    if payment_amount is None:
         return
 
-    data["amount_paid"] = str(amount_paid.quantize(Decimal("0.01")))
+    data["payment_amount"] = str(payment_amount.quantize(Decimal("0.01")))
 
     exclude_id = existing_payment.id if existing_payment is not None else None
     total_previously_paid = get_total_previously_paid(project_id, exclude_id=exclude_id)
-    remaining_before = (total_supplier_value - total_previously_paid).quantize(Decimal("0.01"))
+    remaining_before = (total_contract_value - total_previously_paid).quantize(Decimal("0.01"))
 
-    if amount_paid > remaining_before:
+    if payment_amount > remaining_before:
         curr = str(
             data.get("currency")
             or (existing_payment.currency if existing_payment else "INR")
@@ -196,30 +196,30 @@ def _calculate_payment_amounts(
             f"Payment exceeds outstanding balance of {symbol}{remaining_before:.2f}"
         )
 
-    cumulative_paid = total_previously_paid + amount_paid
-    pending_amount = (total_supplier_value - cumulative_paid).quantize(Decimal("0.01"))
+    cumulative_paid = total_previously_paid + payment_amount
+    pending_amount = (total_contract_value - cumulative_paid).quantize(Decimal("0.01"))
     if pending_amount < Decimal("0.00"):
         pending_amount = Decimal("0.00")
     data["pending_amount"] = str(pending_amount)
 
-    if total_supplier_value > Decimal("0.00"):
-        pct = ((amount_paid / total_supplier_value) * Decimal("100")).quantize(Decimal("0.01"))
-        data["payment_percentage"] = str(pct)
+    if total_contract_value > Decimal("0.00"):
+        pct = ((payment_amount / total_contract_value) * Decimal("100")).quantize(Decimal("0.01"))
+        data["payment_pct"] = str(pct)
 
-    raw_ex_rate = data.get("exchange_rate")
+    raw_ex_rate = data.get("eur_to_inr_rate")
     if raw_ex_rate is None and existing_payment is not None:
-        raw_ex_rate = existing_payment.exchange_rate
+        raw_ex_rate = existing_payment.eur_to_inr_rate
 
-    raw_twe = data.get("total_with_exchange")
+    raw_twe = data.get("payment_amount_inr")
     if raw_twe is None and raw_ex_rate is not None:
         try:
             ex_dec = Decimal(str(raw_ex_rate))
-            data["total_with_exchange"] = str((amount_paid * ex_dec).quantize(Decimal("0.01")))
-            raw_twe = data["total_with_exchange"]
+            data["payment_amount_inr"] = str((payment_amount * ex_dec).quantize(Decimal("0.01")))
+            raw_twe = data["payment_amount_inr"]
         except Exception:
             pass
     elif raw_twe is None and existing_payment is not None:
-        raw_twe = existing_payment.total_with_exchange
+        raw_twe = existing_payment.payment_amount_inr
 
     raw_bc = data.get("bank_charges")
     if raw_bc is None and existing_payment is not None:
@@ -233,7 +233,7 @@ def _calculate_payment_amounts(
         v is not None for v in (raw_twe, raw_bc, raw_sc)
     ):
         try:
-            base_val = Decimal(str(raw_twe)) if raw_twe is not None else amount_paid
+            base_val = Decimal(str(raw_twe)) if raw_twe is not None else payment_amount
             bc_val = Decimal(str(raw_bc)) if raw_bc is not None else Decimal("0.00")
             sc_val = Decimal(str(raw_sc)) if raw_sc is not None else Decimal("0.00")
             data["total_outflow"] = str((base_val + bc_val + sc_val).quantize(Decimal("0.01")))
@@ -252,7 +252,7 @@ def _recalculate_project_payments(
     tsv = _try_positive_decimal(override_tsv)
     if tsv is None:
         for p in reversed(payments):
-            tsv = _try_positive_decimal(p.total_supplier_value)
+            tsv = _try_positive_decimal(p.total_contract_value)
             if tsv is not None:
                 break
     if tsv is None:
@@ -265,17 +265,17 @@ def _recalculate_project_payments(
     running_paid = Decimal("0.00")
     changed = False
     for p in payments:
-        amt = Decimal(str(p.amount_paid or 0)).quantize(Decimal("0.01"))
+        amt = Decimal(str(p.payment_amount or 0)).quantize(Decimal("0.01"))
         running_paid += amt
-        if p.total_supplier_value != tsv:
-            p.total_supplier_value = tsv
+        if p.total_contract_value != tsv:
+            p.total_contract_value = tsv
             changed = True
         if tsv > Decimal("0.00"):
             new_pct = ((amt / tsv) * Decimal("100")).quantize(Decimal("0.01"))
             pend = (tsv - running_paid).quantize(Decimal("0.01"))
             new_pend = pend if pend > Decimal("0.00") else Decimal("0.00")
-            if p.payment_percentage != new_pct:
-                p.payment_percentage = new_pct
+            if p.payment_pct != new_pct:
+                p.payment_pct = new_pct
                 changed = True
             if p.pending_amount != new_pend:
                 p.pending_amount = new_pend
@@ -296,7 +296,7 @@ def get_supplier_payment_summary(project_id: int) -> dict:
         tsv = Decimal("0.00")
 
     total_paid = sum(
-        (Decimal(str(p.amount_paid or 0)) for p in payments),
+        (Decimal(str(p.payment_amount or 0)) for p in payments),
         Decimal("0.00"),
     ).quantize(Decimal("0.01"))
 
@@ -329,7 +329,7 @@ def get_supplier_payment_summary(project_id: int) -> dict:
         "project_id": project_id,
         "supplier_id": latest.supplier_id if latest else project.supplier_id,
         "currency": latest.currency if latest else "INR",
-        "total_supplier_value": f"{tsv:.2f}",
+        "total_contract_value": f"{tsv:.2f}",
         "total_paid_amount": f"{total_paid:.2f}",
         "pending_amount": f"{pending_amt:.2f}",
         "cumulative_payment_percentage": f"{paid_pct:.2f}",
@@ -367,7 +367,7 @@ def create_supplier_payment_transaction(
 
     _recalculate_project_payments(
         project_id,
-        override_tsv=_try_positive_decimal(data.get("total_supplier_value")),
+        override_tsv=_try_positive_decimal(data.get("total_contract_value")),
     )
     db.session.flush()
 
@@ -447,12 +447,12 @@ def update_supplier_payment_transaction(
     if any(
         k in data
         for k in (
-            "amount_paid",
-            "total_supplier_value",
-            "payment_percentage",
+            "payment_amount",
+            "total_contract_value",
+            "payment_pct",
             "pending_amount",
-            "exchange_rate",
-            "total_with_exchange",
+            "eur_to_inr_rate",
+            "payment_amount_inr",
             "bank_charges",
             "swift_charges",
             "total_outflow",
@@ -468,8 +468,8 @@ def update_supplier_payment_transaction(
 
     _recalculate_project_payments(
         updated_payment.project_id,
-        override_tsv=_try_positive_decimal(data.get("total_supplier_value"))
-        or _try_positive_decimal(updated_payment.total_supplier_value),
+        override_tsv=_try_positive_decimal(data.get("total_contract_value"))
+        or _try_positive_decimal(updated_payment.total_contract_value),
     )
     if updated_payment.project_id != previous_project_id:
         _recalculate_project_payments(previous_project_id)

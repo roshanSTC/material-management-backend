@@ -28,7 +28,7 @@ class CustomerDeliveryPackingList(db.Model):
         nullable=False,
     )
 
-    total_no_of_packs = db.Column(
+    total_no_packages = db.Column(
         db.Integer,
         nullable=True,
     )
@@ -78,39 +78,6 @@ class CustomerDeliveryPackingList(db.Model):
         cascade="all, delete-orphan",
         lazy="select",
     )
-
-    # Property aliases for backward/forward compatibility
-    @property
-    def packing_list_number(self):
-        return self.packing_list_no
-
-    @packing_list_number.setter
-    def packing_list_number(self, val):
-        self.packing_list_no = val
-
-    @property
-    def net_weight_kg(self):
-        return self.net_weight
-
-    @net_weight_kg.setter
-    def net_weight_kg(self, val):
-        self.net_weight = val
-
-    @property
-    def gross_weight_kg(self):
-        return self.gross_weight
-
-    @gross_weight_kg.setter
-    def gross_weight_kg(self, val):
-        self.gross_weight = val
-
-    @property
-    def remarks(self):
-        return self.remark
-
-    @remarks.setter
-    def remarks(self, val):
-        self.remark = val
 
     def __repr__(self) -> str:
         return (

@@ -24,63 +24,37 @@ class CustomsClearance(db.Model):
         index=True,
     )
 
-    cha_name: Mapped[str] = mapped_column(
-        String(255),
-        nullable=False,
-    )
-
-    bill_of_entry_no: Mapped[str | None] = mapped_column(
-        String(100),
-        nullable=True,
-        index=True,
-    )
-
-    boe_date: Mapped[date | None] = mapped_column(
-        Date,
-        nullable=True,
-    )
-
-    customs_location: Mapped[str | None] = mapped_column(
+    freight_forwarder_name: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
     )
 
-    duty_paid_date: Mapped[date | None] = mapped_column(
-        Date,
+    cha_name: Mapped[str | None] = mapped_column(
+        String(255),
         nullable=True,
     )
 
-    challan_no: Mapped[str | None] = mapped_column(
+    invoice_no: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
     )
 
-    cfs_name: Mapped[str | None] = mapped_column(
-        String(255),
+    invoice_date: Mapped[date | None] = mapped_column(
+        Date,
         nullable=True,
     )
 
-    transaction_ref_no: Mapped[str | None] = mapped_column(
-        String(255),
-        nullable=True,
-    )
-
-    duty_amount: Mapped[Decimal | None] = mapped_column(
+    invoice_amount: Mapped[Decimal | None] = mapped_column(
         Numeric(18, 2),
         nullable=True,
     )
 
-    igst_amount: Mapped[Decimal | None] = mapped_column(
-        Numeric(18, 2),
+    payment_date: Mapped[date | None] = mapped_column(
+        Date,
         nullable=True,
     )
 
-    other_customs_charges: Mapped[Decimal | None] = mapped_column(
-        Numeric(18, 2),
-        nullable=True,
-    )
-
-    total_customs_amount: Mapped[Decimal | None] = mapped_column(
+    payment_amount: Mapped[Decimal | None] = mapped_column(
         Numeric(18, 2),
         nullable=True,
     )
@@ -105,36 +79,49 @@ class CustomsClearance(db.Model):
 
     project = relationship("Project")
     bill_of_entry = relationship("BillOfEntry")
+    items = relationship(
+        "CustomsClearanceItem",
+        back_populates="customs_clearance",
+        cascade="all, delete-orphan",
+        lazy="select",
+        order_by="CustomsClearanceItem.sr_no.asc()",
+    )
 
-    # Compatibility properties
-    @property
-    def customs_location_port(self) -> str | None:
-        return self.customs_location
 
-    @customs_location_port.setter
-    def customs_location_port(self, value: str | None) -> None:
-        self.customs_location = value
+class CustomsClearanceItem(db.Model):
+    __tablename__ = "customs_clearance_items"
 
-    @property
-    def challan_number(self) -> str | None:
-        return self.challan_no
+    id: Mapped[int] = mapped_column(primary_key=True)
 
-    @challan_number.setter
-    def challan_number(self, value: str | None) -> None:
-        self.challan_no = value
+    customs_clearance_id: Mapped[int] = mapped_column(
+        ForeignKey("customs_clearances.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
-    @property
-    def transaction_payment_reference(self) -> str | None:
-        return self.transaction_ref_no
+    sr_no: Mapped[int | None] = mapped_column(nullable=True)
 
-    @transaction_payment_reference.setter
-    def transaction_payment_reference(self, value: str | None) -> None:
-        self.transaction_ref_no = value
+    description: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
 
-    @property
-    def bill_of_entry_number(self) -> str | None:
-        return self.bill_of_entry_no
+    amount: Mapped[Decimal | None] = mapped_column(
+        Numeric(18, 2),
+        nullable=True,
+    )
 
-    @bill_of_entry_number.setter
-    def bill_of_entry_number(self, value: str | None) -> None:
-        self.bill_of_entry_no = value
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    customs_clearance = relationship("CustomsClearance", back_populates="items")

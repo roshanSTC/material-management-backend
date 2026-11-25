@@ -65,8 +65,8 @@ def _supplier_payment_response(payment):
         entity_type="supplier_payment",
         entity_id=payment.id,
     )
-    tsv = Decimal(str(payment.total_supplier_value or 0)).quantize(Decimal("0.01"))
-    amt = Decimal(str(payment.amount_paid or 0)).quantize(Decimal("0.01"))
+    tsv = Decimal(str(payment.total_contract_value or 0)).quantize(Decimal("0.01"))
+    amt = Decimal(str(payment.payment_amount or 0)).quantize(Decimal("0.01"))
     pend = Decimal(str(payment.pending_amount or 0)).quantize(Decimal("0.01"))
 
     if tsv > Decimal("0.00"):
@@ -101,24 +101,17 @@ def _supplier_payment_response(payment):
         "project_id": payment.project_id,
         "supplier_id": payment.supplier_id,
         "currency": payment.currency,
-        "payment_percentage": _format_decimal(payment.payment_percentage),
-        "payment_pct": _format_decimal(payment.payment_percentage),
-        "cumulative_payment_percentage": _format_decimal(cum_pct),
+        "payment_pct": _format_decimal(payment.payment_pct),
         "pending_percentage": _format_decimal(pend_pct),
-        "total_supplier_value": _format_decimal(payment.total_supplier_value),
-        "total_contract_value": _format_decimal(payment.total_supplier_value),
-        "amount_paid": _format_decimal(payment.amount_paid),
-        "payment_amount": _format_decimal(payment.amount_paid),
+        "total_contract_value": _format_decimal(payment.total_contract_value),
+        "payment_amount": _format_decimal(payment.payment_amount),
         "total_paid_amount": _format_decimal(cum_paid),
         "remaining_amount_before_transaction": _format_decimal(remaining_before),
         "payment_date": payment.payment_date,
-        "transaction_details": payment.transaction_details,
-        "reference_no": payment.transaction_details,
+        "reference_no": payment.reference_no,
         "pending_amount": _format_decimal(payment.pending_amount),
-        "exchange_rate": _format_decimal(payment.exchange_rate),
-        "eur_to_inr_rate": _format_decimal(payment.exchange_rate),
-        "total_with_exchange": _format_decimal(payment.total_with_exchange),
-        "payment_amount_inr": _format_decimal(payment.total_with_exchange),
+        "eur_to_inr_rate": _format_decimal(payment.eur_to_inr_rate),
+        "payment_amount_inr": _format_decimal(payment.payment_amount_inr),
         "bank_charges_currency": payment.bank_charges_currency,
         "bank_charges": _format_decimal(payment.bank_charges),
         "swift_charges": _format_decimal(payment.swift_charges),
@@ -488,7 +481,7 @@ _REQUEST_BODY_CREATE_DOC = {
                         "type": "string",
                         "description": "Serialized JSON string matching SupplierPaymentCreateSchema",
                         "example": (
-                            '{"project_id":1,"currency":"INR","payment_percentage":100,"total_supplier_value":3000,"amount_paid":3000,"payment_date":"2026-09-08","transaction_details":"sdggsggffdg","pending_amount":44,"remark":"Bank UTR & Settlement Remarks"}'
+                            '{"project_id":1,"currency":"INR","payment_pct":100,"total_contract_value":3000,"payment_amount":3000,"payment_date":"2026-09-08","reference_no":"sdggsggffdg","pending_amount":44,"remark":"Bank UTR & Settlement Remarks"}'
                         ),
                     },
                     "file": {

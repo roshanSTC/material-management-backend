@@ -72,14 +72,14 @@ def create_supplier_payment(*, data: dict) -> SupplierPayment:
         project_id=data["project_id"],
         supplier_id=data.get("supplier_id"),
         currency=str(data.get("currency") or "INR").strip().upper(),
-        payment_percentage=_parse_decimal_val(data.get("payment_percentage")),
-        total_supplier_value=_parse_decimal_val(data.get("total_supplier_value")),
-        amount_paid=_parse_decimal_val(data.get("amount_paid")),
+        payment_pct=_parse_decimal_val(data.get("payment_pct")),
+        total_contract_value=_parse_decimal_val(data.get("total_contract_value")),
+        payment_amount=_parse_decimal_val(data.get("payment_amount")),
         payment_date=pay_date,
-        transaction_details=_normalize_optional_string(data.get("transaction_details")),
+        reference_no=_normalize_optional_string(data.get("reference_no")),
         pending_amount=_parse_decimal_val(data.get("pending_amount")),
-        exchange_rate=_parse_decimal_val(data.get("exchange_rate")),
-        total_with_exchange=_parse_decimal_val(data.get("total_with_exchange")),
+        eur_to_inr_rate=_parse_decimal_val(data.get("eur_to_inr_rate")),
+        payment_amount_inr=_parse_decimal_val(data.get("payment_amount_inr")),
         bank_charges_currency=bcc.upper() if bcc else None,
         bank_charges=_parse_decimal_val(data.get("bank_charges")),
         swift_charges=_parse_decimal_val(data.get("swift_charges")),
@@ -98,7 +98,7 @@ def get_supplier_payment(payment_id: int) -> SupplierPayment | None:
 
 def get_total_previously_paid(project_id: int, exclude_id: int | None = None) -> Decimal:
     query = db.session.query(
-        db.func.coalesce(db.func.sum(SupplierPayment.amount_paid), 0)
+        db.func.coalesce(db.func.sum(SupplierPayment.payment_amount), 0)
     ).filter(SupplierPayment.project_id == project_id)
     if exclude_id is not None:
         query = query.filter(SupplierPayment.id != exclude_id)
@@ -153,31 +153,31 @@ def update_supplier_payment(
     if "currency" in data and data["currency"] is not None:
         payment.currency = str(data["currency"]).strip().upper()
 
-    if "payment_percentage" in data:
-        payment.payment_percentage = _parse_decimal_val(data.get("payment_percentage"))
+    if "payment_pct" in data:
+        payment.payment_pct = _parse_decimal_val(data.get("payment_pct"))
 
-    if "total_supplier_value" in data:
-        payment.total_supplier_value = _parse_decimal_val(data.get("total_supplier_value"))
+    if "total_contract_value" in data:
+        payment.total_contract_value = _parse_decimal_val(data.get("total_contract_value"))
 
-    if "amount_paid" in data:
-        payment.amount_paid = _parse_decimal_val(data.get("amount_paid"))
+    if "payment_amount" in data:
+        payment.payment_amount = _parse_decimal_val(data.get("payment_amount"))
 
     if "payment_date" in data:
         dt = _parse_date_val(data.get("payment_date"))
         if dt is not None:
             payment.payment_date = dt
 
-    if "transaction_details" in data:
-        payment.transaction_details = _normalize_optional_string(data.get("transaction_details"))
+    if "reference_no" in data:
+        payment.reference_no = _normalize_optional_string(data.get("reference_no"))
 
     if "pending_amount" in data:
         payment.pending_amount = _parse_decimal_val(data.get("pending_amount"))
 
-    if "exchange_rate" in data:
-        payment.exchange_rate = _parse_decimal_val(data.get("exchange_rate"))
+    if "eur_to_inr_rate" in data:
+        payment.eur_to_inr_rate = _parse_decimal_val(data.get("eur_to_inr_rate"))
 
-    if "total_with_exchange" in data:
-        payment.total_with_exchange = _parse_decimal_val(data.get("total_with_exchange"))
+    if "payment_amount_inr" in data:
+        payment.payment_amount_inr = _parse_decimal_val(data.get("payment_amount_inr"))
 
     if "bank_charges_currency" in data:
         bcc = _normalize_optional_string(data.get("bank_charges_currency"))

@@ -67,57 +67,41 @@ def _replace_items(
     items: list[dict],
 ) -> None:
     invoice.items.clear()
-    for item in items:
-        mat_name = _normalize_optional_string(
-            item.get("material_name") or item.get("description")
-        )
-        desc = _normalize_optional_string(
-            item.get("description") or item.get("material_name")
-        ) or ""
-        hsn = _normalize_optional_string(
-            item.get("hsn_code") or item.get("hsn_sac") or item.get("hsn")
-        )
+    for idx, item in enumerate(items, start=1):
+        desc = _normalize_optional_string(item.get("description")) or ""
+        hsn = _normalize_optional_string(item.get("hsn_sac"))
         qty = _parse_decimal_val(item.get("quantity")) or Decimal("1")
         unit_price = _parse_decimal_val(item.get("unit_price"))
         if unit_price is None:
             unit_price = Decimal("0.00")
 
-        net_amt = _parse_decimal_val(item.get("net_amount"))
-        if net_amt is None and unit_price is not None and qty is not None:
-            net_amt = (qty * unit_price).quantize(Decimal("0.01"))
+        total_amt = _parse_decimal_val(item.get("total_amount"))
+        if total_amt is None and unit_price is not None and qty is not None:
+            total_amt = (qty * unit_price).quantize(Decimal("0.01"))
 
         item_obj = SupplierInvoiceItem(
-            material_name=mat_name,
+            sr_no=item.get("sr_no") if item.get("sr_no") is not None else idx,
             description=desc,
-            hsn_code=hsn,
+            hsn_sac=hsn,
             quantity=qty,
             unit_price=unit_price,
-            net_amount=net_amt,
+            total_amount=total_amt,
         )
         invoice.items.append(item_obj)
 
 
 def create_supplier_invoice(*, data: dict) -> SupplierInvoice:
-    invoice_date_val = _parse_date_val(
-        data.get("invoice_date")
-    )
+    invoice_date_val = _parse_date_val(data.get("invoice_date"))
 
     invoice = SupplierInvoice(
         project_id=data["project_id"],
-        supplier_id=data["supplier_id"],
-        invoice_no=str(
-            data.get("invoice_no") or data.get("invoice_number")
-        ).strip(),
+        supplier_id=data.get("supplier_id"),
+        supplier_name=_normalize_optional_string(data.get("supplier_name")),
+        invoice_no=str(data.get("invoice_no") or "").strip(),
         invoice_date=invoice_date_val,
-        delivery_terms=_normalize_optional_string(
-            data.get("delivery_terms") or data.get("delivery_term")
-        ),
-        delivery_period=_normalize_optional_string(
-            data.get("delivery_period")
-        ),
-        payment_terms=_normalize_optional_string(
-            data.get("payment_terms") or data.get("payment_term")
-        ),
+        incoterms=_normalize_optional_string(data.get("incoterms")),
+        delivery_period=_normalize_optional_string(data.get("delivery_period")),
+        payment_terms=_normalize_optional_string(data.get("payment_terms")),
         warranty_period=_normalize_optional_string(data.get("warranty_period")),
         total_amount=_parse_decimal_val(data.get("total_amount")),
         total_net_amount=_parse_decimal_val(data.get("total_net_amount")),
@@ -180,29 +164,25 @@ def update_supplier_invoice(
         invoice.project_id = data["project_id"]
     if "supplier_id" in data:
         invoice.supplier_id = data["supplier_id"]
+    if "supplier_name" in data:
+        invoice.supplier_name = _normalize_optional_string(data["supplier_name"])
 
-    if "invoice_no" in data or "invoice_number" in data:
-        invoice.invoice_no = str(
-            data.get("invoice_no") or data.get("invoice_number")
-        ).strip()
+    if "invoice_no" in data:
+        invoice.invoice_no = str(data["invoice_no"]).strip()
 
     if "invoice_date" in data:
         dt = _parse_date_val(data.get("invoice_date"))
         if dt is not None:
             invoice.invoice_date = dt
 
-    if "delivery_terms" in data or "delivery_term" in data:
-        invoice.delivery_terms = _normalize_optional_string(
-            data.get("delivery_terms") or data.get("delivery_term")
-        )
+    if "incoterms" in data:
+        invoice.incoterms = _normalize_optional_string(data["incoterms"])
 
     if "delivery_period" in data:
         invoice.delivery_period = _normalize_optional_string(data.get("delivery_period"))
 
-    if "payment_terms" in data or "payment_term" in data:
-        invoice.payment_terms = _normalize_optional_string(
-            data.get("payment_terms") or data.get("payment_term")
-        )
+    if "payment_terms" in data:
+        invoice.payment_terms = _normalize_optional_string(data["payment_terms"])
 
     if "warranty_period" in data:
         invoice.warranty_period = _normalize_optional_string(data.get("warranty_period"))

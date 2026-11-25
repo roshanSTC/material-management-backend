@@ -72,19 +72,14 @@ def _proforma_invoice_response(invoice):
         "id": invoice.id,
         "project_id": invoice.project_id,
         "supplier_id": invoice.supplier_id,
-        "supplier_name": supplier_name,
+        "supplier_name": invoice.supplier_name or supplier_name,
         "order_confirmation_id": invoice.order_confirmation_id,
         "proforma_invoice_no": invoice.proforma_invoice_no,
-        "proforma_invoice_number": invoice.proforma_invoice_no,
         "proforma_invoice_date": invoice.proforma_invoice_date,
-        "invoice_date": invoice.proforma_invoice_date,
-        "delivery_terms": invoice.delivery_terms,
-        "delivery_term": invoice.delivery_terms,
-        "incoterms": invoice.delivery_terms,
+        "incoterms": invoice.incoterms,
         "delivery_period": invoice.delivery_period,
         "delivery_date": invoice.delivery_date,
         "payment_terms": invoice.payment_terms,
-        "payment_term": invoice.payment_terms,
         "warranty_period": invoice.warranty_period,
         "total_amount": invoice.total_amount,
         "total_net_amount": invoice.total_net_amount,
@@ -99,18 +94,13 @@ def _proforma_invoice_response(invoice):
         "items": [
             {
                 "id": item.id,
-                "sr_no": idx + 1,
+                "sr_no": item.sr_no if item.sr_no is not None else (idx + 1),
                 "proforma_invoice_id": item.proforma_invoice_id,
-                "material_name": item.material_name or item.description,
                 "description": item.description,
-                "item_description": item.description,
-                "hsn_code": item.hsn_code,
-                "hsn": item.hsn_code,
-                "hsn_sac": item.hsn_code,
+                "hsn_sac": item.hsn_sac,
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
-                "net_amount": item.net_amount,
-                "total_amount": item.net_amount,
+                "total_amount": item.total_amount,
                 "created_at": item.created_at,
             }
             for idx, item in enumerate(invoice.items)
@@ -148,25 +138,26 @@ def _latest_supplier_proforma_invoice_response(invoice):
 
     items_list = []
     calculated_total = Decimal("0.00")
-    for item in invoice.items:
+    for idx, item in enumerate(invoice.items, start=1):
         qty = item.quantity
         price = item.unit_price
-        net_amt = item.net_amount
-        if net_amt is None and qty is not None and price is not None:
+        tot_amt = item.total_amount
+        if tot_amt is None and qty is not None and price is not None:
             try:
-                net_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
+                tot_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
             except Exception:
                 pass
-        if net_amt is not None:
+        if tot_amt is not None:
             try:
-                calculated_total += Decimal(str(net_amt))
+                calculated_total += Decimal(str(tot_amt))
             except Exception:
                 pass
 
         items_list.append({
-            "hsn_code": item.hsn_code,
-            "material_name": item.material_name or item.description,
-            "net_amount": _format_decimal_str(net_amt, places=2),
+            "sr_no": item.sr_no if item.sr_no is not None else idx,
+            "hsn_sac": item.hsn_sac,
+            "description": item.description,
+            "total_amount": _format_decimal_str(tot_amt, places=2),
             "quantity": _format_decimal_str(qty, places=3) or "0.000",
             "unit_price": _format_decimal_str(price, places=2),
         })
@@ -179,7 +170,7 @@ def _latest_supplier_proforma_invoice_response(invoice):
 
     return {
         "delivery_period": invoice.delivery_period,
-        "delivery_terms": invoice.delivery_terms,
+        "incoterms": invoice.incoterms,
         "items": items_list,
         "payment_terms": invoice.payment_terms,
         "total_amount": _format_decimal_str(total_amt, places=2),

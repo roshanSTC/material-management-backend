@@ -67,43 +67,30 @@ def _replace_items(
     items: list[dict],
 ) -> None:
     invoice.items.clear()
-    for item in items:
-        mat_name = _normalize_optional_string(
-            item.get("material_name") or item.get("material_description") or item.get("description")
-        ) or ""
-        hsn = _normalize_optional_string(
-            item.get("hsn_code") or item.get("hsn_sac") or item.get("hsn")
-        )
+    for idx, item in enumerate(items, start=1):
+        desc = _normalize_optional_string(item.get("description")) or ""
+        hsn = _normalize_optional_string(item.get("hsn_sac"))
         qty = _parse_decimal_val(item.get("quantity"))
         if qty is None:
             qty = Decimal("1.000")
 
-        unit_price = _parse_decimal_val(
-            item.get("unit_price") or item.get("rate_per_unit")
-        )
+        unit_price = _parse_decimal_val(item.get("unit_price"))
         if unit_price is None:
             unit_price = Decimal("0.00")
 
-        net_amt = _parse_decimal_val(
-            item.get("net_amount")
-            if item.get("net_amount") is not None
-            else item.get("total_amount")
-            if item.get("total_amount") is not None
-            else item.get("amount")
-            if item.get("amount") is not None
-            else item.get("total_price")
-        )
-        if net_amt is None and unit_price is not None and qty is not None:
-            net_amt = (qty * unit_price).quantize(Decimal("0.01"))
-        elif net_amt is None:
-            net_amt = Decimal("0.00")
+        tot_amt = _parse_decimal_val(item.get("total_amount"))
+        if tot_amt is None and unit_price is not None and qty is not None:
+            tot_amt = (qty * unit_price).quantize(Decimal("0.01"))
+        elif tot_amt is None:
+            tot_amt = Decimal("0.00")
 
         item_obj = CustomerDeliveryInvoiceItem(
-            material_name=mat_name,
-            hsn_code=hsn,
+            sr_no=item.get("sr_no") if item.get("sr_no") is not None else idx,
+            description=desc,
+            hsn_sac=hsn,
             quantity=qty,
             unit_price=unit_price,
-            net_amount=net_amt,
+            total_amount=tot_amt,
         )
         invoice.items.append(item_obj)
 
@@ -111,35 +98,22 @@ def _replace_items(
 def create_customer_delivery_invoice(*, data: dict) -> CustomerDeliveryInvoice:
     invoice_date_val = _parse_date_val(data.get("invoice_date"))
 
-    gst_r = _parse_decimal_val(
-        data.get("gst_rate")
-        if data.get("gst_rate") is not None
-        else data.get("gst_rate_pct")
-        if data.get("gst_rate_pct") is not None
-        else data.get("gst_pct")
-        if data.get("gst_pct") is not None
-        else data.get("gst")
-    )
+    gst_p = _parse_decimal_val(data.get("gst_pct"))
     gst_amt = _parse_decimal_val(data.get("gst_amount"))
     round_off_val = _parse_decimal_val(data.get("round_off"))
-    net_tot = _parse_decimal_val(
-        data.get("net_total")
-        if data.get("net_total") is not None
-        else data.get("total_gross_amount")
-        if data.get("total_gross_amount") is not None
-        else data.get("total_amount")
-    )
+    tot_net = _parse_decimal_val(data.get("total_net_amount"))
+    tot_gross = _parse_decimal_val(data.get("total_gross_amount"))
 
     invoice = CustomerDeliveryInvoice(
         project_id=data["project_id"],
-        invoice_no=str(
-            data.get("invoice_no") or data.get("invoice_number")
-        ).strip(),
+        customer_name=_normalize_optional_string(data.get("customer_name")),
+        invoice_no=str(data["invoice_no"]).strip(),
         invoice_date=invoice_date_val,
-        gst_rate=gst_r,
+        gst_pct=gst_p,
         gst_amount=gst_amt,
         round_off=round_off_val,
-        net_total=net_tot,
+        total_net_amount=tot_net,
+        total_gross_amount=tot_gross,
         remark=_normalize_optional_string(data.get("remark") or data.get("remarks")),
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
@@ -149,11 +123,15 @@ def create_customer_delivery_invoice(*, data: dict) -> CustomerDeliveryInvoice:
     _replace_items(invoice, items_data)
 
     if invoice.items:
-        items_sum = sum((it.net_amount or Decimal("0.00")) for it in invoice.items)
-        if invoice.gst_amount is None and invoice.gst_rate is not None:
-            invoice.gst_amount = (items_sum * invoice.gst_rate / Decimal("100")).quantize(Decimal("0.01"))
-        if invoice.net_total is None:
-            invoice.net_total = (items_sum + (invoice.gst_amount or Decimal("0.00")) + (invoice.round_off or Decimal("0.00"))).quantize(Decimal("0.01"))
+        items_sum = sum((it.total_amount or Decimal("0.00")) for it in invoice.items)
+        if invoice.total_net_amount is None:
+            invoice.total_net_amount = items_sum.quantize(Decimal("0.01"))
+        if invoice.gst_amount is None and invoice.gst_pct is not None:
+            invoice.gst_amount = (invoice.total_net_amount * invoice.gst_pct / Decimal("100")).quantize(Decimal("0.01"))
+        if invoice.total_gross_amount is None:
+            invoice.total_gross_amount = (
+                invoice.total_net_amount + (invoice.gst_amount or Decimal("0.00")) + (invoice.round_off or Decimal("0.00"))
+            ).quantize(Decimal("0.01"))
 
     db.session.add(invoice)
     return invoice
@@ -195,26 +173,19 @@ def update_customer_delivery_invoice(
     if "project_id" in data:
         invoice.project_id = data["project_id"]
 
-    if "invoice_no" in data or "invoice_number" in data:
-        invoice.invoice_no = str(
-            data.get("invoice_no") or data.get("invoice_number")
-        ).strip()
+    if "customer_name" in data:
+        invoice.customer_name = _normalize_optional_string(data.get("customer_name"))
+
+    if "invoice_no" in data:
+        invoice.invoice_no = str(data["invoice_no"]).strip()
 
     if "invoice_date" in data:
         dt = _parse_date_val(data.get("invoice_date"))
         if dt is not None:
             invoice.invoice_date = dt
 
-    if "gst_rate" in data or "gst_rate_pct" in data or "gst_pct" in data or "gst" in data:
-        invoice.gst_rate = _parse_decimal_val(
-            data.get("gst_rate")
-            if data.get("gst_rate") is not None
-            else data.get("gst_rate_pct")
-            if data.get("gst_rate_pct") is not None
-            else data.get("gst_pct")
-            if data.get("gst_pct") is not None
-            else data.get("gst")
-        )
+    if "gst_pct" in data:
+        invoice.gst_pct = _parse_decimal_val(data.get("gst_pct"))
 
     if "gst_amount" in data:
         invoice.gst_amount = _parse_decimal_val(data.get("gst_amount"))
@@ -222,14 +193,11 @@ def update_customer_delivery_invoice(
     if "round_off" in data:
         invoice.round_off = _parse_decimal_val(data.get("round_off"))
 
-    if "net_total" in data or "total_gross_amount" in data or "total_amount" in data:
-        invoice.net_total = _parse_decimal_val(
-            data.get("net_total")
-            if data.get("net_total") is not None
-            else data.get("total_gross_amount")
-            if data.get("total_gross_amount") is not None
-            else data.get("total_amount")
-        )
+    if "total_net_amount" in data:
+        invoice.total_net_amount = _parse_decimal_val(data.get("total_net_amount"))
+
+    if "total_gross_amount" in data:
+        invoice.total_gross_amount = _parse_decimal_val(data.get("total_gross_amount"))
 
     if "remark" in data or "remarks" in data:
         invoice.remark = _normalize_optional_string(
@@ -238,12 +206,18 @@ def update_customer_delivery_invoice(
 
     if "items" in data and data["items"] is not None:
         _replace_items(invoice, data["items"])
-        if ("net_total" not in data and "total_gross_amount" not in data and "total_amount" not in data) or invoice.net_total is None:
-            items_sum = sum((it.net_amount or Decimal("0.00")) for it in invoice.items)
-            if "gst_amount" not in data or invoice.gst_amount is None:
-                if invoice.gst_rate is not None:
-                    invoice.gst_amount = (items_sum * invoice.gst_rate / Decimal("100")).quantize(Decimal("0.01"))
-            invoice.net_total = (items_sum + (invoice.gst_amount or Decimal("0.00")) + (invoice.round_off or Decimal("0.00"))).quantize(Decimal("0.01"))
+        if ("total_net_amount" not in data or data.get("total_net_amount") is None) and invoice.items:
+            invoice.total_net_amount = sum(
+                (it.total_amount or Decimal("0.00")) for it in invoice.items
+            ).quantize(Decimal("0.01"))
+        if ("gst_amount" not in data or data.get("gst_amount") is None) and invoice.gst_pct is not None and invoice.total_net_amount is not None:
+            invoice.gst_amount = (
+                invoice.total_net_amount * invoice.gst_pct / Decimal("100")
+            ).quantize(Decimal("0.01"))
+        if ("total_gross_amount" not in data or data.get("total_gross_amount") is None) and invoice.total_net_amount is not None:
+            invoice.total_gross_amount = (
+                invoice.total_net_amount + (invoice.gst_amount or Decimal("0.00")) + (invoice.round_off or Decimal("0.00"))
+            ).quantize(Decimal("0.01"))
 
     invoice.updated_at = datetime.utcnow()
     return invoice

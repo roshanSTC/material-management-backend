@@ -63,7 +63,6 @@ class BidDocumentTechnoCommercialItem(db.Model):
     )
     sr_no = db.Column(db.Integer, nullable=True)
     description = db.Column(db.Text, nullable=True)
-    material_name = db.Column(db.String(255), nullable=True)
     hsn_sac = db.Column(db.String(50), nullable=True)
     quantity = db.Column(db.Numeric(15, 3), nullable=True)
     unit_price = db.Column(db.Numeric(15, 2), nullable=True)

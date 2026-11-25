@@ -18,6 +18,11 @@ class CustomerDeliveryInvoice(db.Model):
         index=True,
     )
 
+    customer_name = db.Column(
+        db.String(255),
+        nullable=True,
+    )
+
     invoice_no = db.Column(
         db.String(100),
         nullable=False,
@@ -28,7 +33,7 @@ class CustomerDeliveryInvoice(db.Model):
         nullable=False,
     )
 
-    gst_rate = db.Column(
+    gst_pct = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )
@@ -43,7 +48,12 @@ class CustomerDeliveryInvoice(db.Model):
         nullable=True,
     )
 
-    net_total = db.Column(
+    total_net_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    total_gross_amount = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )
@@ -78,23 +88,6 @@ class CustomerDeliveryInvoice(db.Model):
         cascade="all, delete-orphan",
         lazy="select",
     )
-
-    # Property aliases for backward/forward compatibility
-    @property
-    def invoice_number(self):
-        return self.invoice_no
-
-    @invoice_number.setter
-    def invoice_number(self, val):
-        self.invoice_no = val
-
-    @property
-    def remarks(self):
-        return self.remark
-
-    @remarks.setter
-    def remarks(self, val):
-        self.remark = val
 
     def __repr__(self) -> str:
         return (

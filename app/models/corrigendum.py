@@ -20,11 +20,11 @@ class Corrigendum(db.Model):
         db.String(100),
         nullable=False,
     )
-    against_tender_no = db.Column(
+    against_ref_no = db.Column(
         db.String(100),
         nullable=True,
     )
-    tender_title = db.Column(
+    ref_title = db.Column(
         db.String(255),
         nullable=True,
     )
@@ -58,23 +58,6 @@ class Corrigendum(db.Model):
         cascade="all, delete-orphan",
         order_by="CorrigendumItem.sr_no.asc(), CorrigendumItem.id.asc()",
     )
-
-    # Aliases for frontend compatibility
-    @property
-    def against_ref_no(self):
-        return self.against_tender_no
-
-    @against_ref_no.setter
-    def against_ref_no(self, val):
-        self.against_tender_no = val
-
-    @property
-    def ref_title(self):
-        return self.tender_title
-
-    @ref_title.setter
-    def ref_title(self, val):
-        self.tender_title = val
 
     def __repr__(self) -> str:
         return f"<Corrigendum {self.id}: {self.corrigendum_no}>"
@@ -121,10 +104,6 @@ class CorrigendumItem(db.Model):
         "Corrigendum",
         back_populates="items",
     )
-
-    @property
-    def description(self):
-        return self.as_per_corrigendum or self.as_per_tender_doc or ""
 
     def to_dict(self) -> dict:
         return {

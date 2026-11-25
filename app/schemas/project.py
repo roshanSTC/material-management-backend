@@ -138,11 +138,11 @@ class MatchedItemSchema(Schema):
         unknown = EXCLUDE
 
     id = fields.Integer(required=True)
-    material_name = fields.String(allow_none=True)
+    description = fields.String(allow_none=True)
     quantity = fields.Raw(allow_none=True)
     unit_price = fields.Raw(allow_none=True)
-    net_amount = fields.Raw(allow_none=True)
-    hsn_code = fields.String(allow_none=True)
+    total_amount = fields.Raw(allow_none=True)
+    hsn_sac = fields.String(allow_none=True)
     step_number = fields.Integer(allow_none=True)
     step_name = fields.String(allow_none=True)
 

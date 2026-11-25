@@ -401,16 +401,16 @@ def parse_supplier_quotation_excel(
 
             items.append(
                 {
-                    "material_name": desc_str,
+                    "description": desc_str,
                     "material_number": mat_num_str,
-                    "hsn_code": hsn_str,
+                    "hsn_sac": hsn_str,
                     "quantity": qty,
                     "unit_price": unit_price,
-                    "net_amount": net_val if net_val is not None else 0,
+                    "total_amount": net_val if net_val is not None else 0,
                 }
             )
 
-    sum_net = sum(it["net_amount"] for it in items)
+    sum_net = sum(it["total_amount"] for it in items)
     final_total_net = (
         total_from_table if total_from_table is not None else _clean_num(sum_net)
     )
@@ -486,13 +486,13 @@ def parse_supplier_quotation_excel(
     
 
     return {
-        "quotation_number": str(q_num).strip(),
+        "quotation_no": str(q_num).strip(),
         "quotation_date": q_date,
         "currency_unit": currency_unit,
         "currency_symbol": currency_symbol,
         "quotation_value": quotation_value_str,
         "total_net_amount": final_total_net,
-        "validity": validity,
+        "quotation_validity": validity,
         "incoterms": incoterms,
         "payment_terms": payment_terms,
         "delivery_period": delivery_period,

@@ -25,12 +25,12 @@ class CustomerQuotation(db.Model):
         index=True,
     )
 
-    qo_number = db.Column(
-        db.String(100),
+    customer_name = db.Column(
+        db.String(255),
         nullable=True,
     )
 
-    quotation_number = db.Column(
+    quotation_no = db.Column(
         db.String(100),
         nullable=True,
     )
@@ -60,7 +60,7 @@ class CustomerQuotation(db.Model):
         nullable=True,
     )
 
-    validity = db.Column(
+    quotation_validity = db.Column(
         db.String(100),
         nullable=True,
     )

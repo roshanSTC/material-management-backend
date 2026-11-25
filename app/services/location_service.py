@@ -135,8 +135,8 @@ def _get_db_distinct_locations(
 ) -> Dict[str, set]:
     """Dynamically gathers distinct location values recorded in Supplier & Customer tables, scoped by country and state."""
     distinct = {"countries": set(), "states": set(), "cities": set()}
-    clean_country = (country or "").strip()
-    clean_state = (state or "").strip()
+    clean_country = _normalize_name(country or "").strip().lower()
+    clean_state = _normalize_name(state or "").strip().lower()
 
     try:
         from app.models.supplier import Supplier
@@ -150,23 +150,35 @@ def _get_db_distinct_locations(
                     if val and val.strip():
                         distinct["countries"].add(val.strip())
 
-            # Only query states matching the specified country (or all if country not specified)
-            state_query = model.query.with_entities(model.state).filter(model.state.isnot(None))
-            if clean_country:
-                state_query = state_query.filter(model.country.ilike(clean_country))
-            for (val,) in state_query.distinct().all():
-                if val and val.strip():
-                    distinct["states"].add(val.strip())
+            # Query states matching the specified country (or all if country not specified)
+            state_query = model.query.with_entities(model.state, model.country).filter(model.state.isnot(None))
+            for st_val, c_val in state_query.distinct().all():
+                if not st_val or not st_val.strip():
+                    continue
+                if clean_country:
+                    c_norm = _normalize_name(c_val or "").strip().lower()
+                    if c_norm and (c_norm == clean_country or c_norm in clean_country or clean_country in c_norm):
+                        distinct["states"].add(st_val.strip())
+                else:
+                    distinct["states"].add(st_val.strip())
 
-            # Only query cities matching country and/or state
-            city_query = model.query.with_entities(model.city).filter(model.city.isnot(None))
-            if clean_country:
-                city_query = city_query.filter(model.country.ilike(clean_country))
-            if clean_state:
-                city_query = city_query.filter(model.state.ilike(clean_state))
-            for (val,) in city_query.distinct().all():
-                if val and val.strip():
-                    distinct["cities"].add(val.strip())
+            # Query cities matching country and/or state leniently (diacritic-insensitive, substring-tolerant)
+            city_query = model.query.with_entities(model.city, model.state, model.country).filter(model.city.isnot(None))
+            for city_val, st_val, c_val in city_query.distinct().all():
+                if not city_val or not city_val.strip():
+                    continue
+
+                if clean_country:
+                    c_norm = _normalize_name(c_val or "").strip().lower()
+                    if c_norm and (c_norm != clean_country and c_norm not in clean_country and clean_country not in c_norm):
+                        continue
+
+                if clean_state:
+                    st_norm = _normalize_name(st_val or "").strip().lower()
+                    if st_norm and (st_norm != clean_state and st_norm not in clean_state and clean_state not in st_norm):
+                        continue
+
+                distinct["cities"].add(city_val.strip())
     except Exception as e:
         logger.debug(f"DB distinct locations query skipped: {e}")
 
@@ -194,23 +206,22 @@ def list_countries(search: Optional[str] = None) -> List[str]:
         if not countries:
             countries = list(DEFAULT_COUNTRIES)
 
-        # Merge distinct countries from PostgreSQL
-        db_locs = _get_db_distinct_locations()
-        for c in db_locs["countries"]:
-            if c not in countries:
-                countries.append(c)
-
-        # Clean and sort with India on top
-        unique = _deduplicate_names(countries)
-        cached = ["India"] + [c for c in unique if c.lower() != "india"]
-
+        cached = _deduplicate_names(countries)
         with _LOCK:
             _CACHE["countries"] = cached
 
-    result = cached
+    # Dynamically augment with any newly added countries from DB on every call
+    merged_countries = list(cached)
+    db_locs = _get_db_distinct_locations()
+    for c in db_locs["countries"]:
+        if c not in merged_countries:
+            merged_countries.append(c)
+
+    unique = _deduplicate_names(merged_countries)
+    result = ["India"] + [c for c in unique if c.lower() != "india"]
     if search and search.strip():
         q = _normalize_name(search).lower()
-        result = [c for c in cached if q in _normalize_name(c).lower()]
+        result = [c for c in result if q in _normalize_name(c).lower()]
 
     return result
 
@@ -244,20 +255,21 @@ def list_states(country: Optional[str] = None, search: Optional[str] = None) -> 
         if not states and clean_country.lower() in ("india", "bharat"):
             states = list(DEFAULT_INDIAN_STATES)
 
-        # Merge DB states for this specific country
-        db_locs = _get_db_distinct_locations(country=clean_country)
-        for s in db_locs["states"]:
-            if s not in states:
-                states.append(s)
-
         cached_states = _deduplicate_names(states)
         with _LOCK:
             _CACHE["states_by_country"][cache_key] = cached_states
 
-    result = cached_states
+    # Dynamically augment with any newly added states from DB on every call
+    merged_states = list(cached_states)
+    db_locs = _get_db_distinct_locations(country=clean_country)
+    for s in db_locs["states"]:
+        if s not in merged_states:
+            merged_states.append(s)
+
+    result = _deduplicate_names(merged_states)
     if search and search.strip():
         q = _normalize_name(search).lower()
-        result = [s for s in cached_states if q in _normalize_name(s).lower()]
+        result = [s for s in result if q in _normalize_name(s).lower()]
 
     return result
 
@@ -291,8 +303,9 @@ def list_cities(
             except Exception as e:
                 logger.warning(f"Failed to fetch dynamic cities for {clean_state}, {clean_country}: {e}")
 
-        # If clean_state returned empty or no state specified, try country cities
-        if not cities and not clean_state:
+        # Only fallback to country-wide cities if an explicit search term is provided.
+        # Fetching entire country cities without state or search causes heavy payloads and severe latency.
+        if not cities and not clean_state and search and search.strip():
             try:
                 resp = requests.post(
                     "https://countriesnow.space/api/v0.1/countries/cities",
@@ -305,25 +318,35 @@ def list_cities(
             except Exception as e:
                 logger.warning(f"Failed to fetch country cities for {clean_country}: {e}")
 
-        # Augment with any cities already present in DB for this specific country & state
-        db_locs = _get_db_distinct_locations(country=clean_country, state=clean_state)
-        for db_city in db_locs["cities"]:
-            if db_city not in cities:
-                cities.append(db_city)
-
         cached_cities = _deduplicate_names(cities)
         with _LOCK:
             _CACHE["cities_by_state"][cache_key] = cached_cities
 
-    result = cached_cities
+    # ALWAYS dynamically augment with current DB distinct locations on every request!
+    merged_cities = list(cached_cities)
+    db_locs = _get_db_distinct_locations(country=clean_country, state=clean_state)
+    for db_city in db_locs["cities"]:
+        if db_city not in merged_cities:
+            merged_cities.append(db_city)
+
+    result = _deduplicate_names(merged_cities)
     if search and search.strip():
         q = _normalize_name(search).lower()
-        result = [c for c in cached_cities if q in _normalize_name(c).lower()]
+        result = [c for c in result if q in _normalize_name(c).lower()]
 
     if limit and isinstance(limit, int) and limit > 0:
         result = result[:limit]
 
     return result
+
+
+def clear_cache() -> None:
+    """Clears in-memory location caches to force re-fetch from upstream APIs and DB."""
+    with _LOCK:
+        _CACHE["countries"] = None
+        _CACHE["states_by_country"].clear()
+        _CACHE["cities_by_state"].clear()
+        _CACHE["lookups"].clear()
 
 
 def lookup_location(

@@ -18,12 +18,17 @@ class CustomerDeliveryInvoiceItem(db.Model):
         index=True,
     )
 
-    material_name = db.Column(
-        db.String(255),
+    sr_no = db.Column(
+        db.Integer,
+        nullable=True,
+    )
+
+    description = db.Column(
+        db.String(500),
         nullable=False,
     )
 
-    hsn_code = db.Column(
+    hsn_sac = db.Column(
         db.String(50),
         nullable=True,
     )
@@ -38,7 +43,7 @@ class CustomerDeliveryInvoiceItem(db.Model):
         nullable=False,
     )
 
-    net_amount = db.Column(
+    total_amount = db.Column(
         db.Numeric(18, 2),
         nullable=False,
     )
@@ -62,41 +67,8 @@ class CustomerDeliveryInvoiceItem(db.Model):
         lazy="select",
     )
 
-    # Property aliases for backward/forward compatibility
-    @property
-    def material_description(self):
-        return self.material_name
-
-    @material_description.setter
-    def material_description(self, val):
-        self.material_name = val
-
-    @property
-    def hsn_sac(self):
-        return self.hsn_code
-
-    @hsn_sac.setter
-    def hsn_sac(self, val):
-        self.hsn_code = val
-
-    @property
-    def rate_per_unit(self):
-        return self.unit_price
-
-    @rate_per_unit.setter
-    def rate_per_unit(self, val):
-        self.unit_price = val
-
-    @property
-    def amount(self):
-        return self.net_amount
-
-    @amount.setter
-    def amount(self, val):
-        self.net_amount = val
-
     def __repr__(self) -> str:
         return (
             f"<CustomerDeliveryInvoiceItem "
-            f"{self.id}: {self.material_name}>"
+            f"{self.id}: {self.description}>"
         )

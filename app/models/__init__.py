@@ -28,7 +28,7 @@ from app.models.supplier_packing_list import SupplierPackingList
 from app.models.supplier_packing_list_item import SupplierPackingListItem
 from app.models.import_logistics import ImportLogistics
 from app.models.bill_of_entry import BillOfEntry
-from app.models.customs_clearance import CustomsClearance
+from app.models.customs_clearance import CustomsClearance, CustomsClearanceItem
 from app.models.customer_delivery_invoice import CustomerDeliveryInvoice
 from app.models.customer_delivery_invoice_item import CustomerDeliveryInvoiceItem
 from app.models.customer_delivery_packing_list import (CustomerDeliveryPackingList,)
@@ -127,6 +127,7 @@ __all__ = [
     "ImportLogistics",
     "BillOfEntry",
     "CustomsClearance",
+    "CustomsClearanceItem",
     "CustomerDeliveryInvoice",
     "CustomerDeliveryInvoiceItem",
     "CustomerDeliveryPackingList",

@@ -24,6 +24,11 @@ class CustomerQuotationItem(db.Model):
         nullable=True,
     )
 
+    sr_no = db.Column(
+        db.Integer,
+        nullable=True,
+    )
+
     quotation_number = db.Column(
         db.String(100),
         nullable=True,
@@ -34,9 +39,14 @@ class CustomerQuotationItem(db.Model):
         nullable=True,
     )
 
-    material_name = db.Column(
-        db.String(255),
+    description = db.Column(
+        db.String(500),
         nullable=False,
+    )
+
+    hsn_sac = db.Column(
+        db.String(50),
+        nullable=True,
     )
 
     quantity = db.Column(
@@ -49,7 +59,7 @@ class CustomerQuotationItem(db.Model):
         nullable=True,
     )
 
-    net_amount = db.Column(
+    total_amount = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )

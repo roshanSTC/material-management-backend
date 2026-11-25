@@ -67,48 +67,22 @@ def _replace_items(
     items: list[dict],
 ) -> None:
     packing_list.items.clear()
-    for item in items:
-        mat_name = _normalize_optional_string(
-            item.get("material_name") or item.get("description")
-        )
-        desc = _normalize_optional_string(
-            item.get("description") or item.get("material_name")
-        ) or ""
-        hsn = _normalize_optional_string(
-            item.get("hsn_code") or item.get("hsn_sac") or item.get("hsn")
-        )
-        qty = _parse_decimal_val(item.get("quantity")) or Decimal("1")
+    for idx, item in enumerate(items, start=1):
+        desc = _normalize_optional_string(item.get("description")) or ""
+        hsn = _normalize_optional_string(item.get("hsn_sac"))
+        qty = _parse_decimal_val(item.get("quantity"))
         unit_price = _parse_decimal_val(item.get("unit_price"))
-        if unit_price is None:
-            unit_price = Decimal("0.00")
-
-        net_amt = _parse_decimal_val(item.get("net_amount"))
-        if net_amt is None and unit_price is not None and qty is not None:
-            net_amt = (qty * unit_price).quantize(Decimal("0.01"))
-
-        unit_weight = _parse_decimal_val(
-            item.get("unit_weight")
-            if item.get("unit_weight") is not None
-            else item.get("unit_weight_kg")
-            if item.get("unit_weight_kg") is not None
-            else item.get("weight")
-        )
-        weight = _parse_decimal_val(item.get("weight"))
-        if weight is None:
-            weight = unit_weight
-
+        unit_weight = _parse_decimal_val(item.get("unit_weight"))
         total_weight = _parse_decimal_val(item.get("total_weight"))
         if total_weight is None and unit_weight is not None and qty is not None:
             total_weight = (qty * unit_weight).quantize(Decimal("0.001"))
 
         item_obj = SupplierPackingListItem(
-            material_name=mat_name,
+            sr_no=item.get("sr_no") if item.get("sr_no") is not None else idx,
             description=desc,
-            hsn_code=hsn,
+            hsn_sac=hsn,
             quantity=qty,
             unit_price=unit_price,
-            net_amount=net_amt,
-            weight=weight,
             unit_weight=unit_weight,
             total_weight=total_weight,
         )
@@ -116,31 +90,17 @@ def _replace_items(
 
 
 def create_supplier_packing_list(*, data: dict) -> SupplierPackingList:
-    packing_date_val = _parse_date_val(
-        data.get("packing_list_date")
-    )
-
-    tot_weight = _parse_decimal_val(
-        data.get("total_weight")
-        if data.get("total_weight") is not None
-        else data.get("total_gross_weight_kg")
-        if data.get("total_gross_weight_kg") is not None
-        else data.get("weight")
-    )
-    weight = _parse_decimal_val(data.get("weight"))
-    if weight is None:
-        weight = tot_weight
+    packing_date_val = _parse_date_val(data.get("packing_list_date"))
 
     packing_list = SupplierPackingList(
         project_id=data["project_id"],
-        supplier_id=data["supplier_id"],
-        packing_list_no=str(
-            data.get("packing_list_no") or data.get("packing_list_number")
-        ).strip(),
+        supplier_id=data.get("supplier_id"),
+        packing_list_no=str(data.get("packing_list_no") or "").strip(),
         packing_list_date=packing_date_val,
         packing_condition=_normalize_optional_string(data.get("packing_condition")),
-        weight=weight,
-        total_weight=tot_weight,
+        net_weight=_parse_decimal_val(data.get("net_weight")),
+        gross_weight=_parse_decimal_val(data.get("gross_weight")),
+        total_no_packages=data.get("total_no_packages"),
         remark=_normalize_optional_string(data.get("remark") or data.get("remarks")),
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
@@ -201,10 +161,8 @@ def update_supplier_packing_list(
     if "supplier_id" in data:
         packing_list.supplier_id = data["supplier_id"]
 
-    if "packing_list_no" in data or "packing_list_number" in data:
-        packing_list.packing_list_no = str(
-            data.get("packing_list_no") or data.get("packing_list_number")
-        ).strip()
+    if "packing_list_no" in data:
+        packing_list.packing_list_no = str(data["packing_list_no"]).strip()
 
     if "packing_list_date" in data:
         dt = _parse_date_val(data.get("packing_list_date"))
@@ -214,15 +172,14 @@ def update_supplier_packing_list(
     if "packing_condition" in data:
         packing_list.packing_condition = _normalize_optional_string(data.get("packing_condition"))
 
-    if "weight" in data:
-        packing_list.weight = _parse_decimal_val(data.get("weight"))
+    if "net_weight" in data:
+        packing_list.net_weight = _parse_decimal_val(data.get("net_weight"))
 
-    if "total_weight" in data or "total_gross_weight_kg" in data:
-        packing_list.total_weight = _parse_decimal_val(
-            data.get("total_weight")
-            if data.get("total_weight") is not None
-            else data.get("total_gross_weight_kg")
-        )
+    if "gross_weight" in data:
+        packing_list.gross_weight = _parse_decimal_val(data.get("gross_weight"))
+
+    if "total_no_packages" in data:
+        packing_list.total_no_packages = data.get("total_no_packages")
 
     if "remark" in data or "remarks" in data:
         packing_list.remark = _normalize_optional_string(data.get("remark") or data.get("remarks"))

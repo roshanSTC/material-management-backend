@@ -63,24 +63,15 @@ def _transport_detail_response(detail: TransportDetail) -> dict:
         .all()
     )
 
-    awb_val = detail.lr_no or detail.rr_no or detail.awb_no
     return {
         "id": detail.id,
         "project_id": detail.project_id,
-        "transport_mode": detail.transport_mode,
-        "transportation_mode": detail.transport_mode,
-        "date": detail.date,
-        "transport_date": detail.date,
-        "lr_rr_awb_date": detail.date,
+        "transportation_mode": detail.transportation_mode,
+        "lr_rr_awb_date": detail.lr_rr_awb_date,
         "from_location": detail.from_location,
         "to_location": detail.to_location,
-        "lr_no": detail.lr_no,
-        "lr_number": detail.lr_no,
-        "rr_no": detail.rr_no,
-        "awb_no": detail.awb_no,
-        "lr_rr_awb_no": awb_val,
-        "transport_charges": detail.transport_charges,
-        "total_transportation_charges": detail.transport_charges,
+        "lr_rr_awb_no": detail.lr_rr_awb_no,
+        "total_transportation_charges": detail.total_transportation_charges,
         "remarks": get_step_remarks_for_response(
             project_id=detail.project_id,
             step_number=13,
@@ -227,27 +218,25 @@ def _handle_list_transport_details(args=None):
         except (ValueError, TypeError):
             project_id = None
 
-    transport_mode = (
-        args.get("transport_mode")
-        or request.args.get("transport_mode")
-        or request.args.get("transportMode")
+    transportation_mode = (
+        args.get("transportation_mode")
+        or request.args.get("transportation_mode")
     )
-    if transport_mode:
-        transport_mode = str(transport_mode).strip()
+    if transportation_mode:
+        transportation_mode = str(transportation_mode).strip()
 
-    lr_no = (
-        args.get("lr_no")
-        or request.args.get("lr_no")
-        or request.args.get("lrNo")
+    lr_rr_awb_no = (
+        args.get("lr_rr_awb_no")
+        or request.args.get("lr_rr_awb_no")
     )
-    if lr_no:
-        lr_no = str(lr_no).strip()
+    if lr_rr_awb_no:
+        lr_rr_awb_no = str(lr_rr_awb_no).strip()
 
     try:
         details = list_transport_detail_records(
             project_id=project_id,
-            transport_mode=transport_mode,
-            lr_no=lr_no,
+            transportation_mode=transportation_mode,
+            lr_rr_awb_no=lr_rr_awb_no,
         )
         return [_transport_detail_response(d) for d in details], 200
     except Exception:
@@ -384,7 +373,7 @@ _REQUEST_BODY_CREATE_DOC = {
                         "type": "string",
                         "description": "Serialized JSON string matching TransportDetailCreateSchema",
                         "example": (
-                            '{"project_id":1,"transport_mode":"road","lr_no":"SADFDSF","date":"2026-09-09","from_location":"FDSFW","to_location":"WRDCDC","transport_charges":21}'
+                            '{"project_id":1,"transportation_mode":"Road","lr_rr_awb_no":"SADFDSF","lr_rr_awb_date":"2026-09-09","from_location":"FDSFW","to_location":"WRDCDC","total_transportation_charges":21}'
                         ),
                     },
                     "file": {

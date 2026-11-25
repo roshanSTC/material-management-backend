@@ -32,40 +32,43 @@ def _calculate_amounts(data: dict) -> None:
     for item in items:
         qty = item.get("quantity")
         unit_price = item.get("unit_price")
-        net_amt = item.get("net_amount")
+        tot_amt = item.get("total_amount")
 
-        if net_amt is None and qty is not None and unit_price is not None:
+        if tot_amt is None and qty is not None and unit_price is not None:
             try:
                 computed_net = (Decimal(str(qty)) * Decimal(str(unit_price))).quantize(
                     Decimal("0.01")
                 )
-                item["net_amount"] = str(computed_net)
+                item["total_amount"] = str(computed_net)
                 item_net_sum += computed_net
             except Exception:
                 pass
-        elif net_amt is not None:
+        elif tot_amt is not None:
             try:
-                item_net_sum += Decimal(str(net_amt))
+                item_net_sum += Decimal(str(tot_amt))
             except Exception:
                 pass
 
-    gst_rate = data.get("gst_rate")
+    if data.get("total_net_amount") is None and item_net_sum > 0:
+        data["total_net_amount"] = str(item_net_sum.quantize(Decimal("0.01")))
+
+    gst_pct = data.get("gst_pct")
     gst_amount = data.get("gst_amount")
-    if gst_amount is None and gst_rate is not None and item_net_sum > 0:
+    if gst_amount is None and gst_pct is not None and item_net_sum > 0:
         try:
             computed_gst = (
-                item_net_sum * Decimal(str(gst_rate)) / Decimal("100")
+                item_net_sum * Decimal(str(gst_pct)) / Decimal("100")
             ).quantize(Decimal("0.01"))
             data["gst_amount"] = str(computed_gst)
         except Exception:
             pass
 
-    net_total = data.get("net_total")
-    if net_total is None and item_net_sum > 0:
+    tot_gross = data.get("total_gross_amount")
+    if tot_gross is None and item_net_sum > 0:
         try:
             gst_val = Decimal(str(data.get("gst_amount") or 0))
             round_val = Decimal(str(data.get("round_off") or 0))
-            data["net_total"] = str(
+            data["total_gross_amount"] = str(
                 (item_net_sum + gst_val + round_val).quantize(Decimal("0.01"))
             )
         except Exception:

@@ -18,14 +18,49 @@ class BillOfEntry(db.Model):
         index=True,
     )
 
-    bill_of_entry_no: Mapped[str] = mapped_column(
+    logistic_mode: Mapped[str | None] = mapped_column(
         String(100),
-        nullable=False,
+        nullable=True,
     )
 
-    date: Mapped[date] = mapped_column(
+    shipment_date: Mapped[date | None] = mapped_column(
         Date,
-        nullable=False,
+        nullable=True,
+    )
+
+    awb_bl_no: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    flight_vessel_name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    flight_vessel_no: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    port_loading: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    port_discharge: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    bill_of_entry_no: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    boe_filing_date: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,
     )
 
     total_assessable_value: Mapped[Decimal | None] = mapped_column(
@@ -33,7 +68,7 @@ class BillOfEntry(db.Model):
         nullable=True,
     )
 
-    bcd: Mapped[Decimal | None] = mapped_column(
+    basic_custom_duty_bcd: Mapped[Decimal | None] = mapped_column(
         Numeric(18, 2),
         nullable=True,
     )
@@ -45,6 +80,31 @@ class BillOfEntry(db.Model):
 
     igst: Mapped[Decimal | None] = mapped_column(
         Numeric(18, 2),
+        nullable=True,
+    )
+
+    duty_paid_date: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,
+    )
+
+    challan_no: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    payment_ref_no: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    customs_location: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    cfs_name: Mapped[str | None] = mapped_column(
+        String(255),
         nullable=True,
     )
 
@@ -72,20 +132,3 @@ class BillOfEntry(db.Model):
     )
 
     project = relationship("Project")
-
-    # Compatibility properties
-    @property
-    def bill_of_entry_number(self) -> str:
-        return self.bill_of_entry_no
-
-    @bill_of_entry_number.setter
-    def bill_of_entry_number(self, value: str) -> None:
-        self.bill_of_entry_no = value
-
-    @property
-    def entry_date(self) -> date:
-        return self.date
-
-    @entry_date.setter
-    def entry_date(self, value: date) -> None:
-        self.date = value

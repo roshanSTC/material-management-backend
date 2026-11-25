@@ -36,7 +36,7 @@ class PqbBidDocument(db.Model):
         db.DateTime,
         nullable=True,
     )
-    total_corrigendum_issued = db.Column(
+    total_no_corrigendum_issued = db.Column(
         db.Integer,
         default=0,
         nullable=True,
@@ -74,14 +74,6 @@ class PqbBidDocument(db.Model):
         order_by="PqbBidDocumentItem.sr_no.asc()",
     )
 
-    @property
-    def total_no_corrigendum_issued(self):
-        return self.total_corrigendum_issued
-
-    @total_no_corrigendum_issued.setter
-    def total_no_corrigendum_issued(self, value):
-        self.total_corrigendum_issued = value
-
     def __repr__(self) -> str:
         return f"<PqbBidDocument {self.id}: {self.pqb_no}>"
 
@@ -101,7 +93,6 @@ class PqbBidDocumentItem(db.Model):
     )
     sr_no = db.Column(db.Integer, nullable=True)
     description = db.Column(db.Text, nullable=True)
-    material_name = db.Column(db.String(255), nullable=True)
     quantity = db.Column(db.Numeric(15, 3), nullable=True)
     created_at = db.Column(
         db.DateTime,

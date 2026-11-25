@@ -115,30 +115,6 @@ class EWayBill(db.Model):
         lazy="select",
     )
 
-    @property
-    def eway_bill_number(self):
-        return self.eway_bill_no
-
-    @eway_bill_number.setter
-    def eway_bill_number(self, val):
-        self.eway_bill_no = val
-
-    @property
-    def document_number(self):
-        return self.document_no
-
-    @document_number.setter
-    def document_number(self, val):
-        self.document_no = val
-
-    @property
-    def remarks(self):
-        return self.remark
-
-    @remarks.setter
-    def remarks(self, val):
-        self.remark = val
-
     def __repr__(self) -> str:
         return f"<EWayBill {self.id}: {self.eway_bill_no}>"
 
@@ -160,11 +136,6 @@ class EWayBillItem(db.Model):
 
     sr_no = db.Column(
         db.Integer,
-        nullable=True,
-    )
-
-    material_name = db.Column(
-        db.String(255),
         nullable=True,
     )
 
@@ -211,5 +182,5 @@ class EWayBillItem(db.Model):
     )
 
     def __repr__(self) -> str:
-        return f"<EWayBillItem {self.id}: {self.material_name}>"
+        return f"<EWayBillItem {self.id}: {self.description}>"
 

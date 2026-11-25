@@ -90,41 +90,24 @@ def _customer_tender_response(customer_tender):
     if not customer_name:
         customer_name = customer_tender.officer_name
 
-    submission_dt = customer_tender.closing_date_time or customer_tender.tender_date
-    submission_date_str = None
-    if submission_dt:
-        if isinstance(submission_dt, (datetime, date)):
-            submission_date_str = submission_dt.strftime("%Y-%m-%d")
-        else:
-            submission_date_str = str(submission_dt)
-
     return {
         "id": customer_tender.id,
         "project_id": customer_tender.project_id,
         "customer_id": customer_tender.customer_id,
-        "customer_name": customer_name,
+        "customer_name": customer_tender.customer_name or customer_name,
         "officer_name": customer_tender.officer_name,
-        "company_business_name": customer_tender.officer_name,
         "email": customer_tender.email,
         "address": customer_tender.address,
         "website": customer_tender.website,
         "contact_number": customer_tender.contact_number,
         "tender_title": customer_tender.tender_title,
-        "tender_number": customer_tender.tender_number,
-        "tender_no": customer_tender.tender_number,
-        "tender_enquiry_no": customer_tender.tender_number,
-        "pac_no": customer_tender.tender_number,
-        "pac_title": customer_tender.tender_title,
-        "submission_date": submission_date_str,
-        "submitted_date": submission_date_str,
-        "tender_date": customer_tender.tender_date,
-        "tender_issue_date": customer_tender.tender_date,
+        "tender_no": customer_tender.tender_no,
+        "tender_issue_date": customer_tender.tender_issue_date,
         "opening_date_time": customer_tender.opening_date_time,
         "closing_date_time": customer_tender.closing_date_time,
         "tender_fee": customer_tender.tender_fee,
         "validity": customer_tender.validity,
         "delivery_terms": customer_tender.delivery_terms,
-        "incoterms": customer_tender.delivery_terms,
         "delivery_period": customer_tender.delivery_period,
         "payment_terms": customer_tender.payment_terms,
         "warranty_period": customer_tender.warranty_period,
@@ -144,11 +127,10 @@ def _customer_tender_response(customer_tender):
         "items": [
             {
                 "id": item.id,
-                "sr_no": idx + 1,
+                "sr_no": item.sr_no if item.sr_no is not None else (idx + 1),
                 "customer_tender_id": item.customer_tender_id,
                 "item_code": item.item_code,
                 "description": item.description,
-                "material_name": item.description,
                 "unit": getattr(item, "unit", None) or "NOS",
                 "quantity": item.quantity,
                 "created_at": item.created_at,
@@ -186,20 +168,23 @@ def _format_quantity(val):
 def _latest_customer_tender_response(customer_tender):
     return {
         "customer_id": customer_tender.customer_id,
+        "customer_name": customer_tender.customer_name,
         "delivery_period": customer_tender.delivery_period,
         "delivery_terms": customer_tender.delivery_terms,
         "id": customer_tender.id,
-        "incoterms": customer_tender.delivery_terms,
         "items": [
             {
-                "material_name": item.material_name or item.description,
+                "sr_no": item.sr_no if item.sr_no is not None else idx,
+                "description": item.description,
+                "unit": item.unit,
                 "quantity": _format_quantity(item.quantity),
             }
-            for item in customer_tender.items
+            for idx, item in enumerate(customer_tender.items, start=1)
         ],
         "payment_terms": customer_tender.payment_terms,
         "project_id": customer_tender.project_id,
-        "tender_number": customer_tender.tender_number,
+        "tender_no": customer_tender.tender_no,
+        "tender_issue_date": customer_tender.tender_issue_date,
         "tender_title": customer_tender.tender_title,
         "validity": customer_tender.validity,
         "warranty_period": customer_tender.warranty_period,
@@ -380,11 +365,9 @@ def list_customer_tenders(args=None):
                 {
                     "id": ct.id,
                     "tender_title": ct.tender_title,
-                    "tender_enquiry_no": ct.tender_number,
-                    "tender_number": ct.tender_number,
-                    "tender_no": ct.tender_number,
-                    "pac_no": ct.tender_number,
-                    "pac_title": ct.tender_title,
+                    "tender_no": ct.tender_no,
+                    "tender_issue_date": ct.tender_issue_date.isoformat() if ct.tender_issue_date else None,
+                    "closing_date_time": ct.closing_date_time.isoformat() if ct.closing_date_time else None,
                 }
                 for ct in tenders
             ]), 200

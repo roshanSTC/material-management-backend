@@ -370,7 +370,7 @@ def create_pqb():
 
     rec = PreQualificationBid(**pqb_fields)
     for idx, it in enumerate(items_data, start=1):
-        desc = it.get("description") or it.get("material_name") or f"Item {idx}"
+        desc = it.get("description") or f"Item {idx}"
         rec.items.append(PreQualificationBidItem(
             sr_no=it.get("sr_no") or idx,
             description=desc,
@@ -478,8 +478,7 @@ def _serialize_pqb_doc(rec):
         "pqb_issue_date": rec.pqb_issue_date.isoformat() if rec.pqb_issue_date else None,
         "pqb_closing_date_time": rec.pqb_closing_date_time.isoformat() if rec.pqb_closing_date_time else None,
         "pqb_opening_date_time": rec.pqb_opening_date_time.isoformat() if rec.pqb_opening_date_time else None,
-        "total_corrigendum_issued": rec.total_corrigendum_issued,
-        "total_no_corrigendum_issued": rec.total_corrigendum_issued,
+        "total_no_corrigendum_issued": rec.total_no_corrigendum_issued,
         "remark": rec.remark,
         "remarks": get_step_remarks_for_response(rec.project_id, 2, fallback_raw=rec.remark, entity_id=rec.id),
         "attachments": atts,
@@ -492,7 +491,6 @@ def _serialize_pqb_doc(rec):
                 "pqb_bid_document_id": it.pqb_bid_document_id,
                 "sr_no": it.sr_no,
                 "description": it.description,
-                "material_name": it.material_name or it.description,
                 "quantity": float(it.quantity) if it.quantity is not None else None,
                 "created_at": it.created_at.isoformat() if it.created_at else None,
                 "updated_at": it.updated_at.isoformat() if it.updated_at else None,
@@ -574,16 +572,11 @@ def create_pqb_doc():
     items_data = data.pop("items", None) or []
     remarks_data = data.pop("remarks", None) or data.get("remark")
 
-    if "total_no_corrigendum_issued" in data and data["total_no_corrigendum_issued"] is not None:
-        if not data.get("total_corrigendum_issued"):
-            data["total_corrigendum_issued"] = data["total_no_corrigendum_issued"]
-
     rec = PqbBidDocument(**{k: v for k, v in data.items() if hasattr(PqbBidDocument, k)})
     for idx, it in enumerate(items_data, start=1):
         rec.items.append(PqbBidDocumentItem(
             sr_no=it.get("sr_no") or idx,
             description=it.get("description", ""),
-            material_name=it.get("material_name") or it.get("description", ""),
             quantity=it.get("quantity"),
         ))
 
@@ -615,15 +608,9 @@ def update_pqb_doc(rec_id):
     remarks_data = data.pop("remarks", None) if "remarks" in data else data.get("remark")
     items_data = data.pop("items", None)
 
-    if "total_no_corrigendum_issued" in data and data["total_no_corrigendum_issued"] is not None:
-        if not data.get("total_corrigendum_issued"):
-            data["total_corrigendum_issued"] = data["total_no_corrigendum_issued"]
-
     for k, v in data.items():
         if hasattr(rec, k):
             setattr(rec, k, v)
-    if "bid_number" in data and data["bid_number"]:
-        rec.pqb_no = data["bid_number"]
 
     if items_data is not None:
         rec.items.clear()
@@ -631,7 +618,6 @@ def update_pqb_doc(rec_id):
             rec.items.append(PqbBidDocumentItem(
                 sr_no=it.get("sr_no") or idx,
                 description=it.get("description", ""),
-                material_name=it.get("material_name") or it.get("description", ""),
                 quantity=it.get("quantity"),
             ))
 
@@ -713,10 +699,8 @@ def _serialize_corrigendum(rec):
         "id": rec.id,
         "project_id": rec.project_id,
         "corrigendum_no": rec.corrigendum_no,
-        "against_tender_no": rec.against_tender_no,
-        "against_ref_no": rec.against_tender_no,
-        "tender_title": rec.tender_title,
-        "ref_title": rec.tender_title,
+        "against_ref_no": rec.against_ref_no,
+        "ref_title": rec.ref_title,
         "issue_date": rec.issue_date.isoformat() if rec.issue_date else None,
         "items": items_list,
         "remark": rec.remark,
@@ -766,12 +750,8 @@ def create_corrigendum():
     if not project:
         return _error("PROJECT_NOT_FOUND", f"Project {data['project_id']} not found.", 404)
 
-    items_data = data.pop("items", None) or data.pop("table_items", None) or []
+    items_data = data.pop("items", None) or []
     remarks_data = data.pop("remarks", None) or data.get("remark")
-    if "against_ref_no" in data and not data.get("against_tender_no"):
-        data["against_tender_no"] = data.pop("against_ref_no")
-    if "ref_title" in data and not data.get("tender_title"):
-        data["tender_title"] = data.pop("ref_title")
 
     rec = Corrigendum(**{k: v for k, v in data.items() if hasattr(Corrigendum, k)})
     for it in items_data:
@@ -805,18 +785,12 @@ def update_corrigendum(rec_id):
     except ValidationError as err:
         return _error("VALIDATION_ERROR", err.messages, 422)
 
-    items_data = data.pop("items", None) if "items" in data else data.pop("table_items", None)
+    items_data = data.pop("items", None) if "items" in data else None
     remarks_data = data.pop("remarks", None) if "remarks" in data else data.get("remark")
-    if "against_ref_no" in data:
-        data["against_tender_no"] = data.pop("against_ref_no")
-    if "ref_title" in data:
-        data["tender_title"] = data.pop("ref_title")
 
     for k, v in data.items():
         if hasattr(rec, k):
             setattr(rec, k, v)
-    if "bid_number" in data and data["bid_number"]:
-        rec.pqb_no = data["bid_number"]
 
     if items_data is not None:
         rec.items.clear()

@@ -52,57 +52,31 @@ def _import_logistics_response(logistics):
     )
 
     from decimal import Decimal
-    from app.models import TransportDetail
-
-    td = (
-        TransportDetail.query.filter_by(project_id=logistics.project_id)
-        .order_by(TransportDetail.id.desc())
-        .first()
-    )
 
     charges = None
-    if td and td.transport_charges is not None:
+    if logistics.total_transportation_charges is not None:
         try:
-            charges = f"{Decimal(str(td.transport_charges)):.2f}"
+            charges = f"{Decimal(str(logistics.total_transportation_charges)):.2f}"
         except Exception:
-            charges = str(td.transport_charges)
+            charges = str(logistics.total_transportation_charges)
 
-    from_loc = (
+    from_loc = logistics.from_location or (
         logistics.airport_of_loading
-        if logistics.logistic_type == "air"
+        if (logistics.transportation_mode or "").lower() == "air"
         else logistics.port_of_loading
     )
-    if not from_loc and td and td.from_location:
-        from_loc = td.from_location
-
-    to_loc = logistics.port_of_discharge or (td.to_location if td else None)
-    awb_val = (
-        logistics.airway_bill_no
-        if logistics.logistic_type == "air"
-        else (logistics.bill_of_lading_no or (td.lr_no or td.awb_no if td else None))
-    )
+    to_loc = logistics.to_location or logistics.port_of_discharge
 
     return {
         "id": logistics.id,
         "project_id": logistics.project_id,
         "supplier_id": logistics.supplier_id,
-        "logistic_type": logistics.logistic_type,
-        "transportation_mode": (
-            "Air Cargo"
-            if logistics.logistic_type == "air"
-            else ("Sea Cargo" if logistics.logistic_type == "sea" else logistics.logistic_type.title())
-        ),
-        "transport_mode": logistics.logistic_type,
-        "date": logistics.date,
-        "lr_rr_awb_date": logistics.date,
-        "transport_date": logistics.date,
+        "transportation_mode": logistics.transportation_mode,
+        "lr_rr_awb_date": logistics.lr_rr_awb_date,
         "from_location": from_loc,
         "to_location": to_loc,
-        "lr_rr_awb_no": awb_val,
-        "lr_no": awb_val,
-        "awb_no": logistics.airway_bill_no or (td.awb_no if td else None),
+        "lr_rr_awb_no": logistics.lr_rr_awb_no,
         "total_transportation_charges": charges,
-        "transport_charges": charges,
         "port_of_discharge": logistics.port_of_discharge,
         "remarks": get_step_remarks_for_response(
             project_id=logistics.project_id,
@@ -288,17 +262,16 @@ def _handle_list_import_logistics(args=None):
         except (ValueError, TypeError):
             supplier_id = None
 
-    logistic_type = (
-        args.get("logistic_type")
-        or request.args.get("logistic_type")
-        or request.args.get("logisticType")
+    transportation_mode = (
+        args.get("transportation_mode")
+        or request.args.get("transportation_mode")
     )
 
     try:
         records = list_import_logistics_records(
             project_id=project_id,
             supplier_id=supplier_id,
-            logistic_type=logistic_type,
+            transportation_mode=transportation_mode,
         )
         return [_import_logistics_response(rec) for rec in records], 200
     except Exception:
@@ -431,8 +404,8 @@ _REQUEST_BODY_CREATE_DOC = {
                 "properties": {
                     "data": {
                         "type": "string",
-                        "description": "Serialized JSON string matching ImportLogisticsCreateSchema. Payload itself specifies logistic_type ('air' or 'sea').",
-                        "example": '{"project_id":1,"logistic_type":"sea","date":"2026-09-16","port_of_discharge":"dadar","remark":"Shipping Documents & Attachments","bill_of_lading_no":"DF4FR-34RG-4FD","vessel_name":"Oscare ","voyage_no":"3REF4R43F","port_of_loading":"KURLA"}',
+                        "description": "Serialized JSON string matching ImportLogisticsCreateSchema. Payload specifies transportation_mode.",
+                        "example": '{"project_id":1,"transportation_mode":"Sea","lr_rr_awb_date":"2026-09-16","port_of_discharge":"dadar","remark":"Shipping Documents & Attachments","bill_of_lading_no":"DF4FR-34RG-4FD","vessel_name":"Oscare ","voyage_no":"3REF4R43F","port_of_loading":"KURLA"}',
                     },
                     "file": {
                         "type": "array",
@@ -449,8 +422,8 @@ _REQUEST_BODY_CREATE_DOC = {
                     "summary": "Sea Logistics Payload",
                     "value": {
                         "project_id": 1,
-                        "logistic_type": "sea",
-                        "date": "2026-09-16",
+                        "transportation_mode": "Sea",
+                        "lr_rr_awb_date": "2026-09-16",
                         "port_of_discharge": "dadar",
                         "remark": "Shipping Documents & Attachments",
                         "bill_of_lading_no": "DF4FR-34RG-4FD",
@@ -463,8 +436,8 @@ _REQUEST_BODY_CREATE_DOC = {
                     "summary": "Air Logistics Payload",
                     "value": {
                         "project_id": 1,
-                        "logistic_type": "air",
-                        "date": "2026-09-09",
+                        "transportation_mode": "Air",
+                        "lr_rr_awb_date": "2026-09-09",
                         "port_of_discharge": "dadar",
                         "remark": "Shipping Documents & Attachments",
                         "airway_bill_no": "E45RE-G54-GF",
@@ -523,7 +496,7 @@ def create_import_logistics():
 @import_logistics_bp.doc(
     security=[{"BearerAuth": []}],
     summary="Get all import logistics records",
-    description="List all import logistics records with optional filtering by project_id, supplier_id, logistic_type.",
+    description="List all import logistics records with optional filtering by project_id, supplier_id, transportation_mode.",
 )
 @import_logistics_bp.arguments(ImportLogisticsQuerySchema, location="query")
 @import_logistics_bp.response(200, ImportLogisticsResponseSchema(many=True))

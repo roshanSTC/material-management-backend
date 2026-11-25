@@ -39,6 +39,9 @@ def app():
     with app.app_context():
         db.drop_all()
         db.create_all()
+        from app.models.form_definition import seed_form_definitions
+
+        seed_form_definitions()
 
         yield app
 
@@ -81,14 +84,14 @@ def project(app):
         name="Test Customer",
         email="customer@example.com",
         contact_number="9999999999",
-        address="Test Customer Address",
+        street="Test Customer Address",
     )
 
     supplier = Supplier(
         name="Test Supplier",
         email="supplier@example.com",
         contact_number="8888888888",
-        address="Test Supplier Address",
+        street="Test Supplier Address",
     )
 
     db.session.add_all([customer, supplier])

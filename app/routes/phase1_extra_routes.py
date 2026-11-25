@@ -266,17 +266,6 @@ def _sync_step(project_id: int, form_code: str, status: str, data_dict: dict):
         sync_project_steps_from_records(project)
 
         possible_codes = [form_code]
-        if form_code in ("FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30"):
-            possible_codes = ["FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30"]
-        elif form_code in ("FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE"):
-            possible_codes = ["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE"]
-            # Canonical single tender enquiry codes
-        elif form_code in ("FORM_29_BID_DOC_TECHNO_COMMERCIAL", "FORM_29_BID_DOCUMENT_TECHNO_COMMERCIAL"):
-            possible_codes = ["FORM_29_BID_DOC_TECHNO_COMMERCIAL", "FORM_29_BID_DOCUMENT_TECHNO_COMMERCIAL"]
-        elif form_code in ("FORM_31_BID_DOC_LTE", "FORM_31_BID_DOCUMENT_LTE"):
-            possible_codes = ["FORM_31_BID_DOC_LTE", "FORM_31_BID_DOCUMENT_LTE"]
-        elif form_code in ("FORM_34_BID_DOC_STE", "FORM_34_BID_DOCUMENT_STE"):
-            possible_codes = ["FORM_34_BID_DOC_STE", "FORM_34_BID_DOCUMENT_STE"]
 
         step = ProjectStep.query.filter(
             ProjectStep.project_id == project_id,
@@ -340,7 +329,7 @@ def _serialize_bid_doc_techno_commercial(rec):
     atts = _serialize_attachments("bid_document_techno_commercial", rec.id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_29_BID_DOC_TECHNO_COMMERCIAL", "FORM_29_BID_DOCUMENT_TECHNO_COMMERCIAL"],
+        ["FORM_29_BID_DOC_TECHNO_COMMERCIAL"],
         default=29,
     )
     remarks = get_step_remarks_for_response(
@@ -361,7 +350,6 @@ def _serialize_bid_doc_techno_commercial(rec):
             "id": it.id,
             "sr_no": it.sr_no,
             "description": it.description,
-            "material_name": it.material_name or it.description,
             "hsn_sac": it.hsn_sac,
             "quantity": float(it.quantity) if it.quantity is not None else None,
             "unit_price": float(it.unit_price) if it.unit_price is not None else None,
@@ -375,19 +363,15 @@ def _serialize_bid_doc_techno_commercial(rec):
         "customer_name": rec.customer_name,
         "tender_title": rec.tender_title,
         "tender_no": rec.tender_no,
-        "tender_number": rec.tender_no,
         "tender_issue_date": rec.tender_issue_date.isoformat() if rec.tender_issue_date else None,
         "total_no_corrigendum_issued": rec.total_no_corrigendum_issued,
-        "total_corrigendum_issued": rec.total_no_corrigendum_issued,
         "bid_submission_date": rec.bid_submission_date.isoformat() if rec.bid_submission_date else None,
         "delivery_terms": rec.delivery_terms,
-        "delivery_term": rec.delivery_terms,
         "delivery_period": rec.delivery_period,
         "bid_validity": rec.bid_validity,
         "payment_terms": rec.payment_terms,
         "warranty_period": rec.warranty_period,
         "gst_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
-        "gst_rate": float(rec.gst_pct) if rec.gst_pct is not None else None,
         "remark": rec.remark,
         "remarks": remarks,
         "items": items,
@@ -418,22 +402,6 @@ def handle_create_bid_doc_techno_commercial():
     data.pop("attachments_count", None)
     data.pop("form_code", None)
 
-    # Normalize aliases
-    if "tender_number" in data and not data.get("tender_no"):
-        data["tender_no"] = data.pop("tender_number")
-    else:
-        data.pop("tender_number", None)
-
-    if "total_corrigendum_issued" in data and data.get("total_no_corrigendum_issued") is None:
-        data["total_no_corrigendum_issued"] = data.pop("total_corrigendum_issued")
-    else:
-        data.pop("total_corrigendum_issued", None)
-
-    if "gst_rate" in data and data.get("gst_pct") is None:
-        data["gst_pct"] = data.pop("gst_rate")
-    else:
-        data.pop("gst_rate", None)
-
     rec = BidDocumentTechnoCommercial(**{k: v for k, v in data.items() if hasattr(BidDocumentTechnoCommercial, k)})
     rec.status = status_val
 
@@ -441,7 +409,6 @@ def handle_create_bid_doc_techno_commercial():
         rec.items.append(BidDocumentTechnoCommercialItem(
             sr_no=it.get("sr_no"),
             description=it.get("description", ""),
-            material_name=it.get("material_name") or it.get("description", ""),
             hsn_sac=it.get("hsn_sac"),
             quantity=it.get("quantity"),
             unit_price=it.get("unit_price"),
@@ -454,7 +421,7 @@ def handle_create_bid_doc_techno_commercial():
     _save_attachments(files, "bid_document_techno_commercial", rec.id, user_id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_29_BID_DOC_TECHNO_COMMERCIAL", "FORM_29_BID_DOCUMENT_TECHNO_COMMERCIAL"],
+        ["FORM_29_BID_DOC_TECHNO_COMMERCIAL"],
         default=29,
     )
     _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
@@ -494,11 +461,7 @@ def handle_get_latest_bid_doc_techno_commercial(args=None):
         tct_query = tct_query.filter_by(project_id=pid)
     tct = (
         tct_query.filter(
-            TechnoCommercialTender.form_code.in_([
-                "FORM_30_TECHNO_COMMERCIAL_TENDER",
-                "FORM_30_TCT",
-                "FORM_30",
-            ])
+            TechnoCommercialTender.form_code == "FORM_30_TECHNO_COMMERCIAL_TENDER"
         ).order_by(TechnoCommercialTender.id.desc()).first()
     )
     if not tct:
@@ -540,20 +503,20 @@ def handle_get_latest_bid_doc_techno_commercial(args=None):
         else (bdtc.tender_issue_date.isoformat() if (bdtc and bdtc.tender_issue_date) else None)
     )
 
-    delivery_term = None
+    delivery_terms = None
     payment_terms = None
     warranty_period = None
     gst_pct = None
 
     if bdtc:
-        delivery_term = bdtc.delivery_terms
+        delivery_terms = bdtc.delivery_terms
         payment_terms = bdtc.payment_terms
         warranty_period = bdtc.warranty_period
         gst_pct = float(bdtc.gst_pct) if bdtc.gst_pct is not None else None
     elif pid is not None:
         b_ste = BidDocumentSte.query.filter_by(project_id=pid).order_by(BidDocumentSte.id.desc()).first()
         if b_ste:
-            delivery_term = b_ste.delivery_terms
+            delivery_terms = b_ste.delivery_terms
             payment_terms = b_ste.payment_terms
             warranty_period = b_ste.warranty_period
             gst_pct = float(b_ste.gst_pct) if b_ste.gst_pct is not None else None
@@ -569,7 +532,6 @@ def handle_get_latest_bid_doc_techno_commercial(args=None):
                 "id": it.id,
                 "sr_no": it.sr_no,
                 "description": it.description,
-                "material_name": getattr(it, "material_name", None) or it.description,
                 "hsn_sac": getattr(it, "hsn_sac", None) or "",
                 "quantity": float(it.quantity) if it.quantity is not None else None,
                 "unit_price": float(it.unit_price) if getattr(it, "unit_price", None) is not None else None,
@@ -581,7 +543,6 @@ def handle_get_latest_bid_doc_techno_commercial(args=None):
                 "id": it.id,
                 "sr_no": it.sr_no,
                 "description": it.description,
-                "material_name": getattr(it, "material_name", None) or it.description,
                 "unit": getattr(it, "unit", None),
                 "quantity": float(it.quantity) if it.quantity is not None else None,
                 "specifications": getattr(it, "specifications", None),
@@ -592,7 +553,6 @@ def handle_get_latest_bid_doc_techno_commercial(args=None):
                 "id": it.id,
                 "sr_no": it.sr_no,
                 "description": it.description,
-                "material_name": getattr(it, "material_name", None) or it.description,
                 "unit": getattr(it, "unit", None),
                 "quantity": float(it.quantity) if it.quantity is not None else None,
             })
@@ -600,10 +560,8 @@ def handle_get_latest_bid_doc_techno_commercial(args=None):
     return jsonify({
         "tender_title": tender_title,
         "tender_no": tender_no,
-        "tender_number": tender_no,
         "tender_issue_date": tender_issue_date,
-        "delivery_term": delivery_term,
-        "delivery_terms": delivery_term,
+        "delivery_terms": delivery_terms,
         "gst_pct": gst_pct,
         "payment_terms": payment_terms,
         "warranty_period": warranty_period,
@@ -647,21 +605,6 @@ def handle_update_bid_doc_techno_commercial(rec_id: int):
     data.pop("attachments_count", None)
     data.pop("form_code", None)
 
-    if "tender_number" in data and not data.get("tender_no"):
-        data["tender_no"] = data.pop("tender_number")
-    else:
-        data.pop("tender_number", None)
-
-    if "total_corrigendum_issued" in data and data.get("total_no_corrigendum_issued") is None:
-        data["total_no_corrigendum_issued"] = data.pop("total_corrigendum_issued")
-    else:
-        data.pop("total_corrigendum_issued", None)
-
-    if "gst_rate" in data and data.get("gst_pct") is None:
-        data["gst_pct"] = data.pop("gst_rate")
-    else:
-        data.pop("gst_rate", None)
-
     for k, v in data.items():
         if hasattr(rec, k):
             setattr(rec, k, v)
@@ -674,7 +617,6 @@ def handle_update_bid_doc_techno_commercial(rec_id: int):
             rec.items.append(BidDocumentTechnoCommercialItem(
                 sr_no=it.get("sr_no"),
                 description=it.get("description", ""),
-                material_name=it.get("material_name") or it.get("description", ""),
                 hsn_sac=it.get("hsn_sac"),
                 quantity=it.get("quantity"),
                 unit_price=it.get("unit_price"),
@@ -684,7 +626,7 @@ def handle_update_bid_doc_techno_commercial(rec_id: int):
     _save_attachments(files, "bid_document_techno_commercial", rec.id, user_id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_29_BID_DOC_TECHNO_COMMERCIAL", "FORM_29_BID_DOCUMENT_TECHNO_COMMERCIAL"],
+        ["FORM_29_BID_DOC_TECHNO_COMMERCIAL"],
         default=29,
     )
     _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
@@ -750,7 +692,7 @@ def _serialize_techno_commercial_tender(rec):
 
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE"] if (rec.form_code and any(k in rec.form_code.upper() for k in ("33", "STE"))) else ["FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30"],
+        ["FORM_33_STE"] if (rec.form_code and any(k in rec.form_code.upper() for k in ("33", "STE"))) else ["FORM_30_TECHNO_COMMERCIAL_TENDER"],
         default=30,
     )
     remarks = get_step_remarks_for_response(
@@ -779,7 +721,6 @@ def _serialize_techno_commercial_tender(rec):
             "id": it.id,
             "sr_no": it.sr_no,
             "description": it.description,
-            "material_name": it.material_name or it.description,
             "unit": it.unit,
             "quantity": float(it.quantity) if it.quantity is not None else None,
         }
@@ -789,23 +730,17 @@ def _serialize_techno_commercial_tender(rec):
         "id": rec.id,
         "project_id": rec.project_id,
         "pqb_no": rec.pqb_no,
-        "pqb_number": rec.pqb_no,
         "tender_title": rec.tender_title,
         "tender_no": rec.tender_no,
-        "tender_number": rec.tender_no,
-        "tender_enquiry_no": rec.tender_no,
-        "ste_no": rec.tender_no,
         "tender_issue_date": rec.tender_issue_date.isoformat() if rec.tender_issue_date else None,
         "bid_submission_due_date_time": rec.bid_submission_due_date_time.isoformat() if rec.bid_submission_due_date_time else None,
         "bid_opening_date_time": rec.bid_opening_date_time.isoformat() if rec.bid_opening_date_time else None,
         "tender_fee": float(rec.tender_fee) if rec.tender_fee is not None else None,
         "emd": float(rec.emd) if rec.emd is not None else None,
         "tender_validity": rec.tender_validity,
-        "validity": rec.tender_validity,
         "remark": rec.remark,
         "remarks": remarks,
         "items": items,
-        "requirements": items,
         "attachments": atts,
         "attachments_count": len(atts),
         "status": rec.status or "completed",
@@ -827,8 +762,7 @@ def handle_create_techno_commercial_tender():
     if not project:
         return _error("PROJECT_NOT_FOUND", f"Project {data['project_id']} not found.", 404)
 
-    items_data = data.pop("items", None) or data.pop("requirements", None) or []
-    data.pop("requirements", None)
+    items_data = data.pop("items", None) or []
     remarks_data = raw_payload.get("remarks") or data.pop("remarks", None) or data.get("remark") or raw_payload.get("remark")
     data.pop("remarks", None)
     data.pop("remark", None)
@@ -836,35 +770,6 @@ def handle_create_techno_commercial_tender():
     form_code_val = raw_payload.get("form_code") or data.pop("form_code", None) or ("FORM_30_TECHNO_COMMERCIAL_TENDER" if "techno-commercial" in getattr(request, "path", "") else "FORM_33_STE")
     data.pop("attachments_count", None)
     data.pop("form_code", None)
-
-    # Normalize aliases
-    if not data.get("tender_no"):
-        for alias in ("ste_no", "tender_number", "tender_enquiry_no"):
-            if data.get(alias):
-                data["tender_no"] = data.pop(alias)
-                break
-    for alias in ("ste_no", "tender_number", "tender_enquiry_no"):
-        data.pop(alias, None)
-
-    if not data.get("pqb_no") and data.get("pqb_number"):
-        data["pqb_no"] = data.pop("pqb_number")
-    data.pop("pqb_number", None)
-
-    if not data.get("tender_validity") and data.get("validity"):
-        data["tender_validity"] = data.pop("validity")
-    data.pop("validity", None)
-
-    if not data.get("bid_submission_due_date_time"):
-        for alias in ("submission_due_date_time", "bid_submission_due_date"):
-            if data.get(alias):
-                data["bid_submission_due_date_time"] = data.pop(alias)
-                break
-    data.pop("submission_due_date_time", None)
-    data.pop("bid_submission_due_date", None)
-
-    if not data.get("bid_opening_date_time") and data.get("opening_date_time"):
-        data["bid_opening_date_time"] = data.pop("opening_date_time")
-    data.pop("opening_date_time", None)
 
     rec = TechnoCommercialTender(**{k: v for k, v in data.items() if hasattr(TechnoCommercialTender, k)})
     rec.status = status_val
@@ -880,8 +785,7 @@ def handle_create_techno_commercial_tender():
     for it in items_data:
         rec.items.append(TechnoCommercialTenderItem(
             sr_no=it.get("sr_no"),
-            description=it.get("description", "") or it.get("material_name", ""),
-            material_name=it.get("material_name") or it.get("description", ""),
+            description=it.get("description", ""),
             unit=it.get("unit"),
             quantity=it.get("quantity"),
         ))
@@ -892,7 +796,7 @@ def handle_create_techno_commercial_tender():
     _save_attachments(files, "techno_commercial_tender", rec.id, user_id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE"] if (rec.form_code and any(k in rec.form_code.upper() for k in ("33", "STE"))) else ["FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30"],
+        ["FORM_33_STE"] if (rec.form_code and any(k in rec.form_code.upper() for k in ("33", "STE"))) else ["FORM_30_TECHNO_COMMERCIAL_TENDER"],
         default=30,
     )
     _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
@@ -942,7 +846,7 @@ def handle_get_latest_techno_commercial_tender(args=None):
                 else str(rec.tender_issue_date)
             )
         return jsonify({
-            "tender_number": rec.tender_no,
+            "tender_no": rec.tender_no,
             "tender_title": rec.tender_title,
             "tender_issue_date": issue_date,
         }), 200
@@ -978,9 +882,9 @@ def handle_get_techno_commercial_tender(rec_id=None):
     if form_filter:
         q = q.filter(TechnoCommercialTender.form_code == form_filter)
     elif any(k in getattr(request, "path", "") for k in ("single-tender", "/ste")):
-        q = q.filter(TechnoCommercialTender.form_code.in_(["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE"]))
+        q = q.filter(TechnoCommercialTender.form_code == "FORM_33_STE")
     elif "techno-commercial" in getattr(request, "path", ""):
-        q = q.filter(TechnoCommercialTender.form_code.in_(["FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30"]))
+        q = q.filter(TechnoCommercialTender.form_code == "FORM_30_TECHNO_COMMERCIAL_TENDER")
     records = q.order_by(TechnoCommercialTender.id.desc()).all()
     return jsonify([_serialize_techno_commercial_tender(r) for r in records]), 200
 
@@ -1001,8 +905,7 @@ def handle_update_techno_commercial_tender(rec_id: int):
     except ValidationError as err:
         return _error("VALIDATION_ERROR", err.messages, 422)
 
-    items_data = data.pop("items", None) if "items" in data else (data.pop("requirements", None) if "requirements" in data else None)
-    data.pop("requirements", None)
+    items_data = data.pop("items", None) if "items" in data else None
     remarks_data = raw_payload.get("remarks") if "remarks" in raw_payload else (data.pop("remarks", None) if "remarks" in data else data.get("remark"))
     data.pop("remarks", None)
     data.pop("remark", None)
@@ -1010,34 +913,6 @@ def handle_update_techno_commercial_tender(rec_id: int):
     form_code_val = raw_payload.get("form_code") or data.pop("form_code", None)
     data.pop("attachments_count", None)
     data.pop("form_code", None)
-
-    if not data.get("tender_no"):
-        for alias in ("ste_no", "tender_number", "tender_enquiry_no"):
-            if data.get(alias):
-                data["tender_no"] = data.pop(alias)
-                break
-    for alias in ("ste_no", "tender_number", "tender_enquiry_no"):
-        data.pop(alias, None)
-
-    if "pqb_number" in data and not data.get("pqb_no"):
-        data["pqb_no"] = data.pop("pqb_number")
-    data.pop("pqb_number", None)
-
-    if "validity" in data and not data.get("tender_validity"):
-        data["tender_validity"] = data.pop("validity")
-    data.pop("validity", None)
-
-    if not data.get("bid_submission_due_date_time"):
-        for alias in ("submission_due_date_time", "bid_submission_due_date"):
-            if data.get(alias):
-                data["bid_submission_due_date_time"] = data.pop(alias)
-                break
-    data.pop("submission_due_date_time", None)
-    data.pop("bid_submission_due_date", None)
-
-    if not data.get("bid_opening_date_time") and data.get("opening_date_time"):
-        data["bid_opening_date_time"] = data.pop("opening_date_time")
-    data.pop("opening_date_time", None)
 
     for k, v in data.items():
         if hasattr(rec, k):
@@ -1059,8 +934,7 @@ def handle_update_techno_commercial_tender(rec_id: int):
         for it in items_data:
             rec.items.append(TechnoCommercialTenderItem(
                 sr_no=it.get("sr_no"),
-                description=it.get("description", "") or it.get("material_name", ""),
-                material_name=it.get("material_name") or it.get("description", ""),
+                description=it.get("description", ""),
                 unit=it.get("unit"),
                 quantity=it.get("quantity"),
             ))
@@ -1068,7 +942,7 @@ def handle_update_techno_commercial_tender(rec_id: int):
     _save_attachments(files, "techno_commercial_tender", rec.id, user_id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE"] if (rec.form_code and any(k in rec.form_code.upper() for k in ("33", "STE"))) else ["FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30"],
+        ["FORM_33_STE"] if (rec.form_code and any(k in rec.form_code.upper() for k in ("33", "STE"))) else ["FORM_30_TECHNO_COMMERCIAL_TENDER"],
         default=30,
     )
     _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
@@ -1107,7 +981,7 @@ techno_commercial_tender_bp.route("/latest", methods=["GET"])(
     techno_commercial_tender_bp.doc(
         security=[{"BearerAuth": []}],
         summary="Get Latest Techno Commercial Tender",
-        description="Retrieve tender_number, tender_title and tender_issue_date.",
+        description="Retrieve tender_no, tender_title and tender_issue_date.",
     )(
         techno_commercial_tender_bp.arguments(LatestTechnoCommercialTenderQuerySchema, location="query")(
             jwt_required()(handle_get_latest_techno_commercial_tender)
@@ -1145,7 +1019,7 @@ def _serialize_bid_doc_lte(rec):
     atts = _serialize_attachments("bid_document_lte", rec.id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_31_BID_DOC_LTE", "FORM_31_BID_DOCUMENT_LTE"],
+        ["FORM_31_BID_DOC_LTE"],
         default=31,
     )
     remarks = get_step_remarks_for_response(
@@ -1166,7 +1040,6 @@ def _serialize_bid_doc_lte(rec):
             "id": it.id,
             "sr_no": it.sr_no,
             "description": it.description,
-            "material_name": it.material_name or it.description,
             "hsn_sac": it.hsn_sac,
             "quantity": float(it.quantity) if it.quantity is not None else None,
             "unit_price": float(it.unit_price) if it.unit_price is not None else None,
@@ -1180,19 +1053,15 @@ def _serialize_bid_doc_lte(rec):
         "customer_name": rec.customer_name,
         "tender_title": rec.tender_title,
         "tender_no": rec.tender_no,
-        "tender_number": rec.tender_no,
         "tender_issue_date": rec.tender_issue_date.isoformat() if rec.tender_issue_date else None,
         "total_no_corrigendum_issued": rec.total_no_corrigendum_issued,
-        "total_corrigendum_issued": rec.total_no_corrigendum_issued,
         "bid_submission_date": rec.bid_submission_date.isoformat() if rec.bid_submission_date else None,
         "delivery_terms": rec.delivery_terms,
-        "delivery_term": rec.delivery_terms,
         "delivery_period": rec.delivery_period,
         "bid_validity": rec.bid_validity,
         "payment_terms": rec.payment_terms,
         "warranty_period": rec.warranty_period,
         "gst_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
-        "gst_rate": float(rec.gst_pct) if rec.gst_pct is not None else None,
         "remark": rec.remark,
         "remarks": remarks,
         "items": items,
@@ -1223,21 +1092,6 @@ def handle_create_bid_doc_lte():
     data.pop("attachments_count", None)
     data.pop("form_code", None)
 
-    if "tender_number" in data and not data.get("tender_no"):
-        data["tender_no"] = data.pop("tender_number")
-    else:
-        data.pop("tender_number", None)
-
-    if "total_corrigendum_issued" in data and data.get("total_no_corrigendum_issued") is None:
-        data["total_no_corrigendum_issued"] = data.pop("total_corrigendum_issued")
-    else:
-        data.pop("total_corrigendum_issued", None)
-
-    if "gst_rate" in data and data.get("gst_pct") is None:
-        data["gst_pct"] = data.pop("gst_rate")
-    else:
-        data.pop("gst_rate", None)
-
     rec = BidDocumentLte(**{k: v for k, v in data.items() if hasattr(BidDocumentLte, k)})
     rec.status = status_val
 
@@ -1245,7 +1099,6 @@ def handle_create_bid_doc_lte():
         rec.items.append(BidDocumentLteItem(
             sr_no=it.get("sr_no"),
             description=it.get("description", ""),
-            material_name=it.get("material_name") or it.get("description", ""),
             hsn_sac=it.get("hsn_sac"),
             quantity=it.get("quantity"),
             unit_price=it.get("unit_price"),
@@ -1258,7 +1111,7 @@ def handle_create_bid_doc_lte():
     _save_attachments(files, "bid_document_lte", rec.id, user_id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_31_BID_DOC_LTE", "FORM_31_BID_DOCUMENT_LTE"],
+        ["FORM_31_BID_DOC_LTE"],
         default=31,
     )
     _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
@@ -1298,7 +1151,7 @@ def handle_get_latest_bid_doc_lte(args=None):
         return _error("NOT_FOUND", "Bid document LTE not found.", 404)
 
     return jsonify({
-        "delivery_term": rec.delivery_terms,
+        "delivery_terms": rec.delivery_terms,
         "gst_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
         "payment_terms": rec.payment_terms,
         "warranty_period": rec.warranty_period,
@@ -1307,7 +1160,6 @@ def handle_get_latest_bid_doc_lte(args=None):
                 "id": it.id,
                 "sr_no": it.sr_no,
                 "description": it.description,
-                "material_name": it.material_name or it.description,
                 "hsn_sac": it.hsn_sac,
                 "quantity": float(it.quantity) if it.quantity is not None else None,
                 "unit_price": float(it.unit_price) if it.unit_price is not None else None,
@@ -1368,21 +1220,6 @@ def handle_update_bid_doc_lte(rec_id: int):
     data.pop("attachments_count", None)
     data.pop("form_code", None)
 
-    if "tender_number" in data and not data.get("tender_no"):
-        data["tender_no"] = data.pop("tender_number")
-    else:
-        data.pop("tender_number", None)
-
-    if "total_corrigendum_issued" in data and data.get("total_no_corrigendum_issued") is None:
-        data["total_no_corrigendum_issued"] = data.pop("total_corrigendum_issued")
-    else:
-        data.pop("total_corrigendum_issued", None)
-
-    if "gst_rate" in data and data.get("gst_pct") is None:
-        data["gst_pct"] = data.pop("gst_rate")
-    else:
-        data.pop("gst_rate", None)
-
     for k, v in data.items():
         if hasattr(rec, k):
             setattr(rec, k, v)
@@ -1395,7 +1232,6 @@ def handle_update_bid_doc_lte(rec_id: int):
             rec.items.append(BidDocumentLteItem(
                 sr_no=it.get("sr_no"),
                 description=it.get("description", ""),
-                material_name=it.get("material_name") or it.get("description", ""),
                 hsn_sac=it.get("hsn_sac"),
                 quantity=it.get("quantity"),
                 unit_price=it.get("unit_price"),
@@ -1405,7 +1241,7 @@ def handle_update_bid_doc_lte(rec_id: int):
     _save_attachments(files, "bid_document_lte", rec.id, user_id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_31_BID_DOC_LTE", "FORM_31_BID_DOCUMENT_LTE"],
+        ["FORM_31_BID_DOC_LTE"],
         default=31,
     )
     _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
@@ -1445,7 +1281,7 @@ for bp in (bid_document_lte_bp,):
         bp.doc(
             security=[{"BearerAuth": []}],
             summary="Get Latest Bid Document LTE",
-            description="Retrieve only delivery_term, gst_pct, payment_terms, warranty_period, and items for the latest bid document LTE.",
+            description="Retrieve only delivery_terms, gst_pct, payment_terms, warranty_period, and items for the latest bid document LTE.",
         )(
             bp.arguments(LatestBidDocumentLteQuerySchema, location="query")(
                 bp.response(200, LatestBidDocumentLteResponseSchema)(
@@ -1468,7 +1304,7 @@ def _serialize_bid_doc_ste(rec):
     atts = _serialize_attachments("bid_document_ste", rec.id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_34_BID_DOC_STE", "FORM_34_BID_DOCUMENT_STE"],
+        ["FORM_34_BID_DOC_STE"],
         default=34,
     )
     remarks = get_step_remarks_for_response(
@@ -1489,7 +1325,6 @@ def _serialize_bid_doc_ste(rec):
             "id": it.id,
             "sr_no": it.sr_no,
             "description": it.description,
-            "material_name": it.material_name or it.description,
             "hsn_sac": it.hsn_sac,
             "quantity": float(it.quantity) if it.quantity is not None else None,
             "unit_price": float(it.unit_price) if it.unit_price is not None else None,
@@ -1503,21 +1338,15 @@ def _serialize_bid_doc_ste(rec):
         "customer_name": rec.customer_name,
         "tender_title": rec.tender_title,
         "tender_no": rec.tender_no,
-        "tender_number": rec.tender_no,
         "tender_issue_date": rec.tender_issue_date.isoformat() if rec.tender_issue_date else None,
         "total_no_corrigendum_issued": rec.total_no_corrigendum_issued,
-        "total_corrigendum_issued": rec.total_no_corrigendum_issued,
         "bid_submission_date": rec.bid_submission_date.isoformat() if rec.bid_submission_date else None,
         "delivery_terms": rec.delivery_terms,
-        "delivery_term": rec.delivery_terms,
         "delivery_period": rec.delivery_period,
         "bid_validity": rec.bid_validity,
         "payment_terms": rec.payment_terms,
-        "payment_term": rec.payment_terms,
         "warranty_period": rec.warranty_period,
         "gst_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
-        "gst_rate": float(rec.gst_pct) if rec.gst_pct is not None else None,
-        "gst_rate_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
         "total_net_amount": float(rec.total_net_amount) if rec.total_net_amount is not None else None,
         "total_gross_amount": float(rec.total_gross_amount) if rec.total_gross_amount is not None else None,
         "gst_amount": float(rec.gst_amount) if rec.gst_amount is not None else None,
@@ -1546,8 +1375,7 @@ def handle_create_bid_doc_ste():
     if not project:
         return _error("PROJECT_NOT_FOUND", f"Project {data['project_id']} not found.", 404)
 
-    items_data = data.pop("items", None) or data.pop("requirements", None) or []
-    data.pop("requirements", None)
+    items_data = data.pop("items", None) or []
     remarks_data = raw_payload.get("remarks") or data.pop("remarks", None) or data.get("remark") or raw_payload.get("remark")
     data.pop("remarks", None)
     data.pop("remark", None)
@@ -1555,35 +1383,6 @@ def handle_create_bid_doc_ste():
     status_val = data.pop("status", None) or raw_payload.get("status") or "completed"
     form_code_val = raw_payload.get("form_code") or data.pop("form_code", None) or "FORM_34_BID_DOC_STE"
     data.pop("attachments_count", None)
-
-    # Normalize aliases
-    if "tender_number" in data and not data.get("tender_no"):
-        data["tender_no"] = data.pop("tender_number")
-    else:
-        data.pop("tender_number", None)
-
-    if "total_corrigendum_issued" in data and data.get("total_no_corrigendum_issued") is None:
-        data["total_no_corrigendum_issued"] = data.pop("total_corrigendum_issued")
-    else:
-        data.pop("total_corrigendum_issued", None)
-
-    if "delivery_term" in data and not data.get("delivery_terms"):
-        data["delivery_terms"] = data.pop("delivery_term")
-    else:
-        data.pop("delivery_term", None)
-
-    if "payment_term" in data and not data.get("payment_terms"):
-        data["payment_terms"] = data.pop("payment_term")
-    else:
-        data.pop("payment_term", None)
-
-    if data.get("gst_pct") is None:
-        if data.get("gst_rate") is not None:
-            data["gst_pct"] = data.pop("gst_rate")
-        elif data.get("gst_rate_pct") is not None:
-            data["gst_pct"] = data.pop("gst_rate_pct")
-    data.pop("gst_rate", None)
-    data.pop("gst_rate_pct", None)
 
     # Calculate item amounts and auto-calculate totals if not supplied
     calc_net = 0.0
@@ -1627,8 +1426,7 @@ def handle_create_bid_doc_ste():
             tot = float(p) * float(q)
         rec.items.append(BidDocumentSteItem(
             sr_no=it.get("sr_no"),
-            description=it.get("description", "") or it.get("material_name", ""),
-            material_name=it.get("material_name") or it.get("description", ""),
+            description=it.get("description", ""),
             hsn_sac=it.get("hsn_sac"),
             quantity=q,
             unit_price=p,
@@ -1641,7 +1439,7 @@ def handle_create_bid_doc_ste():
     _save_attachments(files, "bid_document_ste", rec.id, user_id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_34_BID_DOC_STE", "FORM_34_BID_DOCUMENT_STE"],
+        ["FORM_34_BID_DOC_STE"],
         default=34,
     )
     _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
@@ -1681,7 +1479,7 @@ def handle_get_latest_bid_doc_ste(args=None):
         return _error("NOT_FOUND", "Bid document STE not found.", 404)
 
     return jsonify({
-        "delivery_term": rec.delivery_terms,
+        "delivery_terms": rec.delivery_terms,
         "gst_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
         "payment_terms": rec.payment_terms,
         "warranty_period": rec.warranty_period,
@@ -1690,7 +1488,6 @@ def handle_get_latest_bid_doc_ste(args=None):
                 "id": it.id,
                 "sr_no": it.sr_no,
                 "description": it.description,
-                "material_name": it.material_name or it.description,
                 "hsn_sac": it.hsn_sac,
                 "quantity": float(it.quantity) if it.quantity is not None else None,
                 "unit_price": float(it.unit_price) if it.unit_price is not None else None,
@@ -1737,8 +1534,7 @@ def handle_update_bid_doc_ste(rec_id: int):
     except ValidationError as err:
         return _error("VALIDATION_ERROR", err.messages, 422)
 
-    items_data = data.pop("items", None) if "items" in data else (data.pop("requirements", None) if "requirements" in data else None)
-    data.pop("requirements", None)
+    items_data = data.pop("items", None) if "items" in data else None
     remarks_data = raw_payload.get("remarks") if "remarks" in raw_payload else (data.pop("remarks", None) if "remarks" in data else data.get("remark"))
     data.pop("remarks", None)
     data.pop("remark", None)
@@ -1746,34 +1542,6 @@ def handle_update_bid_doc_ste(rec_id: int):
     form_code_val = raw_payload.get("form_code") or data.pop("form_code", None)
     data.pop("attachments_count", None)
     data.pop("form_code", None)
-
-    if "tender_number" in data and not data.get("tender_no"):
-        data["tender_no"] = data.pop("tender_number")
-    else:
-        data.pop("tender_number", None)
-
-    if "total_corrigendum_issued" in data and data.get("total_no_corrigendum_issued") is None:
-        data["total_no_corrigendum_issued"] = data.pop("total_corrigendum_issued")
-    else:
-        data.pop("total_corrigendum_issued", None)
-
-    if "delivery_term" in data and not data.get("delivery_terms"):
-        data["delivery_terms"] = data.pop("delivery_term")
-    else:
-        data.pop("delivery_term", None)
-
-    if "payment_term" in data and not data.get("payment_terms"):
-        data["payment_terms"] = data.pop("payment_term")
-    else:
-        data.pop("payment_term", None)
-
-    if data.get("gst_pct") is None:
-        if data.get("gst_rate") is not None:
-            data["gst_pct"] = data.pop("gst_rate")
-        elif data.get("gst_rate_pct") is not None:
-            data["gst_pct"] = data.pop("gst_rate_pct")
-    data.pop("gst_rate", None)
-    data.pop("gst_rate_pct", None)
 
     for k, v in data.items():
         if hasattr(rec, k):
@@ -1803,8 +1571,7 @@ def handle_update_bid_doc_ste(rec_id: int):
                 calc_net += float(tot)
             rec.items.append(BidDocumentSteItem(
                 sr_no=it.get("sr_no"),
-                description=it.get("description", "") or it.get("material_name", ""),
-                material_name=it.get("material_name") or it.get("description", ""),
+                description=it.get("description", ""),
                 hsn_sac=it.get("hsn_sac"),
                 quantity=q,
                 unit_price=p,
@@ -1816,7 +1583,7 @@ def handle_update_bid_doc_ste(rec_id: int):
     _save_attachments(files, "bid_document_ste", rec.id, user_id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_34_BID_DOC_STE", "FORM_34_BID_DOCUMENT_STE"],
+        ["FORM_34_BID_DOC_STE"],
         default=34,
     )
     _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
@@ -1856,7 +1623,7 @@ for bp in (bid_document_ste_bp,):
         bp.doc(
             security=[{"BearerAuth": []}],
             summary="Get Latest Bid Document STE",
-            description="Retrieve only delivery_term, gst_pct, payment_terms, warranty_period, and items for the latest bid document STE.",
+            description="Retrieve only delivery_terms, gst_pct, payment_terms, warranty_period, and items for the latest bid document STE.",
         )(
             bp.arguments(LatestBidDocumentSteQuerySchema, location="query")(
                 bp.response(200, LatestBidDocumentSteResponseSchema)(
@@ -1882,7 +1649,7 @@ def _serialize_international_competitive_bidding(rec):
 
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_35_ICB", "FORM_35_INTERNATIONAL_COMPETITIVE_BIDDING"],
+        ["FORM_35_ICB"],
         default=35,
     )
     remarks = get_step_remarks_for_response(
@@ -1904,7 +1671,6 @@ def _serialize_international_competitive_bidding(rec):
             "id": it.id,
             "sr_no": it.sr_no,
             "description": it.description,
-            "material_name": it.material_name or it.description,
             "unit": it.unit,
             "quantity": float(it.quantity) if it.quantity is not None else None,
         }
@@ -1914,23 +1680,17 @@ def _serialize_international_competitive_bidding(rec):
         "id": rec.id,
         "project_id": rec.project_id,
         "pqb_no": rec.pqb_no,
-        "pqb_number": rec.pqb_no,
         "tender_title": rec.tender_title,
         "tender_no": rec.tender_no,
-        "tender_number": rec.tender_no,
-        "tender_enquiry_no": rec.tender_no,
-        "icb_no": rec.tender_no,
         "tender_issue_date": rec.tender_issue_date.isoformat() if rec.tender_issue_date else None,
         "bid_submission_due_date_time": rec.bid_submission_due_date_time.isoformat() if rec.bid_submission_due_date_time else None,
         "bid_opening_date_time": rec.bid_opening_date_time.isoformat() if rec.bid_opening_date_time else None,
         "tender_fee": float(rec.tender_fee) if rec.tender_fee is not None else None,
         "emd": float(rec.emd) if rec.emd is not None else None,
         "tender_validity": rec.tender_validity,
-        "validity": rec.tender_validity,
         "remark": rec.remark,
         "remarks": remarks,
         "items": items,
-        "requirements": items,
         "attachments": atts,
         "attachments_count": len(atts),
         "status": rec.status or "completed",
@@ -1952,8 +1712,7 @@ def handle_create_international_competitive_bidding():
     if not project:
         return _error("PROJECT_NOT_FOUND", f"Project {data['project_id']} not found.", 404)
 
-    items_data = data.pop("items", None) or data.pop("requirements", None) or []
-    data.pop("requirements", None)
+    items_data = data.pop("items", None) or []
     remarks_data = raw_payload.get("remarks") or data.pop("remarks", None) or data.get("remark") or raw_payload.get("remark")
     data.pop("remarks", None)
     data.pop("remark", None)
@@ -1961,35 +1720,6 @@ def handle_create_international_competitive_bidding():
     form_code_val = raw_payload.get("form_code") or data.pop("form_code", None) or "FORM_35_ICB"
     data.pop("attachments_count", None)
     data.pop("form_code", None)
-
-    # Normalize aliases
-    if not data.get("tender_no"):
-        for alias in ("icb_no", "tender_number", "tender_enquiry_no"):
-            if data.get(alias):
-                data["tender_no"] = data.pop(alias)
-                break
-    for alias in ("icb_no", "tender_number", "tender_enquiry_no"):
-        data.pop(alias, None)
-
-    if not data.get("pqb_no") and data.get("pqb_number"):
-        data["pqb_no"] = data.pop("pqb_number")
-    data.pop("pqb_number", None)
-
-    if not data.get("tender_validity") and data.get("validity"):
-        data["tender_validity"] = data.pop("validity")
-    data.pop("validity", None)
-
-    if not data.get("bid_submission_due_date_time"):
-        for alias in ("submission_due_date_time", "bid_submission_due_date"):
-            if data.get(alias):
-                data["bid_submission_due_date_time"] = data.pop(alias)
-                break
-    data.pop("submission_due_date_time", None)
-    data.pop("bid_submission_due_date", None)
-
-    if not data.get("bid_opening_date_time") and data.get("opening_date_time"):
-        data["bid_opening_date_time"] = data.pop("opening_date_time")
-    data.pop("opening_date_time", None)
 
     rec = InternationalCompetitiveBidding(**{k: v for k, v in data.items() if hasattr(InternationalCompetitiveBidding, k)})
     rec.status = status_val
@@ -2005,8 +1735,7 @@ def handle_create_international_competitive_bidding():
     for it in items_data:
         rec.items.append(InternationalCompetitiveBiddingItem(
             sr_no=it.get("sr_no"),
-            description=it.get("description", "") or it.get("material_name", ""),
-            material_name=it.get("material_name") or it.get("description", ""),
+            description=it.get("description", ""),
             unit=it.get("unit"),
             quantity=it.get("quantity"),
         ))
@@ -2017,7 +1746,7 @@ def handle_create_international_competitive_bidding():
     _save_attachments(files, "international_competitive_bidding", rec.id, user_id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_35_ICB", "FORM_35_INTERNATIONAL_COMPETITIVE_BIDDING"],
+        ["FORM_35_ICB"],
         default=35,
     )
     _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
@@ -2095,8 +1824,7 @@ def handle_update_international_competitive_bidding(rec_id: int):
     except ValidationError as err:
         return _error("VALIDATION_ERROR", err.messages, 422)
 
-    items_data = data.pop("items", None) if "items" in data else (data.pop("requirements", None) if "requirements" in data else None)
-    data.pop("requirements", None)
+    items_data = data.pop("items", None) if "items" in data else None
     remarks_data = raw_payload.get("remarks") if "remarks" in raw_payload else (data.pop("remarks", None) if "remarks" in data else data.get("remark"))
     data.pop("remarks", None)
     data.pop("remark", None)
@@ -2104,34 +1832,6 @@ def handle_update_international_competitive_bidding(rec_id: int):
     form_code_val = raw_payload.get("form_code") or data.pop("form_code", None)
     data.pop("attachments_count", None)
     data.pop("form_code", None)
-
-    if not data.get("tender_no"):
-        for alias in ("icb_no", "tender_number", "tender_enquiry_no"):
-            if data.get(alias):
-                data["tender_no"] = data.pop(alias)
-                break
-    for alias in ("icb_no", "tender_number", "tender_enquiry_no"):
-        data.pop(alias, None)
-
-    if "pqb_number" in data and not data.get("pqb_no"):
-        data["pqb_no"] = data.pop("pqb_number")
-    data.pop("pqb_number", None)
-
-    if "validity" in data and not data.get("tender_validity"):
-        data["tender_validity"] = data.pop("validity")
-    data.pop("validity", None)
-
-    if not data.get("bid_submission_due_date_time"):
-        for alias in ("submission_due_date_time", "bid_submission_due_date"):
-            if data.get(alias):
-                data["bid_submission_due_date_time"] = data.pop(alias)
-                break
-    data.pop("submission_due_date_time", None)
-    data.pop("bid_submission_due_date", None)
-
-    if not data.get("bid_opening_date_time") and data.get("opening_date_time"):
-        data["bid_opening_date_time"] = data.pop("opening_date_time")
-    data.pop("opening_date_time", None)
 
     for k, v in data.items():
         if hasattr(rec, k):
@@ -2153,8 +1853,7 @@ def handle_update_international_competitive_bidding(rec_id: int):
         for it in items_data:
             rec.items.append(InternationalCompetitiveBiddingItem(
                 sr_no=it.get("sr_no"),
-                description=it.get("description", "") or it.get("material_name", ""),
-                material_name=it.get("material_name") or it.get("description", ""),
+                description=it.get("description", ""),
                 unit=it.get("unit"),
                 quantity=it.get("quantity"),
             ))
@@ -2162,7 +1861,7 @@ def handle_update_international_competitive_bidding(rec_id: int):
     _save_attachments(files, "international_competitive_bidding", rec.id, user_id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_35_ICB", "FORM_35_INTERNATIONAL_COMPETITIVE_BIDDING"],
+        ["FORM_35_ICB"],
         default=35,
     )
     _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
@@ -2223,7 +1922,7 @@ def _serialize_bid_doc_icb(rec):
     atts = _serialize_attachments("bid_document_icb", rec.id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_36_BID_DOC_ICB", "FORM_36_BID_DOCUMENT_ICB"],
+        ["FORM_36_BID_DOC_ICB"],
         default=36,
     )
     remarks = get_step_remarks_for_response(
@@ -2244,10 +1943,7 @@ def _serialize_bid_doc_icb(rec):
             "id": it.id,
             "sr_no": it.sr_no,
             "description": it.description,
-            "material_name": it.material_name or it.description,
-            "item_code": it.item_code,
             "hsn_sac": it.hsn_sac,
-            "hsn_code": it.hsn_sac,
             "quantity": float(it.quantity) if it.quantity is not None else None,
             "unit_price": float(it.unit_price) if it.unit_price is not None else None,
             "total_amount": float(it.total_amount) if it.total_amount is not None else None,
@@ -2260,21 +1956,15 @@ def _serialize_bid_doc_icb(rec):
         "customer_name": rec.customer_name,
         "tender_title": rec.tender_title,
         "tender_no": rec.tender_no,
-        "tender_number": rec.tender_no,
         "tender_issue_date": rec.tender_issue_date.isoformat() if rec.tender_issue_date else None,
         "total_no_corrigendum_issued": rec.total_no_corrigendum_issued,
-        "total_corrigendum_issued": rec.total_no_corrigendum_issued,
         "bid_submission_date": rec.bid_submission_date.isoformat() if rec.bid_submission_date else None,
         "delivery_terms": rec.delivery_terms,
-        "delivery_term": rec.delivery_terms,
         "delivery_period": rec.delivery_period,
         "bid_validity": rec.bid_validity,
         "payment_terms": rec.payment_terms,
-        "payment_term": rec.payment_terms,
         "warranty_period": rec.warranty_period,
         "gst_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
-        "gst_rate": float(rec.gst_pct) if rec.gst_pct is not None else None,
-        "gst_rate_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
         "total_net_amount": float(rec.total_net_amount) if rec.total_net_amount is not None else None,
         "total_gross_amount": float(rec.total_gross_amount) if rec.total_gross_amount is not None else None,
         "gst_amount": float(rec.gst_amount) if rec.gst_amount is not None else None,
@@ -2303,8 +1993,7 @@ def handle_create_bid_doc_icb():
     if not project:
         return _error("PROJECT_NOT_FOUND", f"Project {data['project_id']} not found.", 404)
 
-    items_data = data.pop("items", None) or data.pop("requirements", None) or []
-    data.pop("requirements", None)
+    items_data = data.pop("items", None) or []
     remarks_data = raw_payload.get("remarks") or data.pop("remarks", None) or data.get("remark") or raw_payload.get("remark")
     data.pop("remarks", None)
     data.pop("remark", None)
@@ -2312,35 +2001,6 @@ def handle_create_bid_doc_icb():
     status_val = data.pop("status", None) or raw_payload.get("status") or "completed"
     form_code_val = raw_payload.get("form_code") or data.pop("form_code", None) or "FORM_36_BID_DOC_ICB"
     data.pop("attachments_count", None)
-
-    # Normalize aliases
-    if "tender_number" in data and not data.get("tender_no"):
-        data["tender_no"] = data.pop("tender_number")
-    else:
-        data.pop("tender_number", None)
-
-    if "total_corrigendum_issued" in data and data.get("total_no_corrigendum_issued") is None:
-        data["total_no_corrigendum_issued"] = data.pop("total_corrigendum_issued")
-    else:
-        data.pop("total_corrigendum_issued", None)
-
-    if "delivery_term" in data and not data.get("delivery_terms"):
-        data["delivery_terms"] = data.pop("delivery_term")
-    else:
-        data.pop("delivery_term", None)
-
-    if "payment_term" in data and not data.get("payment_terms"):
-        data["payment_terms"] = data.pop("payment_term")
-    else:
-        data.pop("payment_term", None)
-
-    if data.get("gst_pct") is None:
-        if data.get("gst_rate") is not None:
-            data["gst_pct"] = data.pop("gst_rate")
-        elif data.get("gst_rate_pct") is not None:
-            data["gst_pct"] = data.pop("gst_rate_pct")
-    data.pop("gst_rate", None)
-    data.pop("gst_rate_pct", None)
 
     # Calculate item amounts and auto-calculate totals if not supplied
     calc_net = 0.0
@@ -2384,10 +2044,8 @@ def handle_create_bid_doc_icb():
             tot = float(p) * float(q)
         rec.items.append(BidDocumentIcbItem(
             sr_no=it.get("sr_no"),
-            description=it.get("description", "") or it.get("material_name", ""),
-            material_name=it.get("material_name") or it.get("description", ""),
-            item_code=it.get("item_code"),
-            hsn_sac=it.get("hsn_sac") or it.get("hsn_code"),
+            description=it.get("description", ""),
+            hsn_sac=it.get("hsn_sac"),
             quantity=q,
             unit_price=p,
             total_amount=tot,
@@ -2399,7 +2057,7 @@ def handle_create_bid_doc_icb():
     _save_attachments(files, "bid_document_icb", rec.id, user_id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_36_BID_DOC_ICB", "FORM_36_BID_DOCUMENT_ICB"],
+        ["FORM_36_BID_DOC_ICB"],
         default=36,
     )
     _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)
@@ -2443,10 +2101,7 @@ def handle_get_latest_bid_doc_icb(args=None):
             "id": it.id,
             "sr_no": it.sr_no,
             "description": it.description,
-            "material_name": it.material_name or it.description,
-            "item_code": it.item_code,
             "hsn_sac": it.hsn_sac,
-            "hsn_code": it.hsn_sac,
             "quantity": float(it.quantity) if it.quantity is not None else None,
             "unit_price": float(it.unit_price) if it.unit_price is not None else None,
             "total_amount": float(it.total_amount) if it.total_amount is not None else None,
@@ -2454,7 +2109,6 @@ def handle_get_latest_bid_doc_icb(args=None):
         for it in (rec.items or [])
     ]
     return jsonify({
-        "delivery_term": rec.delivery_terms,
         "delivery_terms": rec.delivery_terms,
         "gst_pct": float(rec.gst_pct) if rec.gst_pct is not None else None,
         "payment_terms": rec.payment_terms,
@@ -2499,8 +2153,7 @@ def handle_update_bid_doc_icb(rec_id: int):
     except ValidationError as err:
         return _error("VALIDATION_ERROR", err.messages, 422)
 
-    items_data = data.pop("items", None) if "items" in data else (data.pop("requirements", None) if "requirements" in data else None)
-    data.pop("requirements", None)
+    items_data = data.pop("items", None) if "items" in data else None
     remarks_data = raw_payload.get("remarks") if "remarks" in raw_payload else (data.pop("remarks", None) if "remarks" in data else data.get("remark"))
     data.pop("remarks", None)
     data.pop("remark", None)
@@ -2508,34 +2161,6 @@ def handle_update_bid_doc_icb(rec_id: int):
     form_code_val = raw_payload.get("form_code") or data.pop("form_code", None)
     data.pop("attachments_count", None)
     data.pop("form_code", None)
-
-    if "tender_number" in data and not data.get("tender_no"):
-        data["tender_no"] = data.pop("tender_number")
-    else:
-        data.pop("tender_number", None)
-
-    if "total_corrigendum_issued" in data and data.get("total_no_corrigendum_issued") is None:
-        data["total_no_corrigendum_issued"] = data.pop("total_corrigendum_issued")
-    else:
-        data.pop("total_corrigendum_issued", None)
-
-    if "delivery_term" in data and not data.get("delivery_terms"):
-        data["delivery_terms"] = data.pop("delivery_term")
-    else:
-        data.pop("delivery_term", None)
-
-    if "payment_term" in data and not data.get("payment_terms"):
-        data["payment_terms"] = data.pop("payment_term")
-    else:
-        data.pop("payment_term", None)
-
-    if data.get("gst_pct") is None:
-        if data.get("gst_rate") is not None:
-            data["gst_pct"] = data.pop("gst_rate")
-        elif data.get("gst_rate_pct") is not None:
-            data["gst_pct"] = data.pop("gst_rate_pct")
-    data.pop("gst_rate", None)
-    data.pop("gst_rate_pct", None)
 
     for k, v in data.items():
         if hasattr(rec, k):
@@ -2562,10 +2187,8 @@ def handle_update_bid_doc_icb(rec_id: int):
                 tot = float(p) * float(q)
             rec.items.append(BidDocumentIcbItem(
                 sr_no=it.get("sr_no"),
-                description=it.get("description", "") or it.get("material_name", ""),
-                material_name=it.get("material_name") or it.get("description", ""),
-                item_code=it.get("item_code"),
-                hsn_sac=it.get("hsn_sac") or it.get("hsn_code"),
+                description=it.get("description", ""),
+                hsn_sac=it.get("hsn_sac"),
                 quantity=q,
                 unit_price=p,
                 total_amount=tot,
@@ -2574,7 +2197,7 @@ def handle_update_bid_doc_icb(rec_id: int):
     _save_attachments(files, "bid_document_icb", rec.id, user_id)
     step_num = _get_step_num_for_form(
         rec.project_id,
-        ["FORM_36_BID_DOC_ICB", "FORM_36_BID_DOCUMENT_ICB"],
+        ["FORM_36_BID_DOC_ICB"],
         default=36,
     )
     _save_remarks(rec.project_id, step_num, rec.id, remarks_data, user_id)

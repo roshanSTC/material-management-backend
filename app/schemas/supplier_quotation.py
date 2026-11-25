@@ -1,72 +1,17 @@
-import re
-from app.schemas.common import FlexibleDate, FlexibleFloat, FlexibleInt
-from collections.abc import Mapping
-from decimal import Decimal
-
-from marshmallow import (
-    EXCLUDE,
-    Schema,
-    ValidationError,
-    fields,
-    pre_load,
-    validate,
-    validates_schema,
-)
+from datetime import date
+from marshmallow import EXCLUDE, Schema, fields, validate
 
 from app.schemas.attachment import AttachmentResponseSchema
-
-
-def _not_blank(value: str) -> None:
-    if not value.strip():
-        raise ValidationError("Field must not be blank.")
-
-
-def _parse_quotation_value_and_unit(raw_val, explicit_unit=None):
-    if raw_val is None:
-        return None, explicit_unit
-    if isinstance(raw_val, (int, float, Decimal)):
-        return Decimal(str(raw_val)), explicit_unit
-
-    s = str(raw_val).strip()
-    match = re.search(r"[-+]?(?:\d*\.\d+|\d+)", s)
-    if not match:
-        raise ValidationError("quotation_value must contain a valid number.")
-
-    num_str = match.group(0)
-    extracted_unit = (s[:match.start()] + s[match.end():]).strip()
-    final_unit = explicit_unit if explicit_unit else (extracted_unit or None)
-    return Decimal(num_str), final_unit
+from app.schemas.common import FlexibleDate, FlexibleInt
 
 
 class SupplierQuotationItemSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
-    sr_no = fields.Integer(
-        required=False,
-        allow_none=True,
-    )
-    material_name = fields.String(
-        required=True,
-        validate=validate.And(
-            validate.Length(min=1, max=255),
-            _not_blank,
-        ),
-    )
-    description = fields.String(
-        required=False,
-        allow_none=True,
-    )
-    hsn_code = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=50),
-    )
-    hsn_sac = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=50),
-    )
+    sr_no = FlexibleInt(required=False, allow_none=True)
+    description = fields.String(required=True, validate=validate.Length(min=1, max=500))
+    hsn_sac = fields.String(required=False, allow_none=True, validate=validate.Length(max=50))
     quantity = fields.Decimal(
         required=True,
         as_string=True,
@@ -80,13 +25,6 @@ class SupplierQuotationItemSchema(Schema):
         places=2,
         validate=validate.Range(min=0),
     )
-    net_amount = fields.Decimal(
-        required=False,
-        allow_none=True,
-        as_string=True,
-        places=2,
-        validate=validate.Range(min=0),
-    )
     total_amount = fields.Decimal(
         required=False,
         allow_none=True,
@@ -94,463 +32,66 @@ class SupplierQuotationItemSchema(Schema):
         places=2,
         validate=validate.Range(min=0),
     )
-
-    @pre_load
-    def normalize_item(self, data, **kwargs):
-        if not isinstance(data, dict):
-            return data
-        normalized = dict(data)
-        # 1. material_name / description aliases
-        if not normalized.get("material_name"):
-            normalized["material_name"] = (
-                normalized.get("description")
-                or normalized.get("itemDescription")
-                or normalized.get("item_description")
-                or "Material Requirement"
-            )
-        if not normalized.get("description"):
-            normalized["description"] = normalized.get("material_name")
-
-        # 2. hsn_code / hsn_sac aliases
-        hsn = (
-            normalized.get("hsn_code")
-            if normalized.get("hsn_code") is not None
-            else normalized.get("hsn_sac")
-        )
-        if hsn is not None:
-            normalized["hsn_code"] = str(hsn).strip() or None
-            normalized["hsn_sac"] = normalized["hsn_code"]
-
-        # 3. unit_price
-        if "unit_price" in normalized and normalized["unit_price"] is not None:
-            val = str(normalized["unit_price"]).strip()
-            normalized["unit_price"] = val if val != "" else None
-
-        # 4. net_amount / total_amount aliases
-        net_amt = (
-            normalized.get("net_amount")
-            if normalized.get("net_amount") is not None
-            else normalized.get("total_amount")
-        )
-        if net_amt is not None:
-            val = str(net_amt).strip()
-            normalized["net_amount"] = val if val != "" else None
-            normalized["total_amount"] = val if val != "" else None
-        elif normalized.get("unit_price") is not None and normalized.get("quantity") is not None:
-            try:
-                calc = Decimal(str(normalized["quantity"])) * Decimal(str(normalized["unit_price"]))
-                normalized["net_amount"] = str(calc)
-                normalized["total_amount"] = str(calc)
-            except Exception:
-                pass
-
-        if normalized.get("total_amount") is not None:
-            val = str(normalized["total_amount"]).strip()
-            normalized["total_amount"] = val if val != "" else None
-
-        # 5. quantity
-        qty = normalized.get("quantity")
-        if qty is None or str(qty).strip() == "":
-            normalized["quantity"] = "1.000"
-        else:
-            try:
-                q_dec = Decimal(str(qty).replace(",", "").strip())
-                normalized["quantity"] = str(q_dec) if q_dec >= Decimal("0.001") else "1.000"
-            except Exception:
-                normalized["quantity"] = "1.000"
-
-        # 6. sr_no
-        if normalized.get("sr_no") is not None:
-            try:
-                normalized["sr_no"] = int(normalized["sr_no"])
-            except Exception:
-                pass
-
-        return normalized
 
 
 class SupplierQuotationCreateSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
-    project_id = fields.Integer(
-        required=True,
-        validate=validate.Range(min=1),
-    )
-    supplier_id = fields.Integer(
-        required=False,
-        allow_none=True,
-        validate=validate.Range(min=1),
-    )
-    supplier_name = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=255),
-    )
-    quotation_number = fields.String(
-        required=True,
-        validate=validate.And(
-            validate.Length(min=1, max=100),
-            _not_blank,
-        ),
-    )
-    quotation_date = FlexibleDate(required=True)
-    quotation_value = fields.Decimal(
-        required=True,
-        as_string=True,
-        places=2,
-        validate=validate.Range(min=0.01),
-    )
-    currency_unit = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=20),
-    )
-    currency_symbol = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=20),
-    )
-    currency = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=20),
-    )
-    total_net_amount = fields.Decimal(
-        required=False,
-        allow_none=True,
-        as_string=True,
-        places=2,
-    )
-    total_gross_amount = fields.Decimal(
-        required=False,
-        allow_none=True,
-        as_string=True,
-        places=2,
-    )
-    total_amount = fields.Decimal(
-        required=False,
-        allow_none=True,
-        as_string=True,
-        places=2,
-    )
-    status = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=50),
-    )
-    validity = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=100),
-    )
-    incoterms = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=50),
-    )
-    payment_terms = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=255),
-    )
-    delivery_period = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=100),
-    )
-    warranty_period = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=100),
-    )
-    form_code = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=100),
-    )
-    attachments_count = fields.Integer(
-        required=False,
-        allow_none=True,
-    )
+    project_id = FlexibleInt(required=True, validate=validate.Range(min=1))
+    supplier_id = FlexibleInt(required=False, allow_none=True)
+    supplier_name = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
+    quotation_no = fields.String(required=True, validate=validate.Length(min=1, max=100))
+    quotation_value = fields.Raw(required=False, allow_none=True)
+    total_net_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
+    total_gross_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
+    total_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
+    quotation_date = FlexibleDate(required=False, allow_none=True, load_default=date.today)
+    currency_unit = fields.String(required=False, allow_none=True, validate=validate.Length(max=50))
+    currency_symbol = fields.String(required=False, allow_none=True, validate=validate.Length(max=20))
+    quotation_validity = fields.String(required=False, allow_none=True, validate=validate.Length(max=100))
+    incoterms = fields.String(required=False, allow_none=True, validate=validate.Length(max=100))
+    payment_terms = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
+    delivery_period = fields.String(required=False, allow_none=True, validate=validate.Length(max=100))
+    warranty_period = fields.String(required=False, allow_none=True, validate=validate.Length(max=100))
+    form_code = fields.String(required=False, allow_none=True, validate=validate.Length(max=100))
+    attachments_count = FlexibleInt(required=False, allow_none=True)
     remarks = fields.Raw(required=False, allow_none=True)
-    remark = fields.Raw(required=False, allow_none=True)
     items = fields.List(
         fields.Nested(SupplierQuotationItemSchema),
         required=True,
         validate=validate.Length(min=1),
     )
-
-    @pre_load
-    def normalize_quotation(self, data, **kwargs):
-        if not isinstance(data, dict):
-            return data
-        normalized = dict(data)
-
-        if "remarks" in normalized and not normalized.get("remark"):
-            normalized["remark"] = normalized["remarks"]
-        elif "remark" in normalized and not normalized.get("remarks"):
-            normalized["remarks"] = normalized["remark"]
-
-        # Support quotation_no, quotationNumber, quote_no
-        if not normalized.get("quotation_number"):
-            q_no = (
-                normalized.get("quotation_no")
-                or normalized.get("quotationNumber")
-                or normalized.get("quote_no")
-            )
-            if q_no:
-                normalized["quotation_number"] = str(q_no).strip()
-
-        # Support quotation_validity, validity_days
-        if not normalized.get("validity"):
-            v = (
-                normalized.get("quotation_validity")
-                or normalized.get("validity_days")
-                or normalized.get("validityDays")
-            )
-            if v is not None:
-                normalized["validity"] = str(v).strip()
-
-        # Default quotation_date if missing
-        if not normalized.get("quotation_date"):
-            from datetime import date
-            normalized["quotation_date"] = date.today().isoformat()
-
-        # Support currency_symbol / value_symbol as aliases for currency_unit
-        currency_symbol = normalized.get("currency_symbol")
-        value_symbol = normalized.get("value_symbol")
-        explicit_unit = (
-            normalized.get("currency")
-            or normalized.get("currency_unit")
-            or currency_symbol
-            or value_symbol
-        )
-
-        if explicit_unit:
-            if not normalized.get("currency_unit"):
-                normalized["currency_unit"] = explicit_unit
-            if not normalized.get("currency"):
-                normalized["currency"] = explicit_unit
-
-        if not normalized.get("currency_symbol"):
-            if currency_symbol:
-                normalized["currency_symbol"] = currency_symbol
-            elif normalized.get("currency") == "INR" or normalized.get("currency_unit") == "INR":
-                normalized["currency_symbol"] = "₹"
-
-        # Support total_net_amount / total_amount / total_gross_amount as alias for quotation_value
-        if (
-            "quotation_value" not in normalized
-            or normalized["quotation_value"] is None
-        ):
-            amt = (
-                normalized.get("total_amount")
-                or normalized.get("total_gross_amount")
-                or normalized.get("total_net_amount")
-            )
-            if amt is not None:
-                normalized["quotation_value"] = amt
-
-        if "quotation_value" in normalized and normalized["quotation_value"] is not None:
-            val, unit = _parse_quotation_value_and_unit(
-                normalized["quotation_value"],
-                explicit_unit,
-            )
-            normalized["quotation_value"] = str(val)
-            if unit:
-                if not normalized.get("currency_unit"):
-                    normalized["currency_unit"] = unit
-                if not normalized.get("currency"):
-                    normalized["currency"] = unit
-
-        # Ensure amounts are populated
-        if normalized.get("total_amount") is None:
-            normalized["total_amount"] = normalized.get("total_gross_amount") or normalized.get("total_net_amount") or normalized.get("quotation_value")
-        if normalized.get("total_gross_amount") is None:
-            normalized["total_gross_amount"] = normalized.get("total_amount") or normalized.get("quotation_value")
-        if normalized.get("total_net_amount") is None:
-            normalized["total_net_amount"] = normalized.get("total_amount") or normalized.get("quotation_value")
-
-        if not normalized.get("status"):
-            normalized["status"] = "completed"
-
-        return normalized
 
 
 class SupplierQuotationUpdateSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
-    project_id = fields.Integer(validate=validate.Range(min=1))
-    supplier_id = fields.Integer(required=False, allow_none=True, validate=validate.Range(min=1))
-    supplier_name = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=255),
-    )
-    quotation_number = fields.String(
-        validate=validate.And(
-            validate.Length(min=1, max=100),
-            _not_blank,
-        ),
-    )
+    project_id = FlexibleInt(required=False, validate=validate.Range(min=1))
+    supplier_id = FlexibleInt(required=False, allow_none=True)
+    supplier_name = fields.String(required=False, allow_none=True)
+    quotation_no = fields.String(required=False, validate=validate.Length(min=1, max=100))
+    quotation_value = fields.Raw(required=False, allow_none=True)
+    total_net_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
+    total_gross_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
+    total_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
     quotation_date = FlexibleDate(required=False, allow_none=True)
-    quotation_value = fields.Decimal(
-        as_string=True,
-        places=2,
-        validate=validate.Range(min=0.01),
-    )
-    currency_unit = fields.String(
-        allow_none=True,
-        validate=validate.Length(max=20),
-    )
-    currency_symbol = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=20),
-    )
-    currency = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=20),
-    )
-    total_net_amount = fields.Decimal(
-        required=False,
-        allow_none=True,
-        as_string=True,
-        places=2,
-    )
-    total_gross_amount = fields.Decimal(
-        required=False,
-        allow_none=True,
-        as_string=True,
-        places=2,
-    )
-    total_amount = fields.Decimal(
-        required=False,
-        allow_none=True,
-        as_string=True,
-        places=2,
-    )
-    status = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=50),
-    )
-    validity = fields.String(allow_none=True, validate=validate.Length(max=100))
-    incoterms = fields.String(allow_none=True, validate=validate.Length(max=50))
-    payment_terms = fields.String(allow_none=True, validate=validate.Length(max=255))
-    delivery_period = fields.String(
-        allow_none=True,
-        validate=validate.Length(max=100),
-    )
-    warranty_period = fields.String(
-        allow_none=True,
-        validate=validate.Length(max=100),
-    )
-    form_code = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=100),
-    )
-    attachments_count = fields.Integer(
-        required=False,
-        allow_none=True,
-    )
-    remarks = fields.Raw(allow_none=True)
-    remark = fields.Raw(allow_none=True)
+    currency_unit = fields.String(required=False, allow_none=True)
+    currency_symbol = fields.String(required=False, allow_none=True)
+    quotation_validity = fields.String(required=False, allow_none=True)
+    incoterms = fields.String(required=False, allow_none=True)
+    payment_terms = fields.String(required=False, allow_none=True)
+    delivery_period = fields.String(required=False, allow_none=True)
+    warranty_period = fields.String(required=False, allow_none=True)
+    form_code = fields.String(required=False, allow_none=True)
+    attachments_count = FlexibleInt(required=False, allow_none=True)
+    remarks = fields.Raw(required=False, allow_none=True)
     items = fields.List(
         fields.Nested(SupplierQuotationItemSchema),
+        required=False,
         validate=validate.Length(min=1),
     )
-
-    @pre_load
-    def normalize_quotation(self, data, **kwargs):
-        if not isinstance(data, dict):
-            return data
-        normalized = dict(data)
-
-        if "remarks" in normalized and not normalized.get("remark"):
-            normalized["remark"] = normalized["remarks"]
-        elif "remark" in normalized and not normalized.get("remarks"):
-            normalized["remarks"] = normalized["remark"]
-
-        # Support quotation_no, quotationNumber, quote_no
-        if not normalized.get("quotation_number"):
-            q_no = (
-                normalized.get("quotation_no")
-                or normalized.get("quotationNumber")
-                or normalized.get("quote_no")
-            )
-            if q_no:
-                normalized["quotation_number"] = str(q_no).strip()
-
-        # Support quotation_validity, validity_days
-        if not normalized.get("validity"):
-            v = (
-                normalized.get("quotation_validity")
-                or normalized.get("validity_days")
-                or normalized.get("validityDays")
-            )
-            if v is not None:
-                normalized["validity"] = str(v).strip()
-
-        # Support currency_symbol / value_symbol as aliases for currency_unit
-        currency_symbol = normalized.get("currency_symbol")
-        value_symbol = normalized.get("value_symbol")
-        explicit_unit = (
-            normalized.get("currency")
-            or normalized.get("currency_unit")
-            or currency_symbol
-            or value_symbol
-        )
-
-        if explicit_unit:
-            if not normalized.get("currency_unit"):
-                normalized["currency_unit"] = explicit_unit
-            if not normalized.get("currency"):
-                normalized["currency"] = explicit_unit
-
-        if not normalized.get("currency_symbol"):
-            if currency_symbol:
-                normalized["currency_symbol"] = currency_symbol
-            elif normalized.get("currency") == "INR" or normalized.get("currency_unit") == "INR":
-                normalized["currency_symbol"] = "₹"
-
-        # Support total_net_amount as alias for quotation_value
-        if (
-            "quotation_value" not in normalized
-            or normalized["quotation_value"] is None
-        ):
-            amt = (
-                normalized.get("total_amount")
-                or normalized.get("total_gross_amount")
-                or normalized.get("total_net_amount")
-            )
-            if amt is not None:
-                normalized["quotation_value"] = amt
-
-        if "quotation_value" in normalized and normalized["quotation_value"] is not None:
-            val, unit = _parse_quotation_value_and_unit(
-                normalized["quotation_value"],
-                explicit_unit,
-            )
-            normalized["quotation_value"] = str(val)
-            if unit:
-                if not normalized.get("currency_unit"):
-                    normalized["currency_unit"] = unit
-                if not normalized.get("currency"):
-                    normalized["currency"] = unit
-
-        return normalized
-
-    @validates_schema
-    def validate_non_empty_payload(self, data, **kwargs):
-        if not data:
-            raise ValidationError(
-                "At least one supplier quotation field is required."
-            )
 
 
 class SupplierQuotationItemResponseSchema(Schema):
@@ -558,15 +99,14 @@ class SupplierQuotationItemResponseSchema(Schema):
         unknown = EXCLUDE
 
     id = fields.Integer(required=True)
-    sr_no = fields.Integer(required=False, allow_none=True)
-    material_name = fields.String(required=True)
-    description = fields.String(required=False, allow_none=True)
-    hsn_code = fields.String(required=False, allow_none=True)
-    hsn_sac = fields.String(required=False, allow_none=True)
-    quantity = fields.Decimal(required=True, as_string=True, places=3)
-    unit_price = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
-    net_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
-    total_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
+    sr_no = fields.Integer(allow_none=True)
+    supplier_quotation_id = fields.Integer(required=True)
+    description = fields.String(required=True)
+    hsn_sac = fields.String(allow_none=True)
+    quantity = fields.Decimal(as_string=True, places=3, required=True)
+    unit_price = fields.Decimal(as_string=True, places=2, allow_none=True)
+    total_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+    created_at = fields.DateTime(required=True)
 
 
 class SupplierQuotationResponseSchema(Schema):
@@ -575,22 +115,16 @@ class SupplierQuotationResponseSchema(Schema):
 
     id = fields.Integer(required=True)
     project_id = fields.Integer(required=True)
-    supplier_id = fields.Integer(required=False, allow_none=True)
-    supplier_name = fields.String(required=False, allow_none=True)
-    quotation_number = fields.String(required=True)
-    quotation_no = fields.String(required=False, allow_none=True)
+    supplier_id = fields.Integer(required=True)
+    supplier_name = fields.String(allow_none=True)
+    quotation_no = fields.String(required=True)
+    quotation_value = fields.Decimal(as_string=True, places=2, required=True)
+    total_net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+    total_gross_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+    total_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
     quotation_date = fields.Date(required=True)
-    quotation_value = fields.Decimal(required=True, as_string=True, places=2)
-    total_net_amount = fields.Decimal(allow_none=True, as_string=True, places=2)
-    total_gross_amount = fields.Decimal(allow_none=True, as_string=True, places=2)
-    total_amount = fields.Decimal(allow_none=True, as_string=True, places=2)
-    currency = fields.String(allow_none=True)
     currency_unit = fields.String(allow_none=True)
     currency_symbol = fields.String(allow_none=True)
-    status = fields.String(allow_none=True)
-    form_code = fields.String(allow_none=True)
-    attachments_count = fields.Integer(allow_none=True)
-    validity = fields.String(allow_none=True)
     quotation_validity = fields.String(allow_none=True)
     incoterms = fields.String(allow_none=True)
     payment_terms = fields.String(allow_none=True)
@@ -607,107 +141,44 @@ class SupplierQuotationQuerySchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
-    project_id = fields.Integer(
-        required=False,
-        validate=validate.Range(min=1),
-    )
-    supplier_id = fields.Integer(
-        required=False,
-        validate=validate.Range(min=1),
-    )
-
-    @pre_load
-    def normalize_keys(self, data, **kwargs):
-        if not isinstance(data, (dict, Mapping)):
-            return data
-        normalized = dict(data)
-        resolved_id = (
-            normalized.get("project_id")
-            if normalized.get("project_id") is not None
-            else normalized.get("product_id")
-            if normalized.get("product_id") is not None
-            else normalized.get("projectId")
-            if normalized.get("projectId") is not None
-            else normalized.get("productId")
-        )
-        if resolved_id is not None and str(resolved_id).strip() != "":
-            normalized["project_id"] = str(resolved_id).strip()
-        else:
-            normalized.pop("project_id", None)
-            normalized.pop("projectId", None)
-            normalized.pop("product_id", None)
-            normalized.pop("productId", None)
-
-        resolved_supp = (
-            normalized.get("supplier_id")
-            if normalized.get("supplier_id") is not None
-            else normalized.get("supplierId")
-        )
-        if resolved_supp is not None and str(resolved_supp).strip() != "":
-            normalized["supplier_id"] = str(resolved_supp).strip()
-        else:
-            normalized.pop("supplier_id", None)
-            normalized.pop("supplierId", None)
-
-        return normalized
+    project_id = fields.Integer(required=False, validate=validate.Range(min=1))
+    supplier_id = fields.Integer(required=False, validate=validate.Range(min=1))
 
 
 class LatestSupplierQuotationQuerySchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
-    project_id = fields.Integer(
-        required=True,
-        validate=validate.Range(min=1),
-    )
-
-    @pre_load
-    def normalize_keys(self, data, **kwargs):
-        if not isinstance(data, dict):
-            return data
-        normalized = dict(data)
-        resolved_id = (
-            normalized.get("project_id")
-            if normalized.get("project_id") is not None
-            else normalized.get("projectId")
-        )
-        if resolved_id is not None and str(resolved_id).strip() != "":
-            normalized["project_id"] = str(resolved_id).strip()
-        return normalized
+    project_id = fields.Integer(required=True, validate=validate.Range(min=1))
 
 
 class LatestSupplierQuotationItemResponseSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
-    material_name = fields.String(required=True)
-    hsn_code = fields.String(required=False, allow_none=True)
+    sr_no = fields.Integer(allow_none=True)
+    description = fields.String(required=True)
+    hsn_sac = fields.String(required=False, allow_none=True)
     unit_price = fields.Decimal(as_string=True, places=2, allow_none=True)
     quantity = fields.Decimal(as_string=True, places=3, required=True)
-    net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+    total_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
 
 
 class LatestSupplierQuotationResponseSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
+    quotation_no = fields.String(allow_none=True)
     quotation_date = fields.Raw(allow_none=True)
     quotation_value = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_gross_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
-    currency = fields.String(allow_none=True)
     currency_unit = fields.String(allow_none=True)
     currency_symbol = fields.String(allow_none=True)
     quotation_validity = fields.String(allow_none=True)
-    validity = fields.String(allow_none=True)
     incoterms = fields.String(allow_none=True)
     payment_terms = fields.String(allow_none=True)
     delivery_period = fields.String(allow_none=True)
     warranty_period = fields.String(allow_none=True)
-    items = fields.List(
-        fields.Nested(LatestSupplierQuotationItemResponseSchema),
-        required=True,
-    )
-    
-
+    items = fields.List(fields.Nested(LatestSupplierQuotationItemResponseSchema), required=True)

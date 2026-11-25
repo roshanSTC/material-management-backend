@@ -41,13 +41,18 @@ class SupplierPackingList(db.Model):
         nullable=True,
     )
 
-    weight = db.Column(
+    net_weight = db.Column(
         db.Numeric(18, 3),
         nullable=True,
     )
 
-    total_weight = db.Column(
+    gross_weight = db.Column(
         db.Numeric(18, 3),
+        nullable=True,
+    )
+
+    total_no_packages = db.Column(
+        db.Integer,
         nullable=True,
     )
 
@@ -85,31 +90,6 @@ class SupplierPackingList(db.Model):
         cascade="all, delete-orphan",
         lazy="select",
     )
-
-    # Property aliases for backward/forward compatibility
-    @property
-    def packing_list_number(self):
-        return self.packing_list_no
-
-    @packing_list_number.setter
-    def packing_list_number(self, val):
-        self.packing_list_no = val
-
-    @property
-    def total_gross_weight_kg(self):
-        return self.total_weight
-
-    @total_gross_weight_kg.setter
-    def total_gross_weight_kg(self, val):
-        self.total_weight = val
-
-    @property
-    def remarks(self):
-        return self.remark
-
-    @remarks.setter
-    def remarks(self, val):
-        self.remark = val
 
     def __repr__(self) -> str:
         return f"<SupplierPackingList {self.id}>"

@@ -31,7 +31,7 @@ def get_import_logistics_by_project_id(project_id: int) -> ImportLogistics | Non
 def list_import_logistics(
     project_id: int | None = None,
     supplier_id: int | None = None,
-    logistic_type: str | None = None,
+    transportation_mode: str | None = None,
 ) -> list[ImportLogistics]:
     stmt = select(ImportLogistics).order_by(ImportLogistics.id.desc())
 
@@ -39,8 +39,8 @@ def list_import_logistics(
         stmt = stmt.where(ImportLogistics.project_id == project_id)
     if supplier_id is not None:
         stmt = stmt.where(ImportLogistics.supplier_id == supplier_id)
-    if logistic_type is not None:
-        stmt = stmt.where(ImportLogistics.logistic_type == logistic_type)
+    if transportation_mode is not None:
+        stmt = stmt.where(ImportLogistics.transportation_mode == transportation_mode)
 
     return list(db.session.execute(stmt).scalars().all())
 
@@ -64,20 +64,13 @@ def create_import_logistics(data: dict) -> ImportLogistics:
     logistics = ImportLogistics(
         project_id=data["project_id"],
         supplier_id=data.get("supplier_id"),
-        logistic_type=data["logistic_type"],
-        date=_parse_date_val(data["date"]),
-        port_of_discharge=data.get("port_of_discharge"),
+        transportation_mode=data["transportation_mode"],
+        lr_rr_awb_no=data.get("lr_rr_awb_no"),
+        lr_rr_awb_date=_parse_date_val(data["lr_rr_awb_date"]),
+        from_location=data.get("from_location"),
+        to_location=data.get("to_location"),
+        total_transportation_charges=data.get("total_transportation_charges"),
         remark=normalize_remark_for_db(data.get("remark")),
-        # Air fields
-        airway_bill_no=data.get("airway_bill_no"),
-        flight_name=data.get("flight_name"),
-        flight_no=data.get("flight_no"),
-        airport_of_loading=data.get("airport_of_loading"),
-        # Sea fields
-        bill_of_lading_no=data.get("bill_of_lading_no"),
-        vessel_name=data.get("vessel_name"),
-        voyage_no=data.get("voyage_no"),
-        port_of_loading=data.get("port_of_loading"),
     )
     db.session.add(logistics)
     db.session.flush()
@@ -89,34 +82,20 @@ def update_import_logistics(logistics: ImportLogistics, data: dict) -> ImportLog
         logistics.project_id = data["project_id"]
     if "supplier_id" in data:
         logistics.supplier_id = data["supplier_id"]
-    if "logistic_type" in data and data["logistic_type"] is not None:
-        logistics.logistic_type = data["logistic_type"]
-    if "date" in data and data["date"] is not None:
-        logistics.date = _parse_date_val(data["date"])
-    if "port_of_discharge" in data:
-        logistics.port_of_discharge = data["port_of_discharge"]
+    if "transportation_mode" in data and data["transportation_mode"] is not None:
+        logistics.transportation_mode = data["transportation_mode"]
+    if "lr_rr_awb_no" in data:
+        logistics.lr_rr_awb_no = data["lr_rr_awb_no"]
+    if "lr_rr_awb_date" in data and data["lr_rr_awb_date"] is not None:
+        logistics.lr_rr_awb_date = _parse_date_val(data["lr_rr_awb_date"])
+    if "from_location" in data:
+        logistics.from_location = data["from_location"]
+    if "to_location" in data:
+        logistics.to_location = data["to_location"]
+    if "total_transportation_charges" in data:
+        logistics.total_transportation_charges = data["total_transportation_charges"]
     if "remark" in data:
         logistics.remark = normalize_remark_for_db(data["remark"])
-
-    # Air fields
-    if "airway_bill_no" in data:
-        logistics.airway_bill_no = data["airway_bill_no"]
-    if "flight_name" in data:
-        logistics.flight_name = data["flight_name"]
-    if "flight_no" in data:
-        logistics.flight_no = data["flight_no"]
-    if "airport_of_loading" in data:
-        logistics.airport_of_loading = data["airport_of_loading"]
-
-    # Sea fields
-    if "bill_of_lading_no" in data:
-        logistics.bill_of_lading_no = data["bill_of_lading_no"]
-    if "vessel_name" in data:
-        logistics.vessel_name = data["vessel_name"]
-    if "voyage_no" in data:
-        logistics.voyage_no = data["voyage_no"]
-    if "port_of_loading" in data:
-        logistics.port_of_loading = data["port_of_loading"]
 
     logistics.updated_at = datetime.utcnow()
     db.session.flush()

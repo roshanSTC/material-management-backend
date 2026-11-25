@@ -58,17 +58,18 @@ def _parse_decimal_val(val) -> Decimal | None:
 
 def create_customer_payment(*, data: dict) -> CustomerPayment:
     inv_date = _parse_date_val(data.get("invoice_date"))
-    pay_date = _parse_date_val(data.get("payment_date"))
+    pay_date = _parse_date_val(data.get("payment_received_date"))
 
     payment = CustomerPayment(
         project_id=data["project_id"],
-        invoice_no=str(data.get("invoice_no") or data.get("invoice_number")).strip(),
+        payment_against_invoice_no=str(data["payment_against_invoice_no"]).strip(),
         invoice_date=inv_date,
         invoice_value=_parse_decimal_val(data.get("invoice_value")),
-        payment_amount=_parse_decimal_val(data.get("payment_amount")),
-        payment_date=pay_date,
-        tds=_parse_decimal_val(data.get("tds")),
-        ld=_parse_decimal_val(data.get("ld") if data.get("ld") is not None else data.get("liquidated_damages")),
+        payment_received=_parse_decimal_val(data.get("payment_received")),
+        payment_received_date=pay_date,
+        tds_deducted=_parse_decimal_val(data.get("tds_deducted")),
+        ld_deducted=_parse_decimal_val(data.get("ld_deducted")),
+        balance_amount=_parse_decimal_val(data.get("balance_amount")),
         remark=_normalize_optional_string(data.get("remark") or data.get("remarks")),
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
@@ -85,9 +86,9 @@ def get_total_previously_paid(project_id: int, exclude_id: int | None = None) ->
     query = db.session.query(
         db.func.coalesce(
             db.func.sum(
-                db.func.coalesce(CustomerPayment.payment_amount, 0)
-                + db.func.coalesce(CustomerPayment.tds, 0)
-                + db.func.coalesce(CustomerPayment.ld, 0)
+                db.func.coalesce(CustomerPayment.payment_received, 0)
+                + db.func.coalesce(CustomerPayment.tds_deducted, 0)
+                + db.func.coalesce(CustomerPayment.ld_deducted, 0)
             ),
             0,
         )
@@ -109,15 +110,15 @@ def get_latest_customer_payment_for_project(project_id: int) -> CustomerPayment 
 def list_customer_payments(
     *,
     project_id: int | None = None,
-    invoice_no: str | None = None,
+    payment_against_invoice_no: str | None = None,
     latest_first: bool = False,
 ) -> list[CustomerPayment]:
     query = CustomerPayment.query
     if project_id is not None:
         query = query.filter(CustomerPayment.project_id == project_id)
-    if invoice_no:
+    if payment_against_invoice_no:
         query = query.filter(
-            CustomerPayment.invoice_no.ilike(f"%{invoice_no.strip()}%")
+            CustomerPayment.payment_against_invoice_no.ilike(f"%{payment_against_invoice_no.strip()}%")
         )
     if latest_first:
         return query.order_by(
@@ -138,10 +139,8 @@ def update_customer_payment(
     if "project_id" in data and data["project_id"] is not None:
         payment.project_id = data["project_id"]
 
-    if "invoice_no" in data or "invoice_number" in data:
-        val = data.get("invoice_no") or data.get("invoice_number")
-        if val is not None:
-            payment.invoice_no = str(val).strip()
+    if "payment_against_invoice_no" in data and data["payment_against_invoice_no"] is not None:
+        payment.payment_against_invoice_no = str(data["payment_against_invoice_no"]).strip()
 
     if "invoice_date" in data:
         dt = _parse_date_val(data.get("invoice_date"))
@@ -151,20 +150,22 @@ def update_customer_payment(
     if "invoice_value" in data:
         payment.invoice_value = _parse_decimal_val(data.get("invoice_value"))
 
-    if "payment_amount" in data:
-        payment.payment_amount = _parse_decimal_val(data.get("payment_amount"))
+    if "payment_received" in data:
+        payment.payment_received = _parse_decimal_val(data.get("payment_received"))
 
-    if "payment_date" in data:
-        dt = _parse_date_val(data.get("payment_date"))
+    if "payment_received_date" in data:
+        dt = _parse_date_val(data.get("payment_received_date"))
         if dt is not None:
-            payment.payment_date = dt
+            payment.payment_received_date = dt
 
-    if "tds" in data:
-        payment.tds = _parse_decimal_val(data.get("tds"))
+    if "tds_deducted" in data:
+        payment.tds_deducted = _parse_decimal_val(data.get("tds_deducted"))
 
-    if "ld" in data or "liquidated_damages" in data:
-        ld_val = data.get("ld") if "ld" in data else data.get("liquidated_damages")
-        payment.ld = _parse_decimal_val(ld_val)
+    if "ld_deducted" in data:
+        payment.ld_deducted = _parse_decimal_val(data.get("ld_deducted"))
+
+    if "balance_amount" in data:
+        payment.balance_amount = _parse_decimal_val(data.get("balance_amount"))
 
     if "remark" in data or "remarks" in data:
         payment.remark = _normalize_optional_string(data.get("remark") or data.get("remarks"))

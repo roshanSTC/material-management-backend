@@ -18,6 +18,11 @@ class BidSubmissionItem(db.Model):
         index=True,
     )
 
+    sr_no = db.Column(
+        db.Integer,
+        nullable=True,
+    )
+
     description = db.Column(
         db.String(500),
         nullable=False,
@@ -38,7 +43,7 @@ class BidSubmissionItem(db.Model):
         nullable=False,
     )
 
-    net_total = db.Column(
+    total_amount = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )
@@ -53,22 +58,6 @@ class BidSubmissionItem(db.Model):
         "BidSubmission",
         back_populates="items",
     )
-
-    @property
-    def material_name(self) -> str | None:
-        return self.description
-
-    @material_name.setter
-    def material_name(self, val: str | None) -> None:
-        self.description = val
-
-    @property
-    def net_amount(self):
-        return self.net_total
-
-    @net_amount.setter
-    def net_amount(self, val):
-        self.net_total = val
 
     def __repr__(self) -> str:
         return f"<BidSubmissionItem {self.id}>"

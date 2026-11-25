@@ -26,6 +26,11 @@ class SupplierInvoice(db.Model):
         index=True,
     )
 
+    supplier_name = db.Column(
+        db.String(255),
+        nullable=True,
+    )
+
     invoice_no = db.Column(
         db.String(100),
         nullable=False,
@@ -36,7 +41,7 @@ class SupplierInvoice(db.Model):
         nullable=False,
     )
 
-    delivery_terms = db.Column(
+    incoterms = db.Column(
         db.String(100),
         nullable=True,
     )
@@ -100,39 +105,6 @@ class SupplierInvoice(db.Model):
         cascade="all, delete-orphan",
         lazy="select",
     )
-
-    # Property aliases for backward/forward compatibility
-    @property
-    def invoice_number(self):
-        return self.invoice_no
-
-    @invoice_number.setter
-    def invoice_number(self, val):
-        self.invoice_no = val
-
-    @property
-    def remarks(self):
-        return self.remark
-
-    @remarks.setter
-    def remarks(self, val):
-        self.remark = val
-
-    @property
-    def delivery_term(self):
-        return self.delivery_terms
-
-    @delivery_term.setter
-    def delivery_term(self, val):
-        self.delivery_terms = val
-
-    @property
-    def payment_term(self):
-        return self.payment_terms
-
-    @payment_term.setter
-    def payment_term(self, val):
-        self.payment_terms = val
 
     def __repr__(self) -> str:
         return f"<SupplierInvoice {self.id}>"

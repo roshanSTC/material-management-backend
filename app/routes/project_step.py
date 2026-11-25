@@ -209,9 +209,9 @@ def sync_project_steps_from_records(project):
             db.session.rollback()
             form_defs = {}
 
-        # Migrate any legacy Customer Tender step names or form_code to PAC Tender
+        # Migrate any legacy Customer Tender step names to PAC Tender
         for s in list(project.steps):
-            if s.form_code in ("FORM_13_PAC_TENDER", "FORM_13_CUSTOMER_TENDER") or s.step_name == "Customer Tender":
+            if s.form_code == "FORM_13_PAC_TENDER" or s.step_name == "Customer Tender":
                 f13_def = form_defs.get("FORM_13_PAC_TENDER")
                 s.form_code = "FORM_13_PAC_TENDER"
                 s.step_name = "PAC Tender"
@@ -223,9 +223,9 @@ def sync_project_steps_from_records(project):
                 existing_steps["FORM_13_PAC_TENDER"] = s
                 changed = True
 
-        # Self-healing: if FORM_30 step mistakenly contains FORM_33 data from previous bug
+        # Self-healing: if FORM_30 step mistakenly contains FORM_33 data
         step_30 = existing_steps.get("FORM_30_TECHNO_COMMERCIAL_TENDER")
-        if step_30 and isinstance(step_30.data, dict) and step_30.data.get("form_code") in ("FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE"):
+        if step_30 and isinstance(step_30.data, dict) and step_30.data.get("form_code") == "FORM_33_STE":
             ste_data = dict(step_30.data)
             step_30.data = {"_is_attached": True, "_manually_completed": True}
             step_30.status = "completed"
@@ -271,23 +271,12 @@ def sync_project_steps_from_records(project):
                     else:
                         if form_code == "FORM_30_TECHNO_COMMERCIAL_TENDER":
                             has_record = any(
-                                getattr(r, "form_code", None) in (
-                                    "FORM_30_TECHNO_COMMERCIAL_TENDER",
-                                    "FORM_30_TCT",
-                                    "FORM_30",
-                                )
+                                getattr(r, "form_code", None) == "FORM_30_TECHNO_COMMERCIAL_TENDER"
                                 for r in ste_recs
                             )
                         elif form_code == "FORM_33_STE":
                             has_record = any(
-                                getattr(r, "form_code", None) in (
-                                    "FORM_33_STE",
-                                    "FORM_33_SINGLE_TENDER_ENQUIRY",
-                                    "FORM_33",
-                                    "FORM_STE",
-                                    "FORM_30_SINGLE_TENDER_ENQUIRY",
-                                    "FORM_30_STE",
-                                )
+                                getattr(r, "form_code", None) == "FORM_33_STE"
                                 for r in ste_recs
                             )
                         else:
@@ -306,12 +295,12 @@ def sync_project_steps_from_records(project):
                     step_data["_synced_from_record"] = True
                     # If this step is FORM_33_STE, attach the STE record data if not present or empty
                     if form_code == "FORM_33_STE" and (not step.data or step.data.get("form_code") != "FORM_33_STE"):
-                        match_rec = next((r for r in ste_recs if getattr(r, "form_code", None) in ("FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE")), None)
+                        match_rec = next((r for r in ste_recs if getattr(r, "form_code", None) == "FORM_33_STE"), None)
                         if match_rec:
                             from app.routes.phase1_extra_routes import _serialize_techno_commercial_tender
                             step_data.update(_serialize_techno_commercial_tender(match_rec))
                     elif form_code == "FORM_30_TECHNO_COMMERCIAL_TENDER":
-                        match_rec = next((r for r in ste_recs if getattr(r, "form_code", None) in ("FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30")), None)
+                        match_rec = next((r for r in ste_recs if getattr(r, "form_code", None) == "FORM_30_TECHNO_COMMERCIAL_TENDER"), None)
                         if match_rec:
                             from app.routes.phase1_extra_routes import _serialize_techno_commercial_tender
                             step_data.update(_serialize_techno_commercial_tender(match_rec))
@@ -333,12 +322,12 @@ def sync_project_steps_from_records(project):
                     max_step_num = max(max_order, max_step_num) + 1
                     init_data = {"_auto_created": True, "_synced_from_record": True}
                     if form_code == "FORM_33_STE":
-                        match_rec = next((r for r in ste_recs if getattr(r, "form_code", None) in ("FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE")), None)
+                        match_rec = next((r for r in ste_recs if getattr(r, "form_code", None) == "FORM_33_STE"), None)
                         if match_rec:
                             from app.routes.phase1_extra_routes import _serialize_techno_commercial_tender
                             init_data.update(_serialize_techno_commercial_tender(match_rec))
                     elif form_code == "FORM_30_TECHNO_COMMERCIAL_TENDER":
-                        match_rec = next((r for r in ste_recs if getattr(r, "form_code", None) in ("FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30")), None)
+                        match_rec = next((r for r in ste_recs if getattr(r, "form_code", None) == "FORM_30_TECHNO_COMMERCIAL_TENDER"), None)
                         if match_rec:
                             from app.routes.phase1_extra_routes import _serialize_techno_commercial_tender
                             init_data.update(_serialize_techno_commercial_tender(match_rec))
@@ -372,10 +361,7 @@ def sync_project_steps_from_records(project):
                     if step_data.get("_manually_completed") or step_data.get("_is_attached"):
                         continue
 
-                    if step_data.get("_auto_created") or form_code in (
-                        "FORM_13_PAC_TENDER",
-                        "FORM_13_CUSTOMER_TENDER",
-                    ):
+                    if step_data.get("_auto_created") or form_code == "FORM_13_PAC_TENDER":
                         db.session.delete(step)
                         del existing_steps[form_code]
                         changed = True

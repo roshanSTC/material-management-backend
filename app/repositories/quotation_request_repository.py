@@ -19,24 +19,27 @@ def get_supplier(supplier_id: int) -> Supplier | None:
 def create_quotation_request(
     *,
     project_id: int,
-    supplier_id: int,
-    quotation_requested_date,
-    supplier_contacted: bool,
-    remarks: str | None,
-    items: list[dict],
+    supplier_id: int | None = None,
+    supplier_name: str | None = None,
+    request_date,
+    supplier_contacted: bool = False,
+    remarks: str | None = None,
+    items: list[dict] = (),
 ) -> QuotationRequest:
 
     quotation_request = QuotationRequest(
         project_id=project_id,
         supplier_id=supplier_id,
-        quotation_requested_date=quotation_requested_date,
+        supplier_name=supplier_name.strip() if isinstance(supplier_name, str) and supplier_name.strip() else None,
+        request_date=request_date,
         supplier_contacted=supplier_contacted,
         remarks=normalize_remark_for_db(remarks),
     )
 
-    for item_data in items:
+    for idx, item_data in enumerate(items, start=1):
         item = QuotationRequestItem(
-            material_name=item_data["material_name"].strip(),
+            sr_no=item_data.get("sr_no") if item_data.get("sr_no") is not None else idx,
+            description=str(item_data["description"]).strip(),
             quantity=item_data["quantity"],
         )
 

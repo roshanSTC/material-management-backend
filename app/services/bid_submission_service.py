@@ -48,8 +48,8 @@ def _resolve_and_validate_parties(data: dict) -> tuple[int, int | None]:
             data["tender_id"] = tender_id
             if not data.get("tender_title") and latest_tender.tender_title:
                 data["tender_title"] = latest_tender.tender_title
-            if not data.get("tender_number") and latest_tender.tender_number:
-                data["tender_number"] = latest_tender.tender_number
+            if not data.get("tender_no") and latest_tender.tender_no:
+                data["tender_no"] = latest_tender.tender_no
         else:
             data["tender_id"] = None
     else:

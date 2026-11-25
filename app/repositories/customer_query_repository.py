@@ -18,21 +18,24 @@ def get_customer(customer_id: int) -> Customer | None:
 def create_customer_query(
     *,
     project_id: int,
-    customer_id: int,
-    qo_date,
+    customer_id: int | None = None,
+    customer_name: str | None = None,
+    query_date,
     remark: str | None,
     items: list[dict],
 ) -> CustomerQuery:
     customer_query = CustomerQuery(
         project_id=project_id,
         customer_id=customer_id,
-        qo_date=qo_date,
+        customer_name=customer_name.strip() if isinstance(customer_name, str) and customer_name.strip() else None,
+        query_date=query_date,
         remark=normalize_remark_for_db(remark),
     )
 
-    for item_data in items:
+    for idx, item_data in enumerate(items, start=1):
         item = CustomerQueryItem(
-            material_name=item_data["material_name"].strip(),
+            sr_no=item_data.get("sr_no") if item_data.get("sr_no") is not None else idx,
+            description=str(item_data["description"]).strip(),
             quantity=item_data["quantity"],
         )
 

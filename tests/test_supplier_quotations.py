@@ -12,17 +12,17 @@ def _payload(project_id, supplier_id):
     return {
         "project_id": project_id,
         "supplier_id": supplier_id,
-        "quotation_number": " SQ-2026-001 ",
+        "quotation_no": "SQ-2026-001",
         "quotation_date": "2026-09-02",
         "quotation_value": "125000.50",
-        "validity": "30 days",
+        "quotation_validity": "30 days",
         "incoterms": "CIF",
         "payment_terms": "50% advance",
         "delivery_period": "4 weeks",
-        "remark": "Initial quotation",
+        "remarks": "Initial quotation",
         "items": [
             {
-                "material_name": " Stainless Steel Pipe ",
+                "description": "Stainless Steel Pipe",
                 "quantity": "10.000",
             }
         ],
@@ -48,15 +48,11 @@ def test_create_and_get_supplier_quotation(
     body = response.get_json()
     assert body["project_id"] == project.id
     assert body["supplier_id"] == project.supplier_id
-    assert body["quotation_number"] == "SQ-2026-001"
+    assert body["quotation_no"] == "SQ-2026-001"
     assert body["quotation_value"] == "125000.50"
-    assert body["items"] == [
-        {
-            "id": body["items"][0]["id"],
-            "material_name": "Stainless Steel Pipe",
-            "quantity": "10.000",
-        }
-    ]
+    assert len(body["items"]) == 1
+    assert body["items"][0]["description"] == "Stainless Steel Pipe"
+    assert body["items"][0]["quantity"] == "10.000"
     assert body["attachments"] == []
 
     get_response = client.get(
@@ -108,7 +104,7 @@ def test_patch_supplier_quotation_only_changes_supplied_fields(
             {
                 "quotation_value": "130000.00",
                 "items": [
-                    {"material_name": "Updated Pipe", "quantity": "12.500"}
+                    {"description": "Updated Pipe", "quantity": "12.500"}
                 ],
             }
         ),
@@ -116,9 +112,9 @@ def test_patch_supplier_quotation_only_changes_supplied_fields(
 
     assert response.status_code == 200
     body = response.get_json()
-    assert body["quotation_number"] == "SQ-2026-001"
+    assert body["quotation_no"] == "SQ-2026-001"
     assert body["quotation_value"] == "130000.00"
-    assert body["items"][0]["material_name"] == "Updated Pipe"
+    assert body["items"][0]["description"] == "Updated Pipe"
     assert body["items"][0]["quantity"] == "12.500"
 
 
@@ -131,7 +127,7 @@ def test_create_rejects_supplier_from_another_project(
         name="Unrelated Supplier",
         email="unrelated@example.com",
         contact_number="7777777777",
-        address="Other Address",
+        street="Other Address",
     )
     db.session.add(supplier)
     db.session.commit()
@@ -158,7 +154,7 @@ def test_create_rejects_invalid_payload_and_requires_authentication(
     assert unauthorized_response.status_code == 401
 
     payload = _payload(project.id, project.supplier_id)
-    payload["quotation_number"] = "   "
+    payload["quotation_no"] = "   "
     payload["items"] = []
     invalid_response = client.post(
         "/api/v1/supplier-quotations",

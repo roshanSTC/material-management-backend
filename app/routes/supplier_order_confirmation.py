@@ -69,23 +69,15 @@ def _order_confirmation_response(confirmation):
         "id": confirmation.id,
         "project_id": confirmation.project_id,
         "supplier_id": confirmation.supplier_id,
-        "supplier_name": supplier_name,
+        "supplier_name": confirmation.supplier_name or supplier_name,
         "purchase_order_id": confirmation.purchase_order_id,
         "order_confirmation_date": confirmation.order_confirmation_date,
-        "confirmation_date": confirmation.order_confirmation_date,
         "email": confirmation.email,
-        "ref_no": confirmation.ref_no,
-        "reference_number": confirmation.ref_no,
-        "order_confirmation_no": confirmation.ref_no,
-        "order_confirmation_number": confirmation.ref_no,
-        "shipping_terms": confirmation.shipping_terms,
-        "shipping_term": confirmation.shipping_terms,
-        "incoterms": confirmation.shipping_terms,
+        "order_confirmation_no": confirmation.order_confirmation_no,
+        "incoterms": confirmation.incoterms,
         "warranty_period": confirmation.warranty_period,
         "delivery_period": confirmation.delivery_period,
-        "delivery_term": confirmation.delivery_period,
         "payment_terms": confirmation.payment_terms,
-        "payment_term": confirmation.payment_terms,
         "total_amount": confirmation.total_amount,
         "total_net_amount": confirmation.total_net_amount,
         "currency_unit": confirmation.currency_unit,
@@ -100,19 +92,13 @@ def _order_confirmation_response(confirmation):
         "items": [
             {
                 "id": item.id,
-                "sr_no": idx + 1,
+                "sr_no": item.sr_no if item.sr_no is not None else (idx + 1),
                 "order_confirmation_id": item.supplier_order_confirmation_id,
-                "supplier_order_confirmation_id": item.supplier_order_confirmation_id,
-                "material_name": item.material_name or item.description,
                 "description": item.description,
-                "item_description": item.description,
-                "hsn_code": item.hsn_code,
-                "hsn": item.hsn_code,
-                "hsn_sac": item.hsn_code,
+                "hsn_sac": item.hsn_sac,
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
-                "net_amount": item.net_amount,
-                "total_amount": item.net_amount,
+                "total_amount": item.total_amount,
                 "created_at": item.created_at,
             }
             for idx, item in enumerate(confirmation.items)
@@ -150,27 +136,28 @@ def _latest_order_confirmation_response(confirmation):
 
     items_list = []
     calculated_total = Decimal("0.00")
-    for item in confirmation.items:
+    for idx, item in enumerate(confirmation.items, start=1):
         qty = item.quantity
         price = item.unit_price
-        net_amt = item.net_amount
-        if net_amt is None and qty is not None and price is not None:
+        tot_amt = item.total_amount
+        if tot_amt is None and qty is not None and price is not None:
             try:
-                net_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
+                tot_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
             except Exception:
                 pass
-        if net_amt is not None:
+        if tot_amt is not None:
             try:
-                calculated_total += Decimal(str(net_amt))
+                calculated_total += Decimal(str(tot_amt))
             except Exception:
                 pass
 
         items_list.append({
+            "sr_no": item.sr_no if item.sr_no is not None else idx,
             "unit_price": _format_decimal_str(price, places=2),
             "quantity": _format_decimal_str(qty, places=3) or "0.000",
-            "material_name": item.material_name or item.description,
-            "hsn_code": item.hsn_code,
-            "net_amount": _format_decimal_str(net_amt, places=2),
+            "description": item.description,
+            "hsn_sac": item.hsn_sac,
+            "total_amount": _format_decimal_str(tot_amt, places=2),
         })
 
     total_amt = confirmation.total_amount
@@ -182,7 +169,7 @@ def _latest_order_confirmation_response(confirmation):
     return {
         "payment_terms": confirmation.payment_terms,
         "warranty_period": confirmation.warranty_period,
-        "shipping_terms": confirmation.shipping_terms,
+        "incoterms": confirmation.incoterms,
         "delivery_period": confirmation.delivery_period,
         "total_amount": _format_decimal_str(total_amt, places=2),
         "currency_unit": confirmation.currency_unit,
@@ -313,8 +300,6 @@ def _handle_list_order_confirmations(args=None):
             supplier_id = int(supplier_id)
         except (ValueError, TypeError):
             supplier_id = None
-
-    ref_no = args.get("ref_no") or args.get("reference_number") or request.args.get("ref_no") or request.args.get("refNo")
 
     try:
         confirmations = list_supplier_order_confirmation_records(

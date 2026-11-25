@@ -95,11 +95,12 @@ def get_latest_quotation_request_record(
 def create_quotation_request_transaction(
     *,
     project_id: int,
-    supplier_id: int,
-    quotation_requested_date,
-    supplier_contacted: bool,
-    remarks: str | None,
-    items: list[dict],
+    supplier_id: int | None = None,
+    supplier_name: str | None = None,
+    request_date=None,
+    supplier_contacted: bool = False,
+    remarks: str | None = None,
+    items: list[dict] = (),
     files=None,
     user_id: int | None = None,
 ) -> QuotationRequest:
@@ -111,26 +112,28 @@ def create_quotation_request_transaction(
             f"Project with id {project_id} was not found."
         )
 
-    supplier = get_supplier(supplier_id)
+    if supplier_id is not None:
+        supplier = get_supplier(supplier_id)
 
-    if supplier is None:
-        raise SupplierNotFoundError(
-            f"Supplier with id {supplier_id} was not found."
-        )
+        if supplier is None:
+            raise SupplierNotFoundError(
+                f"Supplier with id {supplier_id} was not found."
+            )
 
-    if project.supplier_id != supplier.id:
-        raise SupplierProjectMismatchError(
-            "The selected supplier does not belong "
-            "to the selected project."
-        )
+        if project.supplier_id and project.supplier_id != supplier.id:
+            raise SupplierProjectMismatchError(
+                "The selected supplier does not belong "
+                "to the selected project."
+            )
 
-    if isinstance(quotation_requested_date, str):
-        quotation_requested_date = date.fromisoformat(quotation_requested_date)
+    if isinstance(request_date, str):
+        request_date = date.fromisoformat(request_date)
 
     quotation_request = create_quotation_request(
         project_id=project_id,
         supplier_id=supplier_id,
-        quotation_requested_date=quotation_requested_date,
+        supplier_name=supplier_name,
+        request_date=request_date,
         supplier_contacted=supplier_contacted,
         remarks=remarks,
         items=items,
@@ -175,7 +178,8 @@ def update_quotation_request_transaction(
     quotation_request_id,
     project_id=None,
     supplier_id=None,
-    quotation_requested_date=None,
+    supplier_name=None,
+    request_date=None,
     supplier_contacted=None,
     remarks=None,
     items=None,
@@ -215,13 +219,14 @@ def update_quotation_request_transaction(
         if quotation_request.project and not quotation_request.project.supplier_id:
             quotation_request.project.supplier_id = supplier.id
 
+    if supplier_name is not None:
+        quotation_request.supplier_name = supplier_name.strip() if supplier_name.strip() else None
+
     # Update scalar fields only when supplied
-    if quotation_requested_date is not None:
-        if isinstance(quotation_requested_date, str):
-            quotation_requested_date = date.fromisoformat(quotation_requested_date)
-        quotation_request.quotation_requested_date = (
-            quotation_requested_date
-        )
+    if request_date is not None:
+        if isinstance(request_date, str):
+            request_date = date.fromisoformat(request_date)
+        quotation_request.request_date = request_date
 
     if supplier_contacted is not None:
         quotation_request.supplier_contacted = (
@@ -247,11 +252,12 @@ def update_quotation_request_transaction(
 
         db.session.flush()
 
-        for item_data in items:
+        for idx, item_data in enumerate(items, start=1):
 
             item = QuotationRequestItem(
                 quotation_request_id=quotation_request.id,
-                material_name=item_data["material_name"],
+                sr_no=item_data.get("sr_no") if item_data.get("sr_no") is not None else idx,
+                description=str(item_data["description"]).strip(),
                 quantity=item_data["quantity"],
             )
 

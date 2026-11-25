@@ -135,10 +135,8 @@ def _normalize_cost_sheet_payload(data: dict) -> dict:
             icode = f"ITEM-{idx}"
 
         idesc = (
-            it.get("itemDescription")
-            or it.get("item_description")
-            or it.get("description")
-            or it.get("material_name")
+            it.get("description")
+            or it.get("itemDescription")
             or f"Item {idx}"
         ).strip()
 
@@ -412,7 +410,7 @@ def _handle_update_cost_sheet(cost_sheet_id, data=None):
                 ex.quotation_number = q_no
                 ex.quotation_index = q_idx
                 ex.item_code = icode
-                ex.item_description = idesc
+                ex.description = idesc
                 ex.price_per_unit_eur = price_eur
                 ex.quantity = qty
                 ex.customs_duty_rate = cd_rate
@@ -424,7 +422,7 @@ def _handle_update_cost_sheet(cost_sheet_id, data=None):
                     quotation_number=q_no,
                     quotation_index=q_idx,
                     item_code=icode,
-                    item_description=idesc,
+                    description=idesc,
                     price_per_unit_eur=price_eur,
                     quantity=qty,
                     customs_duty_rate=cd_rate,
@@ -444,7 +442,7 @@ def _handle_update_cost_sheet(cost_sheet_id, data=None):
         {
             "quotationNumber": it.quotation_number or "",
             "quotationIndex": it.quotation_index or "",
-            "itemDescription": it.item_description,
+            "itemDescription": it.description,
             "itemCode": it.item_code,
             "pricePerUnitEur": float(it.price_per_unit_eur),
             "quantity": float(it.quantity),

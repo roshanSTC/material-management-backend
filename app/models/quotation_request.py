@@ -25,7 +25,12 @@ class QuotationRequest(db.Model):
         index=True,
     )
 
-    quotation_requested_date = db.Column(
+    supplier_name = db.Column(
+        db.String(255),
+        nullable=True,
+    )
+
+    request_date = db.Column(
         db.Date,
         nullable=False,
     )

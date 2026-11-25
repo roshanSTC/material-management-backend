@@ -58,33 +58,17 @@ def _replace_items(eway_bill: EWayBill, items: list[dict]) -> None:
         if not isinstance(item, dict):
             continue
         sr = item.get("sr_no") or (idx + 1)
-        mat_name = _normalize_optional_string(
-            item.get("material_name") or item.get("description")
-        )
-        desc = _normalize_optional_string(
-            item.get("description") or item.get("material_name")
-        ) or ""
-        hsn = _normalize_optional_string(
-            item.get("hsn_sac") or item.get("hsn_code") or item.get("hsn")
-        )
+        desc = _normalize_optional_string(item.get("description")) or ""
+        hsn = _normalize_optional_string(item.get("hsn_sac"))
         qty = _parse_decimal_val(item.get("quantity"))
-        unit_str = _normalize_optional_string(item.get("unit") or item.get("uom")) or "NOS"
+        unit_str = _normalize_optional_string(item.get("unit")) or "NOS"
         unit_price = _parse_decimal_val(item.get("unit_price"))
-        tot_amt = _parse_decimal_val(
-            item.get("total_amount")
-            if item.get("total_amount") is not None
-            else item.get("net_amount")
-            if item.get("net_amount") is not None
-            else item.get("amount")
-            if item.get("amount") is not None
-            else item.get("total_price")
-        )
+        tot_amt = _parse_decimal_val(item.get("total_amount"))
         if tot_amt is None and qty is not None and unit_price is not None:
             tot_amt = (qty * unit_price).quantize(Decimal("0.01"))
 
         ewb_item = EWayBillItem(
             sr_no=sr,
-            material_name=mat_name,
             description=desc,
             hsn_sac=hsn,
             quantity=qty,

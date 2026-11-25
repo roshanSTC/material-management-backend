@@ -53,8 +53,8 @@ def _customer_delivery_invoice_response(invoice):
         entity_type="customer_delivery_invoice",
         entity_id=invoice.id,
     )
-    customer_name = None
-    if getattr(invoice, "project", None) and getattr(invoice.project, "customer", None):
+    customer_name = invoice.customer_name
+    if not customer_name and getattr(invoice, "project", None) and getattr(invoice.project, "customer", None):
         customer_name = getattr(invoice.project.customer, "customer_name", None) or getattr(invoice.project.customer, "name", None)
 
     items_list = []
@@ -62,39 +62,34 @@ def _customer_delivery_invoice_response(invoice):
     for idx, item in enumerate(invoice.items or []):
         qty = item.quantity
         price = item.unit_price
-        net_amt = item.net_amount
-        if net_amt is None and qty is not None and price is not None:
+        tot_amt = item.total_amount
+        if tot_amt is None and qty is not None and price is not None:
             try:
-                net_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
+                tot_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
             except Exception:
                 pass
-        if net_amt is not None:
+        if tot_amt is not None:
             try:
-                items_net += Decimal(str(net_amt))
+                items_net += Decimal(str(tot_amt))
             except Exception:
                 pass
         items_list.append({
             "id": item.id,
-            "sr_no": idx + 1,
+            "sr_no": item.sr_no if item.sr_no is not None else (idx + 1),
             "invoice_id": item.invoice_id,
-            "material_name": item.material_name,
-            "material_description": item.material_name,
-            "description": item.material_name,
-            "hsn_code": item.hsn_code,
-            "hsn_sac": item.hsn_code,
+            "description": item.description,
+            "hsn_sac": item.hsn_sac,
             "quantity": item.quantity,
             "unit_price": item.unit_price,
-            "rate_per_unit": item.unit_price,
-            "net_amount": net_amt,
-            "amount": net_amt,
-            "total_amount": net_amt,
+            "total_amount": tot_amt,
             "created_at": item.created_at,
             "updated_at": item.updated_at,
         })
 
-    tot_gross = invoice.net_total
+    tot_net = invoice.total_net_amount if invoice.total_net_amount is not None else items_net
+    tot_gross = invoice.total_gross_amount
     if tot_gross is None:
-        tot_gross = (items_net + Decimal(str(invoice.gst_amount or 0))).quantize(Decimal("0.01"))
+        tot_gross = (Decimal(str(tot_net or 0)) + Decimal(str(invoice.gst_amount or 0)) + Decimal(str(invoice.round_off or 0))).quantize(Decimal("0.01"))
 
     remarks = get_step_remarks_for_response(
         project_id=invoice.project_id,
@@ -115,17 +110,12 @@ def _customer_delivery_invoice_response(invoice):
         "project_id": invoice.project_id,
         "customer_name": customer_name,
         "invoice_no": invoice.invoice_no,
-        "invoice_number": invoice.invoice_no,
         "invoice_date": invoice.invoice_date,
-        "gst_rate": invoice.gst_rate,
-        "gst_rate_pct": invoice.gst_rate,
-        "gst_pct": invoice.gst_rate,
+        "gst_pct": invoice.gst_pct,
         "gst_amount": invoice.gst_amount,
         "round_off": invoice.round_off,
-        "net_total": tot_gross,
-        "total_net_amount": items_net,
+        "total_net_amount": tot_net,
         "total_gross_amount": tot_gross,
-        "total_amount": tot_gross,
         "form_code": "FORM_26_TAX_INVOICE_CUSTOMER",
         "status": "completed",
         "attachments_count": len(attachments),
@@ -163,24 +153,32 @@ def _format_decimal_str(val, places=2):
 
 
 def _latest_customer_delivery_invoice_response(invoice):
-    tot = invoice.net_total
-    if tot is None and invoice.items:
+    tot_net = invoice.total_net_amount
+    tot_gross = invoice.total_gross_amount
+    if tot_net is None and invoice.items:
         try:
             from decimal import Decimal
 
-            item_sum = sum(
-                Decimal(str(item.net_amount or 0)) for item in invoice.items
+            tot_net = sum(
+                Decimal(str(item.total_amount or 0)) for item in invoice.items
             )
+        except Exception:
+            pass
+    if tot_gross is None and tot_net is not None:
+        try:
+            from decimal import Decimal
+
             gst = Decimal(str(invoice.gst_amount or 0))
             ro = Decimal(str(invoice.round_off or 0))
-            tot = item_sum + gst + ro
+            tot_gross = Decimal(str(tot_net)) + gst + ro
         except Exception:
             pass
 
     return {
         "invoice_no": invoice.invoice_no,
         "invoice_date": invoice.invoice_date,
-        "net_total": _format_decimal_str(tot, places=2),
+        "total_net_amount": _format_decimal_str(tot_net, places=2),
+        "total_gross_amount": _format_decimal_str(tot_gross, places=2),
     }
 
 
@@ -461,7 +459,7 @@ _REQUEST_BODY_CREATE_DOC = {
                         "type": "string",
                         "description": "Serialized JSON string matching CustomerDeliveryInvoiceCreateSchema",
                         "example": (
-                            '{"project_id":2,"invoice_no":"NBHUD-32REF8RYU","invoice_date":"2026-09-15","gst_rate":18,"gst_amount":782.1,"round_off":-0.1,"net_total":5127,"remark":"Customer Tax Invoice","items":[{"material_name":"steel cold","hsn_code":"65465","quantity":55,"unit_price":34,"net_amount":1870},{"material_name":"gdfhbvf","hsn_code":"5464","quantity":55,"unit_price":45,"net_amount":2475}]}'
+                            '{"project_id":2,"invoice_no":"NBHUD-32REF8RYU","invoice_date":"2026-09-15","gst_pct":18,"gst_amount":782.1,"round_off":-0.1,"total_gross_amount":5127,"remark":"Customer Tax Invoice","items":[{"description":"steel cold","hsn_sac":"65465","quantity":55,"unit_price":34,"total_amount":1870},{"description":"gdfhbvf","hsn_sac":"5464","quantity":55,"unit_price":45,"total_amount":2475}]}'
                         ),
                     },
                     "file": {

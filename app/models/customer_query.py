@@ -25,7 +25,12 @@ class CustomerQuery(db.Model):
         index=True,
     )
 
-    qo_date = db.Column(
+    customer_name = db.Column(
+        db.String(255),
+        nullable=True,
+    )
+
+    query_date = db.Column(
         db.Date,
         nullable=False,
     )

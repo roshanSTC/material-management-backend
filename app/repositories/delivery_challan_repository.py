@@ -62,37 +62,28 @@ def _replace_items(
     items: list[dict],
 ) -> None:
     delivery_challan.items.clear()
-    for item in items:
-        mat_name = _normalize_optional_string(
-            item.get("material_name") or item.get("material_description")
-        ) or ""
-        hsn = _normalize_optional_string(
-            item.get("hsn_code") or item.get("hsn_sac")
-        )
+    for idx, item in enumerate(items, start=1):
+        desc = _normalize_optional_string(item.get("description")) or ""
+        hsn = _normalize_optional_string(item.get("hsn_sac"))
         qty = _parse_decimal_val(item.get("quantity"))
-        if qty is None:
-            qty = Decimal("1.000")
 
-        unit_price = _parse_decimal_val(
-            item.get("unit_price") or item.get("rate_per_unit")
-        )
+        unit_price = _parse_decimal_val(item.get("unit_price"))
         if unit_price is None:
             unit_price = Decimal("0.00")
 
-        net_amt = _parse_decimal_val(
-            item.get("net_amount") or item.get("amount")
-        )
-        if net_amt is None and unit_price is not None and qty is not None:
-            net_amt = (qty * unit_price).quantize(Decimal("0.01"))
-        elif net_amt is None:
-            net_amt = Decimal("0.00")
+        tot_amt = _parse_decimal_val(item.get("total_amount"))
+        if tot_amt is None and unit_price is not None and qty is not None:
+            tot_amt = (qty * unit_price).quantize(Decimal("0.01"))
+        elif tot_amt is None:
+            tot_amt = unit_price
 
         item_obj = DeliveryChallanItem(
-            material_name=mat_name,
-            hsn_code=hsn,
+            sr_no=item.get("sr_no") if item.get("sr_no") is not None else idx,
+            description=desc,
+            hsn_sac=hsn,
             quantity=qty,
             unit_price=unit_price,
-            net_amount=net_amt,
+            total_amount=tot_amt,
         )
         delivery_challan.items.append(item_obj)
 
@@ -102,14 +93,13 @@ def create_delivery_challan(*, data: dict) -> DeliveryChallan:
 
     delivery_challan = DeliveryChallan(
         project_id=data["project_id"],
-        delivery_challan_no=str(
-            data.get("delivery_challan_no") or data.get("delivery_challan_number")
-        ).strip(),
+        delivery_challan_no=str(data["delivery_challan_no"]).strip(),
         delivery_challan_date=delivery_challan_date_val,
-        gst_rate=_parse_decimal_val(data.get("gst_rate")),
+        gst_pct=_parse_decimal_val(data.get("gst_pct")),
         gst_amount=_parse_decimal_val(data.get("gst_amount")),
         round_off=_parse_decimal_val(data.get("round_off")),
-        net_total=_parse_decimal_val(data.get("net_total")),
+        total_net_amount=_parse_decimal_val(data.get("total_net_amount")),
+        total_gross_amount=_parse_decimal_val(data.get("total_gross_amount")),
         remark=_normalize_optional_string(data.get("remark") or data.get("remarks")),
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
@@ -158,18 +148,16 @@ def update_delivery_challan(
     if "project_id" in data:
         delivery_challan.project_id = data["project_id"]
 
-    if "delivery_challan_no" in data or "delivery_challan_number" in data:
-        delivery_challan.delivery_challan_no = str(
-            data.get("delivery_challan_no") or data.get("delivery_challan_number")
-        ).strip()
+    if "delivery_challan_no" in data:
+        delivery_challan.delivery_challan_no = str(data["delivery_challan_no"]).strip()
 
     if "delivery_challan_date" in data:
         dt = _parse_date_val(data.get("delivery_challan_date"))
         if dt is not None:
             delivery_challan.delivery_challan_date = dt
 
-    if "gst_rate" in data:
-        delivery_challan.gst_rate = _parse_decimal_val(data.get("gst_rate"))
+    if "gst_pct" in data:
+        delivery_challan.gst_pct = _parse_decimal_val(data.get("gst_pct"))
 
     if "gst_amount" in data:
         delivery_challan.gst_amount = _parse_decimal_val(data.get("gst_amount"))
@@ -177,8 +165,11 @@ def update_delivery_challan(
     if "round_off" in data:
         delivery_challan.round_off = _parse_decimal_val(data.get("round_off"))
 
-    if "net_total" in data:
-        delivery_challan.net_total = _parse_decimal_val(data.get("net_total"))
+    if "total_net_amount" in data:
+        delivery_challan.total_net_amount = _parse_decimal_val(data.get("total_net_amount"))
+
+    if "total_gross_amount" in data:
+        delivery_challan.total_gross_amount = _parse_decimal_val(data.get("total_gross_amount"))
 
     if "remark" in data or "remarks" in data:
         delivery_challan.remark = _normalize_optional_string(

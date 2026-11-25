@@ -75,14 +75,18 @@ def create_cost_sheet(
         status=data.get("status", "Draft"),
         created_by=created_by,
     )
-    for item_data in data["items"]:
+    for idx, item_data in enumerate(data["items"], start=1):
         price_per_unit_eur = (
             item_data.get("pricePerUnitEur")
             if item_data.get("pricePerUnitEur") is not None
             else (
-                float(item_data["pricePerUnitInr"]) / float(data["globalParams"]["eurToInr"])
-                if item_data.get("pricePerUnitInr") is not None and data.get("globalParams", {}).get("eurToInr")
-                else 0.0
+                item_data.get("price_per_unit_eur")
+                if item_data.get("price_per_unit_eur") is not None
+                else (
+                    float(item_data["pricePerUnitInr"]) / float(data["globalParams"]["eurToInr"])
+                    if item_data.get("pricePerUnitInr") is not None and data.get("globalParams", {}).get("eurToInr")
+                    else 0.0
+                )
             )
         )
         cd_rate = item_data.get("customsDutyRate")
@@ -96,12 +100,15 @@ def create_cost_sheet(
             except (ValueError, TypeError):
                 cd_rate = None
 
-        icode = (item_data.get("itemCode") or "").strip()
+        icode = (item_data.get("item_code") or item_data.get("itemCode") or "").strip()
         if not icode:
             icode = f"ITEM-{len(cost_sheet.items) + 1}"
 
+        desc = (item_data.get("description") or item_data.get("itemDescription") or "").strip()
+
         cost_sheet.items.append(
             CostSheetItem(
+                sr_no=item_data.get("sr_no") if item_data.get("sr_no") is not None else idx,
                 quotation_number=(
                     item_data.get("quotationNumber")
                     or item_data.get("quotation_number")
@@ -111,7 +118,7 @@ def create_cost_sheet(
                     or item_data.get("quotation_index")
                 ),
                 item_code=icode,
-                item_description=item_data["itemDescription"].strip(),
+                description=desc,
                 price_per_unit_eur=price_per_unit_eur,
                 quantity=item_data["quantity"],
                 customs_duty_rate=cd_rate,

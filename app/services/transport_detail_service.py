@@ -64,13 +64,13 @@ def get_transport_detail_record(transport_detail_id: int) -> TransportDetail:
 def list_transport_detail_records(
     *,
     project_id: int | None = None,
-    transport_mode: str | None = None,
-    lr_no: str | None = None,
+    transportation_mode: str | None = None,
+    lr_rr_awb_no: str | None = None,
 ) -> list[TransportDetail]:
     return list_transport_details(
         project_id=project_id,
-        transport_mode=transport_mode,
-        lr_no=lr_no,
+        transportation_mode=transportation_mode,
+        lr_rr_awb_no=lr_rr_awb_no,
     )
 
 

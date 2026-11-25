@@ -1,218 +1,26 @@
-from collections.abc import Mapping
-from datetime import date, datetime
 from decimal import Decimal
-
-from marshmallow import (
-    EXCLUDE,
-    Schema,
-    ValidationError,
-    fields,
-    pre_load,
-    validate,
-)
+from marshmallow import EXCLUDE, Schema, fields, validate
 
 from app.schemas.attachment import AttachmentResponseSchema
-
-
-def _not_blank(value: str) -> None:
-    if not value or not str(value).strip():
-        raise ValidationError("Field must not be blank.")
-
-
-def _parse_date(val):
-    if val is None:
-        return None
-    if isinstance(val, date) and not isinstance(val, datetime):
-        return val
-    if isinstance(val, datetime):
-        return val.date()
-    s = str(val).strip()
-    if not s:
-        return None
-    for fmt in ("%d-%m-%Y", "%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d"):
-        try:
-            return datetime.strptime(s, fmt).date()
-        except ValueError:
-            pass
-    try:
-        if "T" in s:
-            return datetime.fromisoformat(s.replace("Z", "+00:00")).date()
-        return date.fromisoformat(s)
-    except Exception:
-        raise ValidationError(f"Invalid date format: {val}")
+from app.schemas.common import FlexibleDate, FlexibleInt
 
 
 class CustomerDeliveryPackingListItemCreateSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
-    material_name = fields.String(
-        required=True,
-        validate=validate.And(
-            validate.Length(min=1, max=255),
-            _not_blank,
-        ),
-    )
-    hsn_code = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=50),
-    )
+    sr_no = FlexibleInt(required=False, allow_none=True)
+    description = fields.String(required=True, validate=validate.Length(min=1, max=500))
+    hsn_sac = fields.String(required=False, allow_none=True, validate=validate.Length(max=50))
     quantity = fields.Decimal(
-        required=True,
-        as_string=True,
-        places=3,
-        validate=validate.Range(min=Decimal("0.001")),
-    )
-    weight = fields.Decimal(
         required=False,
         allow_none=True,
         as_string=True,
         places=3,
+        validate=validate.Range(min=Decimal("0.000")),
     )
-    unit_weight = fields.Decimal(
-        required=False,
-        allow_none=True,
-        as_string=True,
-        places=3,
-    )
-    total_weight = fields.Decimal(
-        required=False,
-        allow_none=True,
-        as_string=True,
-        places=3,
-    )
-
-    @pre_load
-    def normalize_item_data(self, data, **kwargs):
-        if not isinstance(data, (dict, Mapping)):
-            return data
-        normalized = dict(data)
-
-        # Handle material_name / material_description / description fallback
-        mat_name = (
-            normalized.get("material_name")
-            if normalized.get("material_name") is not None
-            else normalized.get("materialName")
-        )
-        if mat_name is None:
-            mat_name = (
-                normalized.get("material_description")
-                if normalized.get("material_description") is not None
-                else (
-                    normalized.get("description")
-                    if normalized.get("description") is not None
-                    else (
-                        normalized.get("item_description")
-                        if normalized.get("item_description") is not None
-                        else normalized.get("itemDescription")
-                    )
-                )
-            )
-        if mat_name is not None and str(mat_name).strip() != "":
-            normalized["material_name"] = str(mat_name).strip()
-        elif mat_name is None:
-            normalized["material_name"] = "Packing Item"
-
-        # Handle hsn_code / hsn_sac fallback
-        hsn = (
-            normalized.get("hsn_code")
-            if normalized.get("hsn_code") is not None
-            else normalized.get("hsnCode")
-        )
-        if hsn is None:
-            hsn = (
-                normalized.get("hsn_sac")
-                if normalized.get("hsn_sac") is not None
-                else normalized.get("hsn")
-            )
-        if hsn is not None:
-            s_hsn = str(hsn).strip()
-            normalized["hsn_code"] = s_hsn if s_hsn else None
-
-        # Handle weight / total_weight_kg / weight_per_unit_kg / unit_weight / total_weight
-        w = (
-            normalized.get("weight")
-            if normalized.get("weight") is not None
-            else (
-                normalized.get("unit_weight")
-                if normalized.get("unit_weight") is not None
-                else (
-                    normalized.get("unitWeight")
-                    if normalized.get("unitWeight") is not None
-                    else (
-                        normalized.get("weight_per_unit_kg")
-                        if normalized.get("weight_per_unit_kg") is not None
-                        else (
-                            normalized.get("total_weight")
-                            if normalized.get("total_weight") is not None
-                            else (
-                                normalized.get("totalWeight")
-                                if normalized.get("totalWeight") is not None
-                                else normalized.get("total_weight_kg")
-                            )
-                        )
-                    )
-                )
-            )
-        )
-        if w is not None and str(w).strip() != "":
-            try:
-                w_dec = Decimal(str(w).replace(",", "").strip())
-                normalized["weight"] = str(w_dec)
-            except Exception:
-                normalized["weight"] = str(w).strip()
-        elif w == "":
-            normalized["weight"] = None
-
-        uw = normalized.get("unit_weight") if normalized.get("unit_weight") is not None else normalized.get("unitWeight")
-        if uw is not None and str(uw).strip() != "":
-            try:
-                normalized["unit_weight"] = str(Decimal(str(uw).replace(",", "").strip()))
-            except Exception:
-                pass
-
-        tw = normalized.get("total_weight") if normalized.get("total_weight") is not None else normalized.get("totalWeight")
-        if tw is not None and str(tw).strip() != "":
-            try:
-                normalized["total_weight"] = str(Decimal(str(tw).replace(",", "").strip()))
-            except Exception:
-                pass
-
-        # Handle quantity fallback
-        qty = (
-            normalized.get("quantity")
-            if normalized.get("quantity") is not None
-            else (
-                normalized.get("qty")
-                if normalized.get("qty") is not None
-                else (
-                    normalized.get("unit")
-                    if normalized.get("unit") is not None
-                    else normalized.get("count")
-                )
-            )
-        )
-        if qty is None or str(qty).strip() in ("", "None", "0"):
-            # Compute from total_weight / unit_weight if available
-            try:
-                uw_val = Decimal(str(normalized.get("unit_weight") or normalized.get("weight") or 0))
-                tw_val = Decimal(str(normalized.get("total_weight") or 0))
-                if uw_val > Decimal("0.00") and tw_val > Decimal("0.00"):
-                    q_calc = (tw_val / uw_val).quantize(Decimal("0.001"))
-                    normalized["quantity"] = str(q_calc) if q_calc >= Decimal("0.001") else "1.000"
-                else:
-                    normalized["quantity"] = "1.000"
-            except Exception:
-                normalized["quantity"] = "1.000"
-        else:
-            try:
-                q_dec = Decimal(str(qty).replace(",", "").strip())
-                normalized["quantity"] = str(q_dec) if q_dec >= Decimal("0.001") else "1.000"
-            except Exception:
-                normalized["quantity"] = "1.000"
-
-        return normalized
+    unit_weight = fields.Decimal(required=False, allow_none=True, as_string=True, places=3)
+    total_weight = fields.Decimal(required=False, allow_none=True, as_string=True, places=3)
 
 
 class CustomerDeliveryPackingListItemUpdateSchema(Schema):
@@ -220,139 +28,32 @@ class CustomerDeliveryPackingListItemUpdateSchema(Schema):
         unknown = EXCLUDE
 
     id = fields.Integer(required=False, allow_none=True)
-    material_name = fields.String(
-        required=False,
-        validate=validate.And(
-            validate.Length(min=1, max=255),
-            _not_blank,
-        ),
-    )
-    hsn_code = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=50),
-    )
+    sr_no = FlexibleInt(required=False, allow_none=True)
+    description = fields.String(required=False, validate=validate.Length(min=1, max=500))
+    hsn_sac = fields.String(required=False, allow_none=True, validate=validate.Length(max=50))
     quantity = fields.Decimal(
         required=False,
-        as_string=True,
-        places=3,
-        validate=validate.Range(min=Decimal("0.001")),
-    )
-    weight = fields.Decimal(
-        required=False,
         allow_none=True,
         as_string=True,
         places=3,
+        validate=validate.Range(min=Decimal("0.000")),
     )
-    unit_weight = fields.Decimal(
-        required=False,
-        allow_none=True,
-        as_string=True,
-        places=3,
-    )
-    total_weight = fields.Decimal(
-        required=False,
-        allow_none=True,
-        as_string=True,
-        places=3,
-    )
-
-    @pre_load
-    def normalize_item_data(self, data, **kwargs):
-        if not isinstance(data, (dict, Mapping)):
-            return data
-        normalized = dict(data)
-
-        if "material_name" in normalized or "materialName" in normalized or "description" in normalized:
-            mat = (
-                normalized.get("material_name")
-                if normalized.get("material_name") is not None
-                else (
-                    normalized.get("materialName")
-                    if normalized.get("materialName") is not None
-                    else normalized.get("description")
-                )
-            )
-            if mat is not None and str(mat).strip() != "":
-                normalized["material_name"] = str(mat).strip()
-
-        if "hsn_code" in normalized or "hsnCode" in normalized or "hsn_sac" in normalized:
-            hsn = (
-                normalized.get("hsn_code")
-                if normalized.get("hsn_code") is not None
-                else (
-                    normalized.get("hsnCode")
-                    if normalized.get("hsnCode") is not None
-                    else normalized.get("hsn_sac")
-                )
-            )
-            if hsn is not None:
-                s_hsn = str(hsn).strip()
-                normalized["hsn_code"] = s_hsn if s_hsn else None
-
-        if "quantity" in normalized or "qty" in normalized:
-            qty = normalized.get("quantity") if normalized.get("quantity") is not None else normalized.get("qty")
-            if qty is not None and str(qty).strip() not in ("", "None"):
-                try:
-                    q_dec = Decimal(str(qty).replace(",", "").strip())
-                    normalized["quantity"] = str(q_dec) if q_dec >= Decimal("0.001") else "1.000"
-                except Exception:
-                    normalized["quantity"] = "1.000"
-            elif qty == "":
-                normalized["quantity"] = None
-
-        if "weight" in normalized or "unit_weight" in normalized or "total_weight" in normalized or "weight_per_unit_kg" in normalized or "total_weight_kg" in normalized:
-            w = (
-                normalized.get("weight")
-                if normalized.get("weight") is not None
-                else (
-                    normalized.get("unit_weight")
-                    if normalized.get("unit_weight") is not None
-                    else (
-                        normalized.get("unitWeight")
-                        if normalized.get("unitWeight") is not None
-                        else (
-                            normalized.get("weight_per_unit_kg")
-                            if normalized.get("weight_per_unit_kg") is not None
-                            else (
-                                normalized.get("total_weight")
-                                if normalized.get("total_weight") is not None
-                                else (
-                                    normalized.get("totalWeight")
-                                    if normalized.get("totalWeight") is not None
-                                    else normalized.get("total_weight_kg")
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-            if w is not None and str(w).strip() != "":
-                try:
-                    normalized["weight"] = str(Decimal(str(w).replace(",", "").strip()))
-                except Exception:
-                    normalized["weight"] = str(w).strip()
-            elif w == "":
-                normalized["weight"] = None
-
-        return normalized
+    unit_weight = fields.Decimal(required=False, allow_none=True, as_string=True, places=3)
+    total_weight = fields.Decimal(required=False, allow_none=True, as_string=True, places=3)
 
 
 class CustomerDeliveryPackingListItemResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     id = fields.Integer(dump_only=True)
     sr_no = fields.Integer(dump_only=True)
     packing_list_id = fields.Integer(dump_only=True)
-    material_name = fields.String(dump_only=True)
-    material_description = fields.String(dump_only=True, attribute="material_name")
-    description = fields.String(dump_only=True, attribute="material_name")
-    hsn_code = fields.String(dump_only=True)
-    hsn_sac = fields.String(dump_only=True, attribute="hsn_code")
-    quantity = fields.Decimal(dump_only=True, as_string=True, places=3)
-    weight = fields.Decimal(dump_only=True, as_string=True, places=3)
-    unit_weight = fields.Decimal(dump_only=True, attribute="weight", as_string=True, places=3)
-    total_weight = fields.Decimal(dump_only=True, attribute="weight", as_string=True, places=3)
-    total_weight_kg = fields.Decimal(dump_only=True, attribute="weight", as_string=True, places=3)
-    weight_per_unit_kg = fields.Decimal(dump_only=True, attribute="weight", as_string=True, places=3)
+    description = fields.String(dump_only=True)
+    hsn_sac = fields.String(dump_only=True)
+    quantity = fields.Decimal(dump_only=True, as_string=True, places=3, allow_none=True)
+    unit_weight = fields.Decimal(dump_only=True, as_string=True, places=3, allow_none=True)
+    total_weight = fields.Decimal(dump_only=True, as_string=True, places=3, allow_none=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
 
@@ -361,364 +62,56 @@ class CustomerDeliveryPackingListCreateSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
-    project_id = fields.Integer(required=True)
-    packing_list_no = fields.String(
-        required=True,
-        validate=validate.And(
-            validate.Length(min=1, max=100),
-            _not_blank,
-        ),
-    )
-    packing_list_date = fields.Date(required=True)
-    total_no_of_packs = fields.Integer(
-        required=False,
-        allow_none=True,
-    )
-    packing_condition = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=255),
-    )
-    net_weight = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=255),
-    )
-    gross_weight = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=255),
-    )
-    remark = fields.Raw(
-        required=False,
-        allow_none=True,
-    )
-    remarks = fields.Raw(
-        required=False,
-        allow_none=True,
-    )
+    project_id = FlexibleInt(required=True)
+    packing_list_no = fields.String(required=True, validate=validate.Length(min=1, max=100))
+    packing_list_date = FlexibleDate(required=True)
+    total_no_packages = FlexibleInt(required=False, allow_none=True)
+    packing_condition = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
+    net_weight = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
+    gross_weight = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
+    remarks = fields.Raw(required=False, allow_none=True)
     items = fields.List(
         fields.Nested(CustomerDeliveryPackingListItemCreateSchema),
         required=False,
         load_default=list,
     )
-    attachments_count = fields.Integer(
-        required=False,
-        allow_none=True,
-    )
-    form_code = fields.String(
-        required=False,
-        allow_none=True,
-    )
-
-    @pre_load
-    def normalize_data(self, data, **kwargs):
-        if not isinstance(data, (dict, Mapping)):
-            return data
-        normalized = dict(data)
-
-        # Handle packing_list_no / packing_list_number
-        pl_no = (
-            normalized.get("packing_list_no")
-            if normalized.get("packing_list_no") is not None
-            else (
-                normalized.get("packingListNo")
-                if normalized.get("packingListNo") is not None
-                else (
-                    normalized.get("packing_list_number")
-                    if normalized.get("packing_list_number") is not None
-                    else (
-                        normalized.get("packingListNumber")
-                        if normalized.get("packingListNumber") is not None
-                        else normalized.get("packing_list_id")
-                    )
-                )
-            )
-        )
-        if pl_no is not None:
-            normalized["packing_list_no"] = str(pl_no).strip()
-
-        # Handle packing_list_date
-        pl_date = (
-            normalized.get("packing_list_date")
-            if normalized.get("packing_list_date") is not None
-            else (
-                normalized.get("packingListDate")
-                if normalized.get("packingListDate") is not None
-                else normalized.get("date")
-            )
-        )
-        if pl_date is not None and str(pl_date).strip() != "":
-            parsed = _parse_date(pl_date)
-            if parsed is not None:
-                normalized["packing_list_date"] = parsed.isoformat()
-        elif pl_date == "":
-            normalized["packing_list_date"] = None
-
-        # Handle project_id
-        pid = (
-            normalized.get("project_id")
-            if normalized.get("project_id") is not None
-            else normalized.get("projectId")
-        )
-        if pid is not None and str(pid).strip() != "":
-            try:
-                normalized["project_id"] = int(pid)
-            except (ValueError, TypeError):
-                pass
-        elif pid == "":
-            normalized.pop("project_id", None)
-
-        # Handle total_no_of_packs / total_no_packages
-        tnop = (
-            normalized.get("total_no_of_packs")
-            if normalized.get("total_no_of_packs") is not None
-            else (
-                normalized.get("totalNoOfPacks")
-                if normalized.get("totalNoOfPacks") is not None
-                else (
-                    normalized.get("total_no_packages")
-                    if normalized.get("total_no_packages") is not None
-                    else (
-                        normalized.get("totalNoPackages")
-                        if normalized.get("totalNoPackages") is not None
-                        else (
-                            normalized.get("total_packages")
-                            if normalized.get("total_packages") is not None
-                            else (
-                                normalized.get("totalPackages")
-                                if normalized.get("totalPackages") is not None
-                                else (
-                                    normalized.get("no_of_packages")
-                                    if normalized.get("no_of_packages") is not None
-                                    else normalized.get("noOfPackages")
-                                )
-                            )
-                        )
-                    )
-                )
-            )
-        )
-        if tnop is not None and str(tnop).strip() != "":
-            try:
-                normalized["total_no_of_packs"] = int(tnop)
-            except (ValueError, TypeError):
-                pass
-        elif tnop == "":
-            normalized["total_no_of_packs"] = None
-
-        # Handle packing_condition
-        cond = (
-            normalized.get("packing_condition")
-            if normalized.get("packing_condition") is not None
-            else normalized.get("packingCondition")
-        )
-        if cond is not None:
-            normalized["packing_condition"] = str(cond).strip()
-
-        # Handle net_weight / net_weight_kg
-        nw = (
-            normalized.get("net_weight")
-            if normalized.get("net_weight") is not None
-            else (
-                normalized.get("netWeight")
-                if normalized.get("netWeight") is not None
-                else (
-                    normalized.get("net_weight_kg")
-                    if normalized.get("net_weight_kg") is not None
-                    else normalized.get("netWeightKg")
-                )
-            )
-        )
-        if nw is not None:
-            normalized["net_weight"] = str(nw).strip()
-
-        # Handle gross_weight / gross_weight_kg
-        gw = (
-            normalized.get("gross_weight")
-            if normalized.get("gross_weight") is not None
-            else (
-                normalized.get("grossWeight")
-                if normalized.get("grossWeight") is not None
-                else (
-                    normalized.get("gross_weight_kg")
-                    if normalized.get("gross_weight_kg") is not None
-                    else normalized.get("grossWeightKg")
-                )
-            )
-        )
-        if gw is not None:
-            normalized["gross_weight"] = str(gw).strip()
-
-        # Handle remark / remarks
-        if "remarks" in normalized and not normalized.get("remark"):
-            normalized["remark"] = normalized["remarks"]
-        elif "remark" in normalized and not normalized.get("remarks"):
-            normalized["remarks"] = normalized["remark"]
-
-        return normalized
+    attachments_count = FlexibleInt(required=False, allow_none=True)
+    form_code = fields.String(required=False, allow_none=True)
 
 
 class CustomerDeliveryPackingListUpdateSchema(Schema):
     class Meta:
         unknown = EXCLUDE
 
-    project_id = fields.Integer(required=False)
-    packing_list_no = fields.String(
-        required=False,
-        validate=validate.And(
-            validate.Length(min=1, max=100),
-            _not_blank,
-        ),
-    )
-    packing_list_date = fields.Date(required=False)
-    total_no_of_packs = fields.Integer(
-        required=False,
-        allow_none=True,
-    )
-    packing_condition = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=255),
-    )
-    net_weight = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=255),
-    )
-    gross_weight = fields.String(
-        required=False,
-        allow_none=True,
-        validate=validate.Length(max=255),
-    )
-    remark = fields.Raw(
-        required=False,
-        allow_none=True,
-    )
-    remarks = fields.Raw(
-        required=False,
-        allow_none=True,
-    )
+    project_id = FlexibleInt(required=False)
+    packing_list_no = fields.String(required=False, validate=validate.Length(min=1, max=100))
+    packing_list_date = FlexibleDate(required=False)
+    total_no_packages = FlexibleInt(required=False, allow_none=True)
+    packing_condition = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
+    net_weight = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
+    gross_weight = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
+    remarks = fields.Raw(required=False, allow_none=True)
     items = fields.List(
-        fields.Nested(CustomerDeliveryPackingListItemCreateSchema),
-        required=False,
-    )
-    attachments_count = fields.Integer(
+        fields.Nested(CustomerDeliveryPackingListItemUpdateSchema),
         required=False,
         allow_none=True,
     )
-    form_code = fields.String(
-        required=False,
-        allow_none=True,
-    )
-
-    @pre_load
-    def normalize_data(self, data, **kwargs):
-        if not isinstance(data, (dict, Mapping)):
-            return data
-        normalized = dict(data)
-
-        if "packing_list_no" in normalized or "packing_list_number" in normalized or "packingListNo" in normalized:
-            pl_no = (
-                normalized.get("packing_list_no")
-                or normalized.get("packing_list_number")
-                or normalized.get("packingListNo")
-            )
-            if pl_no is not None:
-                normalized["packing_list_no"] = str(pl_no).strip()
-
-        if "packing_list_date" in normalized or "packingListDate" in normalized or "date" in normalized:
-            pl_date = (
-                normalized.get("packing_list_date")
-                or normalized.get("packingListDate")
-                or normalized.get("date")
-            )
-            if pl_date is not None and str(pl_date).strip() != "":
-                parsed = _parse_date(pl_date)
-                if parsed is not None:
-                    normalized["packing_list_date"] = parsed.isoformat()
-            elif pl_date == "":
-                normalized["packing_list_date"] = None
-
-        if "project_id" in normalized or "projectId" in normalized:
-            pid = normalized.get("project_id") or normalized.get("projectId")
-            if pid is not None and str(pid).strip() != "":
-                try:
-                    normalized["project_id"] = int(pid)
-                except (ValueError, TypeError):
-                    pass
-            elif pid == "":
-                normalized["project_id"] = None
-
-        if (
-            "total_no_of_packs" in normalized
-            or "totalNoOfPacks" in normalized
-            or "total_no_packages" in normalized
-            or "totalNoPackages" in normalized
-            or "total_packages" in normalized
-            or "totalPackages" in normalized
-        ):
-            tnop = (
-                normalized.get("total_no_of_packs")
-                or normalized.get("totalNoOfPacks")
-                or normalized.get("total_no_packages")
-                or normalized.get("totalNoPackages")
-                or normalized.get("total_packages")
-                or normalized.get("totalPackages")
-            )
-            if tnop is not None and str(tnop).strip() != "":
-                try:
-                    normalized["total_no_of_packs"] = int(tnop)
-                except (ValueError, TypeError):
-                    pass
-            elif tnop == "":
-                normalized["total_no_of_packs"] = None
-
-        if "packing_condition" in normalized or "packingCondition" in normalized:
-            cond = normalized.get("packing_condition") or normalized.get("packingCondition")
-            if cond is not None:
-                normalized["packing_condition"] = str(cond).strip()
-
-        if "net_weight" in normalized or "net_weight_kg" in normalized or "netWeight" in normalized:
-            nw = (
-                normalized.get("net_weight")
-                or normalized.get("net_weight_kg")
-                or normalized.get("netWeight")
-            )
-            if nw is not None:
-                normalized["net_weight"] = str(nw).strip()
-
-        if "gross_weight" in normalized or "gross_weight_kg" in normalized or "grossWeight" in normalized:
-            gw = (
-                normalized.get("gross_weight")
-                or normalized.get("gross_weight_kg")
-                or normalized.get("grossWeight")
-            )
-            if gw is not None:
-                normalized["gross_weight"] = str(gw).strip()
-
-        if "remarks" in normalized and not normalized.get("remark"):
-            normalized["remark"] = normalized["remarks"]
-        elif "remark" in normalized and not normalized.get("remarks"):
-            normalized["remarks"] = normalized["remark"]
-
-        return normalized
+    attachments_count = FlexibleInt(required=False, allow_none=True)
+    form_code = fields.String(required=False, allow_none=True)
 
 
 class CustomerDeliveryPackingListResponseSchema(Schema):
+    class Meta:
+        unknown = EXCLUDE
+
     id = fields.Integer(dump_only=True)
     project_id = fields.Integer(dump_only=True)
     packing_list_no = fields.String(dump_only=True)
-    packing_list_number = fields.String(dump_only=True)
     packing_list_date = fields.Date(dump_only=True)
-    total_no_of_packs = fields.Integer(dump_only=True)
-    total_no_packages = fields.Integer(dump_only=True, attribute="total_no_of_packs")
+    total_no_packages = fields.Integer(dump_only=True)
     packing_condition = fields.String(dump_only=True)
     net_weight = fields.String(dump_only=True)
-    net_weight_kg = fields.String(dump_only=True, attribute="net_weight")
     gross_weight = fields.String(dump_only=True)
-    gross_weight_kg = fields.String(dump_only=True, attribute="gross_weight")
-    remark = fields.Raw(dump_only=True)
     remarks = fields.Raw(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)

@@ -72,12 +72,8 @@ def create_warranty_certificate(*, data: dict) -> WarrantyCertificate:
     po_date_val = _parse_date_val(data.get('po_date'))
     inv_date_val = _parse_date_val(data.get('invoice_date'))
 
-    po_no_val = _normalize_optional_string(
-        data.get('po_no') or data.get('po_number')
-    )
-    invoice_no_val = _normalize_optional_string(
-        data.get('invoice_no') or data.get('invoice_number')
-    )
+    po_no_val = _normalize_optional_string(data.get('po_no'))
+    invoice_no_val = _normalize_optional_string(data.get('invoice_no'))
     remark_val = _normalize_optional_string(
         data.get('remark') or data.get('remarks')
     )
@@ -112,18 +108,14 @@ def update_warranty_certificate(
     if 'warranty_period' in data and data['warranty_period'] is not None:
         cert.warranty_period = str(data['warranty_period']).strip()
 
-    if 'po_no' in data or 'po_number' in data:
-        cert.po_no = _normalize_optional_string(
-            data.get('po_no') or data.get('po_number')
-        )
+    if 'po_no' in data:
+        cert.po_no = _normalize_optional_string(data.get('po_no'))
 
     if 'po_date' in data:
         cert.po_date = _parse_date_val(data.get('po_date'))
 
-    if 'invoice_no' in data or 'invoice_number' in data:
-        cert.invoice_no = _normalize_optional_string(
-            data.get('invoice_no') or data.get('invoice_number')
-        )
+    if 'invoice_no' in data:
+        cert.invoice_no = _normalize_optional_string(data.get('invoice_no'))
 
     if 'invoice_date' in data:
         cert.invoice_date = _parse_date_val(data.get('invoice_date'))

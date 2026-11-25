@@ -33,12 +33,12 @@ def get_import_logistics_record(logistics_id: int) -> ImportLogistics:
 def list_import_logistics_records(
     project_id: int | None = None,
     supplier_id: int | None = None,
-    logistic_type: str | None = None,
+    transportation_mode: str | None = None,
 ) -> list[ImportLogistics]:
     return repository.list_import_logistics(
         project_id=project_id,
         supplier_id=supplier_id,
-        logistic_type=logistic_type,
+        transportation_mode=transportation_mode,
     )
 
 
@@ -64,30 +64,6 @@ def create_import_logistics_transaction(data: dict, user_id: int | None = None) 
     except Exception:
         pass
     db.session.flush()
-
-    # If transport detail fields are present, also sync TransportDetail
-    from_loc = data.get("from_location")
-    to_loc = data.get("to_location")
-    charges = data.get("total_transportation_charges") or data.get("transport_charges")
-    if from_loc or to_loc or charges:
-        try:
-            from app.models import TransportDetail
-            from app.schemas.import_logistics import _parse_date
-            td = TransportDetail(
-                project_id=project_id,
-                transport_mode=data.get("transport_mode") or data.get("logistic_type") or "air",
-                lr_no=data.get("lr_rr_awb_no") or data.get("airway_bill_no") or data.get("bill_of_lading_no"),
-                awb_no=data.get("lr_rr_awb_no") or data.get("airway_bill_no"),
-                date=_parse_date(data.get("date")),
-                from_location=from_loc or data.get("airport_of_loading") or data.get("port_of_loading") or "N/A",
-                to_location=to_loc or data.get("port_of_discharge") or "N/A",
-                transport_charges=charges,
-                remark=normalize_remark_for_db(data.get("remark") or data.get("remarks")),
-            )
-            db.session.add(td)
-            db.session.flush()
-        except Exception:
-            pass
 
     remarks_val = data.get("remarks") if "remarks" in data else data.get("remark")
     from app.services.step_remark_service import sync_step_remarks

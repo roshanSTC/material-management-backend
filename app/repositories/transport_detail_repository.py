@@ -27,17 +27,17 @@ def get_transport_detail_by_project_id(project_id: int) -> TransportDetail | Non
 
 def list_transport_details(
     project_id: int | None = None,
-    transport_mode: str | None = None,
-    lr_no: str | None = None,
+    transportation_mode: str | None = None,
+    lr_rr_awb_no: str | None = None,
 ) -> list[TransportDetail]:
     stmt = select(TransportDetail).order_by(TransportDetail.id.desc())
 
     if project_id is not None:
         stmt = stmt.where(TransportDetail.project_id == project_id)
-    if transport_mode is not None:
-        stmt = stmt.where(TransportDetail.transport_mode == transport_mode.lower())
-    if lr_no is not None:
-        stmt = stmt.where(TransportDetail.lr_no == lr_no)
+    if transportation_mode is not None:
+        stmt = stmt.where(TransportDetail.transportation_mode == transportation_mode.lower())
+    if lr_rr_awb_no is not None:
+        stmt = stmt.where(TransportDetail.lr_rr_awb_no == lr_rr_awb_no)
 
     return list(db.session.execute(stmt).scalars().all())
 
@@ -84,18 +84,10 @@ def _parse_decimal_val(val) -> Decimal | None:
 
 
 def create_transport_detail(*, data: dict) -> TransportDetail:
-    detail_date = _parse_date_val(data.get("date") or data.get("transport_date"))
-    charges = _parse_decimal_val(data.get("transport_charges"))
-
-    transport_mode_val = str(
-        data.get("transport_mode") or data.get("transportation_mode") or ""
-    ).strip().lower()
-
-    lr_no_val = _normalize_optional_string(
-        data.get("lr_no") or data.get("lr_number")
-    )
-    rr_no_val = _normalize_optional_string(data.get("rr_no"))
-    awb_no_val = _normalize_optional_string(data.get("awb_no"))
+    detail_date = _parse_date_val(data.get("lr_rr_awb_date"))
+    charges = _parse_decimal_val(data.get("total_transportation_charges"))
+    mode_val = str(data.get("transportation_mode") or "").strip().lower()
+    lr_val = _normalize_optional_string(data.get("lr_rr_awb_no"))
     from_loc = str(data.get("from_location", "")).strip()
     to_loc = str(data.get("to_location", "")).strip()
     remark_val = _normalize_optional_string(
@@ -104,14 +96,12 @@ def create_transport_detail(*, data: dict) -> TransportDetail:
 
     detail = TransportDetail(
         project_id=data["project_id"],
-        transport_mode=transport_mode_val,
-        lr_no=lr_no_val,
-        rr_no=rr_no_val,
-        awb_no=awb_no_val,
-        date=detail_date,
+        transportation_mode=mode_val,
+        lr_rr_awb_no=lr_val,
+        lr_rr_awb_date=detail_date,
         from_location=from_loc,
         to_location=to_loc,
-        transport_charges=charges,
+        total_transportation_charges=charges,
         remark=remark_val,
     )
     db.session.add(detail)
@@ -126,26 +116,16 @@ def update_transport_detail(
     if "project_id" in data:
         detail.project_id = data["project_id"]
 
-    if "transport_mode" in data or "transportation_mode" in data:
-        mode_val = data.get("transport_mode") or data.get("transportation_mode")
-        if mode_val is not None:
-            detail.transport_mode = str(mode_val).strip().lower()
+    if "transportation_mode" in data and data["transportation_mode"] is not None:
+        detail.transportation_mode = str(data["transportation_mode"]).strip().lower()
 
-    if "date" in data or "transport_date" in data:
-        dt = _parse_date_val(data.get("date") or data.get("transport_date"))
+    if "lr_rr_awb_date" in data:
+        dt = _parse_date_val(data["lr_rr_awb_date"])
         if dt is not None:
-            detail.date = dt
+            detail.lr_rr_awb_date = dt
 
-    if "lr_no" in data or "lr_number" in data:
-        detail.lr_no = _normalize_optional_string(
-            data.get("lr_no") or data.get("lr_number")
-        )
-
-    if "rr_no" in data:
-        detail.rr_no = _normalize_optional_string(data.get("rr_no"))
-
-    if "awb_no" in data:
-        detail.awb_no = _normalize_optional_string(data.get("awb_no"))
+    if "lr_rr_awb_no" in data:
+        detail.lr_rr_awb_no = _normalize_optional_string(data["lr_rr_awb_no"])
 
     if "from_location" in data and data["from_location"] is not None:
         detail.from_location = str(data["from_location"]).strip()
@@ -153,8 +133,8 @@ def update_transport_detail(
     if "to_location" in data and data["to_location"] is not None:
         detail.to_location = str(data["to_location"]).strip()
 
-    if "transport_charges" in data:
-        detail.transport_charges = _parse_decimal_val(data.get("transport_charges"))
+    if "total_transportation_charges" in data:
+        detail.total_transportation_charges = _parse_decimal_val(data["total_transportation_charges"])
 
     if "remark" in data or "remarks" in data:
         detail.remark = _normalize_optional_string(

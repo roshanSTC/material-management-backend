@@ -187,7 +187,7 @@ class SQLGenerator:
         # Purchase order queries
         if "purchase order" in q or "po" in q:
             return (
-                "SELECT id, po_number, po_title, total_gross_amount, po_date, created_at FROM purchase_orders ORDER BY id DESC LIMIT 50",
+                "SELECT id, po_no, po_title, total_gross_amount, po_date, created_at FROM purchase_orders ORDER BY id DESC LIMIT 50",
                 "Recent purchase orders placed with suppliers.",
                 None,
             )
@@ -203,7 +203,7 @@ class SQLGenerator:
         # Invoice / payment queries
         if "payment" in q or "revenue" in q:
             return (
-                "SELECT id, project_id, invoice_no, payment_amount, invoice_value, payment_date FROM customer_payments ORDER BY id DESC LIMIT 50",
+                "SELECT id, project_id, payment_against_invoice_no, payment_received, invoice_value, payment_received_date FROM customer_payments ORDER BY id DESC LIMIT 50",
                 "Recorded customer payment receipts.",
                 None,
             )

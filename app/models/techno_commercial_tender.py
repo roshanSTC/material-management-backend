@@ -45,54 +45,6 @@ class TechnoCommercialTender(db.Model):
         order_by="TechnoCommercialTenderItem.sr_no.asc()",
     )
 
-    @property
-    def ste_no(self):
-        return self.tender_no
-
-    @ste_no.setter
-    def ste_no(self, val):
-        self.tender_no = val
-
-    @property
-    def tender_number(self):
-        return self.tender_no
-
-    @tender_number.setter
-    def tender_number(self, val):
-        self.tender_no = val
-
-    @property
-    def tender_enquiry_no(self):
-        return self.tender_no
-
-    @tender_enquiry_no.setter
-    def tender_enquiry_no(self, val):
-        self.tender_no = val
-
-    @property
-    def pqb_number(self):
-        return self.pqb_no
-
-    @pqb_number.setter
-    def pqb_number(self, val):
-        self.pqb_no = val
-
-    @property
-    def validity(self):
-        return self.tender_validity
-
-    @validity.setter
-    def validity(self, val):
-        self.tender_validity = val
-
-    @property
-    def remarks(self):
-        return self.remark
-
-    @remarks.setter
-    def remarks(self, val):
-        self.remark = val
-
     def __repr__(self) -> str:
         return f"<TechnoCommercialTender {self.id}: {self.tender_no}>"
 
@@ -109,7 +61,6 @@ class TechnoCommercialTenderItem(db.Model):
     )
     sr_no = db.Column(db.Integer, nullable=True)
     description = db.Column(db.Text, nullable=True)
-    material_name = db.Column(db.String(255), nullable=True)
     unit = db.Column(db.String(50), nullable=True)
     quantity = db.Column(db.Numeric(15, 3), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

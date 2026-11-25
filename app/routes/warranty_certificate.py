@@ -59,10 +59,8 @@ def _warranty_certificate_response(cert: WarrantyCertificate) -> dict:
         "certificate_date": cert.certificate_date,
         "warranty_period": cert.warranty_period,
         "po_no": cert.po_no,
-        "po_number": cert.po_no,
         "po_date": cert.po_date,
         "invoice_no": cert.invoice_no,
-        "invoice_number": cert.invoice_no,
         "invoice_date": cert.invoice_date,
         "remarks": get_step_remarks_for_response(
             project_id=cert.project_id,

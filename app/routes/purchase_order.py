@@ -75,7 +75,7 @@ def _purchase_order_response(purchase_order):
         try:
             from decimal import Decimal
             tot = sum(
-                (Decimal(str(it.net_amount)) if it.net_amount is not None else (Decimal(str(it.quantity or 0)) * Decimal(str(it.unit_price or 0))))
+                (Decimal(str(it.total_price)) if it.total_price is not None else (Decimal(str(it.quantity or 0)) * Decimal(str(it.unit_price or 0))))
                 for it in purchase_order.items
             )
             tot_net = tot.quantize(Decimal("0.01"))
@@ -83,10 +83,10 @@ def _purchase_order_response(purchase_order):
             pass
 
     gst_amt = purchase_order.gst_amount
-    if gst_amt is None and purchase_order.gst_rate is not None and tot_net is not None:
+    if gst_amt is None and purchase_order.gst_rate_pct is not None and tot_net is not None:
         try:
             from decimal import Decimal
-            gst_amt = (Decimal(str(tot_net)) * Decimal(str(purchase_order.gst_rate)) / Decimal("100")).quantize(Decimal("0.01"))
+            gst_amt = (Decimal(str(tot_net)) * Decimal(str(purchase_order.gst_rate_pct)) / Decimal("100")).quantize(Decimal("0.01"))
         except Exception:
             pass
 
@@ -102,24 +102,19 @@ def _purchase_order_response(purchase_order):
         "id": purchase_order.id,
         "project_id": purchase_order.project_id,
         "customer_id": purchase_order.customer_id,
-        "customer_name": customer_name,
+        "customer_name": purchase_order.customer_name or customer_name,
         "tender_id": purchase_order.tender_id,
         "poc_name": purchase_order.poc_name,
         "email": purchase_order.email,
         "contact": purchase_order.contact,
-        "po_no": purchase_order.po_number,
-        "po_number": purchase_order.po_number,
+        "po_no": purchase_order.po_no,
         "po_title": purchase_order.po_title,
         "po_date": purchase_order.po_date,
         "delivery_date": del_date,
-        "delivery_term": purchase_order.delivery_term,
-        "delivery_terms": purchase_order.delivery_term,
+        "delivery_terms": purchase_order.delivery_terms,
         "payment_terms": purchase_order.payment_terms,
-        "payment_term": purchase_order.payment_terms,
         "warranty_period": purchase_order.warranty_period,
-        "gst_rate": purchase_order.gst_rate,
-        "gst_rate_pct": purchase_order.gst_rate,
-        "gst": purchase_order.gst_rate,
+        "gst_rate_pct": purchase_order.gst_rate_pct,
         "gst_amount": gst_amt,
         "total_net_amount": tot_net,
         "total_gross_amount": tot_gross,
@@ -134,17 +129,14 @@ def _purchase_order_response(purchase_order):
         "items": [
             {
                 "id": item.id,
-                "sr_no": idx + 1,
+                "sr_no": item.sr_no if item.sr_no is not None else (idx + 1),
                 "purchase_order_id": item.purchase_order_id,
-                "material_name": item.material_name or item.description,
                 "description": item.description,
-                "hsn_code": item.hsn_code,
-                "hsn_sac": item.hsn_code,
+                "hsn_sac": item.hsn_sac,
                 "unit": getattr(item, "unit", None) or "NOS",
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
-                "net_amount": item.net_amount,
-                "total_price": item.net_amount,
+                "total_price": item.total_price,
                 "delivery_date": getattr(item, "delivery_date", None) or del_date,
                 "created_at": item.created_at,
             }
@@ -180,23 +172,26 @@ def _format_decimal_str(val, places=2):
 
 def _latest_purchase_order_response(purchase_order):
     items_list = []
-    for item in purchase_order.items:
+    for idx, item in enumerate(purchase_order.items):
         qty = item.quantity
         price = item.unit_price
-        net_amt = item.net_amount
-        if net_amt is None and qty is not None and price is not None:
+        total_price = item.total_price
+        if total_price is None and qty is not None and price is not None:
             try:
                 from decimal import Decimal
-                net_amt = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
+                total_price = (Decimal(str(qty)) * Decimal(str(price))).quantize(Decimal("0.01"))
             except Exception:
                 pass
 
         items_list.append({
-            "material_name": item.material_name or item.description,
-            "hsn_code": item.hsn_code,
+            "sr_no": item.sr_no if item.sr_no is not None else (idx + 1),
+            "description": item.description,
+            "hsn_sac": item.hsn_sac,
+            "unit": getattr(item, "unit", None) or "NOS",
             "quantity": _format_decimal_str(qty, places=3) or "0.000",
             "unit_price": _format_decimal_str(price, places=2),
-            "net_amount": _format_decimal_str(net_amt, places=2),
+            "total_price": _format_decimal_str(total_price, places=2),
+            "delivery_date": getattr(item, "delivery_date", None),
         })
 
     tot_net = purchase_order.total_net_amount
@@ -204,28 +199,29 @@ def _latest_purchase_order_response(purchase_order):
         try:
             from decimal import Decimal
             tot = sum(
-                Decimal(str(it["net_amount"]))
+                Decimal(str(it["total_price"]))
                 for it in items_list
-                if it.get("net_amount") is not None
+                if it.get("total_price") is not None
             )
             tot_net = tot
         except Exception:
             pass
 
     gst_amt = purchase_order.gst_amount
-    if gst_amt is None and purchase_order.gst_rate is not None and tot_net is not None:
+    if gst_amt is None and purchase_order.gst_rate_pct is not None and tot_net is not None:
         try:
             from decimal import Decimal
-            gst_amt = (Decimal(str(tot_net)) * Decimal(str(purchase_order.gst_rate)) / Decimal("100")).quantize(Decimal("0.01"))
+            gst_amt = (Decimal(str(tot_net)) * Decimal(str(purchase_order.gst_rate_pct)) / Decimal("100")).quantize(Decimal("0.01"))
         except Exception:
             pass
 
     return {
-        "po_number": purchase_order.po_number,
+        "po_no": purchase_order.po_no,
         "po_date": purchase_order.po_date,
-        "gst_rate": _format_decimal_str(purchase_order.gst_rate, places=2),
+        "gst_rate_pct": _format_decimal_str(purchase_order.gst_rate_pct, places=2),
         "gst_amount": _format_decimal_str(gst_amt, places=2),
         "total_net_amount": _format_decimal_str(tot_net, places=2),
+        "total_gross_amount": _format_decimal_str(purchase_order.total_gross_amount, places=2),
         "items": items_list,
     }
 
@@ -398,7 +394,7 @@ def list_purchase_orders(args=None):
 @purchase_order_bp.doc(
     security=[{"BearerAuth": []}],
     summary="Get Latest Purchase Order for Project",
-    description="Retrieve the latest purchase order for a project containing gst_rate, gst_amount, total_net_amount, and items (material_name, hsn_code, quantity, unit_price, net_amount).",
+    description="Retrieve the latest purchase order for a project containing po_no, gst_rate_pct, gst_amount, total_net_amount, total_gross_amount, and items (sr_no, description, hsn_sac, unit, quantity, unit_price, total_price, delivery_date).",
 )
 @purchase_order_bp.arguments(PurchaseOrderQuerySchema, location="query")
 @purchase_order_bp.response(200, LatestPurchaseOrderResponseSchema)

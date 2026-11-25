@@ -28,7 +28,7 @@ class DeliveryChallan(db.Model):
         nullable=False,
     )
 
-    gst_rate = db.Column(
+    gst_pct = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )
@@ -43,7 +43,12 @@ class DeliveryChallan(db.Model):
         nullable=True,
     )
 
-    net_total = db.Column(
+    total_net_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    total_gross_amount = db.Column(
         db.Numeric(18, 2),
         nullable=True,
     )
@@ -78,23 +83,6 @@ class DeliveryChallan(db.Model):
         cascade="all, delete-orphan",
         lazy="select",
     )
-
-    # Property aliases for backward/forward compatibility
-    @property
-    def delivery_challan_number(self):
-        return self.delivery_challan_no
-
-    @delivery_challan_number.setter
-    def delivery_challan_number(self, val):
-        self.delivery_challan_no = val
-
-    @property
-    def remarks(self):
-        return self.remark
-
-    @remarks.setter
-    def remarks(self, val):
-        self.remark = val
 
     def __repr__(self) -> str:
         return (

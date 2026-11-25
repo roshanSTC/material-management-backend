@@ -177,12 +177,8 @@ class ProjectStep(db.Model):
                     if recs:
                         recs.sort(key=lambda r: getattr(r, "id", 0) or 0, reverse=True)
                         latest_rec = recs[0]
-                        if self.form_code == "FORM_33_STE":
-                            m = [r for r in recs if getattr(r, "form_code", "") in ("FORM_33_STE", "FORM_33_SINGLE_TENDER_ENQUIRY", "FORM_33", "FORM_STE", "FORM_30_SINGLE_TENDER_ENQUIRY", "FORM_30_STE")]
-                            if m:
-                                latest_rec = m[0]
-                        elif self.form_code == "FORM_30_TECHNO_COMMERCIAL_TENDER":
-                            m = [r for r in recs if getattr(r, "form_code", "") in ("FORM_30_TECHNO_COMMERCIAL_TENDER", "FORM_30_TCT", "FORM_30")]
+                        if self.form_code in ("FORM_33_STE", "FORM_30_TECHNO_COMMERCIAL_TENDER"):
+                            m = [r for r in recs if getattr(r, "form_code", "") == self.form_code]
                             if m:
                                 latest_rec = m[0]
                         for col in latest_rec.__table__.columns:
@@ -218,27 +214,13 @@ class ProjectStep(db.Model):
 
         step_name = self.step_name or (fdef.name if fdef else "")
         description = self.description or (fdef.description if fdef else "")
-        if self.form_code in ("FORM_13_PAC_TENDER", "FORM_13_CUSTOMER_TENDER") or step_name == "Customer Tender":
-            step_name = "PAC Tender"
-            description = (
-                fdef.description
-                if (fdef and fdef.description)
-                else "Proprietary Article Certificate (PAC) tender enquiry terms, dates, and specifications"
-            )
-        elif self.form_code == "FORM_15_BID_DOCUMENT" or step_name == "Bid Submission":
-            step_name = "Bid Document"
-            description = (
-                fdef.description
-                if (fdef and fdef.description)
-                else "Bid document submission data, corrigendum counts, and quoted tender pricing"
-            )
 
         res = {
             "id": self.id,
             "project_id": self.project_id,
             "step_order": order_val,
             "step_number": order_val,
-            "form_code": "FORM_13_PAC_TENDER" if self.form_code == "FORM_13_CUSTOMER_TENDER" else (self.form_code or ""),
+            "form_code": self.form_code or "",
             "step_name": step_name,
             "description": description,
             "category": fdef.category if fdef else "",

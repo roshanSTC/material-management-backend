@@ -2,17 +2,7 @@ from datetime import date, datetime
 from marshmallow import EXCLUDE, Schema, ValidationError, fields
 
 
-# =========================================================================
-# FLEXIBLE INPUT FIELDS (Handles ISO timestamps, strings, empty values)
-# =========================================================================
 class FlexibleDate(fields.Field):
-    """
-    Parses dates from:
-    - ISO datetime strings with time/timezone (e.g. "2026-10-26T10:00:00.000Z")
-    - ISO date strings (e.g. "2026-10-26")
-    - Local formats (e.g. "26-10-2026", "26/10/2026", "2026/10/26")
-    - Empty strings or None -> returns None
-    """
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("allow_none", True)
         super().__init__(*args, **kwargs)
@@ -42,10 +32,6 @@ class FlexibleDate(fields.Field):
 
 
 class FlexibleDateTime(fields.Field):
-    """
-    Parses datetimes from ISO strings, with or without 'Z', or date strings.
-    Empty strings or None -> returns None.
-    """
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("allow_none", True)
         super().__init__(*args, **kwargs)
@@ -81,9 +67,6 @@ class FlexibleDateTime(fields.Field):
 
 
 class FlexibleFloat(fields.Field):
-    """
-    Parses floats from numbers or strings, strips commas, handles empty strings as None.
-    """
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("allow_none", True)
         super().__init__(*args, **kwargs)
@@ -105,9 +88,6 @@ class FlexibleFloat(fields.Field):
 
 
 class FlexibleInt(fields.Field):
-    """
-    Parses integers from numbers or strings, strips commas, handles empty strings as None.
-    """
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("allow_none", True)
         super().__init__(*args, **kwargs)
@@ -140,46 +120,39 @@ class PreQualificationBidItemSchema(BasePhase1Schema):
     id = fields.Int(dump_only=True)
     sr_no = FlexibleInt(allow_none=True)
     description = fields.Str(required=False, allow_none=True)
-    material_name = fields.Str(required=False, allow_none=True)
     unit = fields.Str(allow_none=True)
     quantity = FlexibleFloat(allow_none=True)
-    specifications = fields.Str(allow_none=True)
 
 
 class PreQualificationBidCreateSchema(BasePhase1Schema):
     project_id = FlexibleInt(required=True)
     pqb_title = fields.Str(allow_none=True)
-    pqb_no = fields.Str(required=False, allow_none=True)
-    bid_number = fields.Str(required=False, allow_none=True)
-    tender_name = fields.Str(required=False, allow_none=True)
-    authority_name = fields.Str(required=False, allow_none=True)
-    submission_deadline = FlexibleDateTime(required=False, allow_none=True)
-    supply_locations = fields.Raw(required=False, allow_none=True)
+    pqb_no = fields.Str(required=True)
     pqb_issuing_date = FlexibleDate(allow_none=True)
     pqb_closing_date_time = FlexibleDateTime(allow_none=True)
     pqb_opening_date_time = FlexibleDateTime(allow_none=True)
     mode_of_bid_submission = fields.Str(allow_none=True)
     supply_location = fields.Str(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
+    status = fields.Str(allow_none=True)
+    form_code = fields.Str(allow_none=True)
+    attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(PreQualificationBidItemSchema), allow_none=True)
-    requirements = fields.List(fields.Nested(PreQualificationBidItemSchema), allow_none=True)
 
 
 class PreQualificationBidUpdateSchema(BasePhase1Schema):
     pqb_title = fields.Str(allow_none=True)
     pqb_no = fields.Str(allow_none=True)
-    bid_number = fields.Str(allow_none=True)
-    tender_name = fields.Str(allow_none=True)
     pqb_issuing_date = FlexibleDate(allow_none=True)
     pqb_closing_date_time = FlexibleDateTime(allow_none=True)
     pqb_opening_date_time = FlexibleDateTime(allow_none=True)
     mode_of_bid_submission = fields.Str(allow_none=True)
     supply_location = fields.Str(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
+    status = fields.Str(allow_none=True)
+    form_code = fields.Str(allow_none=True)
+    attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(PreQualificationBidItemSchema), allow_none=True)
-    requirements = fields.List(fields.Nested(PreQualificationBidItemSchema), allow_none=True)
 
 
 class LatestPreQualificationBidQuerySchema(BasePhase1Schema):
@@ -198,7 +171,6 @@ class PqbBidDocumentItemSchema(BasePhase1Schema):
     id = fields.Int(dump_only=True)
     sr_no = FlexibleInt(allow_none=True)
     description = fields.Str(allow_none=True)
-    material_name = fields.Str(allow_none=True)
     quantity = FlexibleFloat(allow_none=True)
 
 
@@ -209,10 +181,8 @@ class PqbBidDocumentCreateSchema(BasePhase1Schema):
     pqb_issue_date = FlexibleDate(allow_none=True)
     pqb_closing_date_time = FlexibleDateTime(allow_none=True)
     pqb_opening_date_time = FlexibleDateTime(allow_none=True)
-    total_corrigendum_issued = FlexibleInt(allow_none=True)
     total_no_corrigendum_issued = FlexibleInt(allow_none=True)
     status = fields.Str(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     items = fields.List(fields.Nested(PqbBidDocumentItemSchema), allow_none=True)
     form_code = fields.Str(allow_none=True)
@@ -225,10 +195,8 @@ class PqbBidDocumentUpdateSchema(BasePhase1Schema):
     pqb_issue_date = FlexibleDate(allow_none=True)
     pqb_closing_date_time = FlexibleDateTime(allow_none=True)
     pqb_opening_date_time = FlexibleDateTime(allow_none=True)
-    total_corrigendum_issued = FlexibleInt(allow_none=True)
     total_no_corrigendum_issued = FlexibleInt(allow_none=True)
     status = fields.Str(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     items = fields.List(fields.Nested(PqbBidDocumentItemSchema), allow_none=True)
     form_code = fields.Str(allow_none=True)
@@ -237,7 +205,6 @@ class PqbBidDocumentUpdateSchema(BasePhase1Schema):
 
 class LatestPqbBidDocumentQuerySchema(BasePhase1Schema):
     project_id = FlexibleInt(required=False, allow_none=True)
-    projectId = FlexibleInt(required=False, allow_none=True)
 
 
 class LatestPqbBidDocumentResponseSchema(BasePhase1Schema):
@@ -253,40 +220,31 @@ class CorrigendumItemSchema(BasePhase1Schema):
     sr_no = FlexibleInt(allow_none=True)
     as_per_tender_doc = fields.Str(required=False, allow_none=True)
     as_per_corrigendum = fields.Str(required=False, allow_none=True)
-    description = fields.Str(required=False, allow_none=True)
 
 
 class CorrigendumCreateSchema(BasePhase1Schema):
     project_id = FlexibleInt(required=True)
     corrigendum_no = fields.Str(required=True)
-    against_tender_no = fields.Str(allow_none=True)
     against_ref_no = fields.Str(allow_none=True)
-    tender_title = fields.Str(allow_none=True)
     ref_title = fields.Str(allow_none=True)
     issue_date = FlexibleDate(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)
     attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(CorrigendumItemSchema), allow_none=True)
-    table_items = fields.List(fields.Nested(CorrigendumItemSchema), allow_none=True)
 
 
 class CorrigendumUpdateSchema(BasePhase1Schema):
     corrigendum_no = fields.Str(allow_none=True)
-    against_tender_no = fields.Str(allow_none=True)
     against_ref_no = fields.Str(allow_none=True)
-    tender_title = fields.Str(allow_none=True)
     ref_title = fields.Str(allow_none=True)
     issue_date = FlexibleDate(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)
     attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(CorrigendumItemSchema), allow_none=True)
-    table_items = fields.List(fields.Nested(CorrigendumItemSchema), allow_none=True)
 
 
 class LatestCorrigendumQuerySchema(BasePhase1Schema):
@@ -297,13 +255,10 @@ class LatestCorrigendumResponseSchema(BasePhase1Schema):
     id = fields.Int(allow_none=True)
     project_id = fields.Int(allow_none=True)
     corrigendum_no = fields.Str(allow_none=True)
-    against_tender_no = fields.Str(allow_none=True)
     against_ref_no = fields.Str(allow_none=True)
-    tender_title = fields.Str(allow_none=True)
     ref_title = fields.Str(allow_none=True)
     issue_date = fields.Str(allow_none=True)
     items = fields.List(fields.Nested(CorrigendumItemSchema), allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     attachments = fields.List(fields.Raw(), allow_none=True)
     created_at = fields.Str(allow_none=True)
@@ -317,7 +272,6 @@ class LimitedTenderEnquiryItemSchema(BasePhase1Schema):
     id = fields.Int(dump_only=True)
     sr_no = FlexibleInt(allow_none=True)
     description = fields.Str(required=False, allow_none=True)
-    material_name = fields.Str(required=False, allow_none=True)
     unit = fields.Str(allow_none=True)
     quantity = FlexibleFloat(allow_none=True)
 
@@ -333,10 +287,11 @@ class LimitedTenderEnquiryCreateSchema(BasePhase1Schema):
     tender_fee = FlexibleFloat(allow_none=True)
     emd = FlexibleFloat(allow_none=True)
     tender_validity = fields.Str(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
+    status = fields.Str(allow_none=True)
+    form_code = fields.Str(allow_none=True)
+    attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(LimitedTenderEnquiryItemSchema), allow_none=True)
-    requirements = fields.List(fields.Nested(LimitedTenderEnquiryItemSchema), allow_none=True)
 
 
 class LimitedTenderEnquiryUpdateSchema(BasePhase1Schema):
@@ -349,10 +304,11 @@ class LimitedTenderEnquiryUpdateSchema(BasePhase1Schema):
     tender_fee = FlexibleFloat(allow_none=True)
     emd = FlexibleFloat(allow_none=True)
     tender_validity = fields.Str(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
+    status = fields.Str(allow_none=True)
+    form_code = fields.Str(allow_none=True)
+    attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(LimitedTenderEnquiryItemSchema), allow_none=True)
-    requirements = fields.List(fields.Nested(LimitedTenderEnquiryItemSchema), allow_none=True)
 
 
 class LatestLimitedTenderEnquiryQuerySchema(BasePhase1Schema):
@@ -371,7 +327,6 @@ class NotificationAwardItemSchema(BasePhase1Schema):
     id = fields.Int(dump_only=True)
     sr_no = FlexibleInt(allow_none=True)
     description = fields.Str(required=False, allow_none=True)
-    material_name = fields.Str(required=False, allow_none=True)
     quantity = FlexibleFloat(allow_none=True)
     per_unit_price = FlexibleFloat(allow_none=True)
     total_amount = FlexibleFloat(allow_none=True)
@@ -382,20 +337,30 @@ class NotificationAwardCreateSchema(BasePhase1Schema):
     nac_no = fields.Str(required=True)
     nac_date = FlexibleDate(allow_none=True)
     nac_title = fields.Str(allow_none=True)
-    remark = fields.Str(allow_none=True)
+    gst_pct = FlexibleFloat(allow_none=True)
+    total_net_amount = FlexibleFloat(allow_none=True)
+    gst_amount = FlexibleFloat(allow_none=True)
+    total_gross_amount = FlexibleFloat(allow_none=True)
     remarks = fields.Raw(allow_none=True)
+    status = fields.Str(allow_none=True)
+    form_code = fields.Str(allow_none=True)
+    attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(NotificationAwardItemSchema), allow_none=True)
-    awarded_materials = fields.List(fields.Nested(NotificationAwardItemSchema), allow_none=True)
 
 
 class NotificationAwardUpdateSchema(BasePhase1Schema):
     nac_no = fields.Str(allow_none=True)
     nac_date = FlexibleDate(allow_none=True)
     nac_title = fields.Str(allow_none=True)
-    remark = fields.Str(allow_none=True)
+    gst_pct = FlexibleFloat(allow_none=True)
+    total_net_amount = FlexibleFloat(allow_none=True)
+    gst_amount = FlexibleFloat(allow_none=True)
+    total_gross_amount = FlexibleFloat(allow_none=True)
     remarks = fields.Raw(allow_none=True)
+    status = fields.Str(allow_none=True)
+    form_code = fields.Str(allow_none=True)
+    attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(NotificationAwardItemSchema), allow_none=True)
-    awarded_materials = fields.List(fields.Nested(NotificationAwardItemSchema), allow_none=True)
 
 
 # =========================================================================
@@ -408,8 +373,10 @@ class ConsultancyInvoiceCreateSchema(BasePhase1Schema):
     party_name = fields.Str(allow_none=True)
     invoice_reference = fields.Str(allow_none=True)
     total_value_eur = FlexibleFloat(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
+    status = fields.Str(allow_none=True)
+    form_code = fields.Str(allow_none=True)
+    attachments_count = FlexibleInt(allow_none=True)
 
 
 class ConsultancyInvoiceUpdateSchema(BasePhase1Schema):
@@ -418,8 +385,10 @@ class ConsultancyInvoiceUpdateSchema(BasePhase1Schema):
     party_name = fields.Str(allow_none=True)
     invoice_reference = fields.Str(allow_none=True)
     total_value_eur = FlexibleFloat(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
+    status = fields.Str(allow_none=True)
+    form_code = fields.Str(allow_none=True)
+    attachments_count = FlexibleInt(allow_none=True)
 
 
 # =========================================================================
@@ -429,7 +398,6 @@ class ExpressionOfInterestItemSchema(BasePhase1Schema):
     id = fields.Int(dump_only=True)
     sr_no = FlexibleInt(allow_none=True)
     description = fields.Str(required=False, allow_none=True)
-    material_name = fields.Str(required=False, allow_none=True)
     unit = fields.Str(allow_none=True)
     quantity = FlexibleFloat(allow_none=True)
 
@@ -443,10 +411,11 @@ class ExpressionOfInterestCreateSchema(BasePhase1Schema):
     eoi_opening_date_time = FlexibleDateTime(allow_none=True)
     mode_of_submission = fields.Str(allow_none=True)
     supply_location = fields.Str(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
+    status = fields.Str(allow_none=True)
+    form_code = fields.Str(allow_none=True)
+    attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(ExpressionOfInterestItemSchema), allow_none=True)
-    requirements = fields.List(fields.Nested(ExpressionOfInterestItemSchema), allow_none=True)
 
 
 class ExpressionOfInterestUpdateSchema(BasePhase1Schema):
@@ -457,10 +426,11 @@ class ExpressionOfInterestUpdateSchema(BasePhase1Schema):
     eoi_opening_date_time = FlexibleDateTime(allow_none=True)
     mode_of_submission = fields.Str(allow_none=True)
     supply_location = fields.Str(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
+    status = fields.Str(allow_none=True)
+    form_code = fields.Str(allow_none=True)
+    attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(ExpressionOfInterestItemSchema), allow_none=True)
-    requirements = fields.List(fields.Nested(ExpressionOfInterestItemSchema), allow_none=True)
 
 
 # =========================================================================
@@ -470,7 +440,6 @@ class BidDocumentTechnoCommercialItemSchema(BasePhase1Schema):
     id = fields.Int(dump_only=True)
     sr_no = FlexibleInt(allow_none=True)
     description = fields.Str(allow_none=True)
-    material_name = fields.Str(allow_none=True)
     hsn_sac = fields.Str(allow_none=True)
     quantity = FlexibleFloat(allow_none=True)
     unit_price = FlexibleFloat(allow_none=True)
@@ -482,10 +451,8 @@ class BidDocumentTechnoCommercialCreateSchema(BasePhase1Schema):
     customer_name = fields.Str(allow_none=True)
     tender_title = fields.Str(allow_none=True)
     tender_no = fields.Str(allow_none=True)
-    tender_number = fields.Str(allow_none=True)
     tender_issue_date = FlexibleDate(allow_none=True)
     total_no_corrigendum_issued = FlexibleInt(allow_none=True)
-    total_corrigendum_issued = FlexibleInt(allow_none=True)
     bid_submission_date = FlexibleDate(allow_none=True)
     delivery_terms = fields.Str(allow_none=True)
     delivery_period = fields.Str(allow_none=True)
@@ -493,8 +460,9 @@ class BidDocumentTechnoCommercialCreateSchema(BasePhase1Schema):
     payment_terms = fields.Str(allow_none=True)
     warranty_period = fields.Str(allow_none=True)
     gst_pct = FlexibleFloat(allow_none=True)
-    gst_rate = FlexibleFloat(allow_none=True)
-    remark = fields.Str(allow_none=True)
+    total_net_amount = FlexibleFloat(allow_none=True)
+    gst_amount = FlexibleFloat(allow_none=True)
+    total_gross_amount = FlexibleFloat(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)
@@ -506,10 +474,8 @@ class BidDocumentTechnoCommercialUpdateSchema(BasePhase1Schema):
     customer_name = fields.Str(allow_none=True)
     tender_title = fields.Str(allow_none=True)
     tender_no = fields.Str(allow_none=True)
-    tender_number = fields.Str(allow_none=True)
     tender_issue_date = FlexibleDate(allow_none=True)
     total_no_corrigendum_issued = FlexibleInt(allow_none=True)
-    total_corrigendum_issued = FlexibleInt(allow_none=True)
     bid_submission_date = FlexibleDate(allow_none=True)
     delivery_terms = fields.Str(allow_none=True)
     delivery_period = fields.Str(allow_none=True)
@@ -517,8 +483,9 @@ class BidDocumentTechnoCommercialUpdateSchema(BasePhase1Schema):
     payment_terms = fields.Str(allow_none=True)
     warranty_period = fields.Str(allow_none=True)
     gst_pct = FlexibleFloat(allow_none=True)
-    gst_rate = FlexibleFloat(allow_none=True)
-    remark = fields.Str(allow_none=True)
+    total_net_amount = FlexibleFloat(allow_none=True)
+    gst_amount = FlexibleFloat(allow_none=True)
+    total_gross_amount = FlexibleFloat(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)
@@ -528,15 +495,12 @@ class BidDocumentTechnoCommercialUpdateSchema(BasePhase1Schema):
 
 class LatestBidDocumentTechnoCommercialQuerySchema(BasePhase1Schema):
     project_id = FlexibleInt(required=False, allow_none=True)
-    projectId = FlexibleInt(required=False, allow_none=True)
 
 
 class LatestBidDocumentTechnoCommercialResponseSchema(BasePhase1Schema):
     tender_title = fields.Str(allow_none=True)
     tender_no = fields.Str(allow_none=True)
-    tender_number = fields.Str(allow_none=True)
     tender_issue_date = fields.Str(allow_none=True)
-    delivery_term = fields.Str(allow_none=True)
     delivery_terms = fields.Str(allow_none=True)
     gst_pct = FlexibleFloat(allow_none=True)
     payment_terms = fields.Str(allow_none=True)
@@ -551,7 +515,6 @@ class TechnoCommercialTenderItemSchema(BasePhase1Schema):
     id = fields.Int(dump_only=True)
     sr_no = FlexibleInt(allow_none=True)
     description = fields.Str(allow_none=True)
-    material_name = fields.Str(allow_none=True)
     unit = fields.Str(allow_none=True)
     quantity = FlexibleFloat(allow_none=True)
 
@@ -561,15 +524,12 @@ class TechnoCommercialTenderCreateSchema(BasePhase1Schema):
     pqb_no = fields.Str(allow_none=True)
     tender_title = fields.Str(allow_none=True)
     tender_no = fields.Str(allow_none=True)
-    tender_number = fields.Str(allow_none=True)
-    tender_enquiry_no = fields.Str(allow_none=True)
     tender_issue_date = FlexibleDate(allow_none=True)
     bid_submission_due_date_time = FlexibleDateTime(allow_none=True)
     bid_opening_date_time = FlexibleDateTime(allow_none=True)
     tender_fee = FlexibleFloat(allow_none=True)
     emd = FlexibleFloat(allow_none=True)
     tender_validity = fields.Str(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)
@@ -581,15 +541,12 @@ class TechnoCommercialTenderUpdateSchema(BasePhase1Schema):
     pqb_no = fields.Str(allow_none=True)
     tender_title = fields.Str(allow_none=True)
     tender_no = fields.Str(allow_none=True)
-    tender_number = fields.Str(allow_none=True)
-    tender_enquiry_no = fields.Str(allow_none=True)
     tender_issue_date = FlexibleDate(allow_none=True)
     bid_submission_due_date_time = FlexibleDateTime(allow_none=True)
     bid_opening_date_time = FlexibleDateTime(allow_none=True)
     tender_fee = FlexibleFloat(allow_none=True)
     emd = FlexibleFloat(allow_none=True)
     tender_validity = fields.Str(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)
@@ -603,6 +560,7 @@ class LatestSingleTenderEnquiryQuerySchema(BasePhase1Schema):
 
 class LatestSingleTenderEnquiryResponseSchema(BasePhase1Schema):
     tender_title = fields.Str(allow_none=True)
+    tender_no = fields.Str(allow_none=True)
     tender_enquiry_no = fields.Str(allow_none=True)
 
 
@@ -619,9 +577,10 @@ LatestTechnoCommercialTenderQuerySchema = LatestTenderEnquiryQuerySchema
 
 
 class LatestTechnoCommercialTenderResponseSchema(BasePhase1Schema):
-    tender_number = fields.Str(allow_none=True)
+    tender_no = fields.Str(allow_none=True)
     tender_title = fields.Str(allow_none=True)
     tender_issue_date = fields.Str(allow_none=True)
+
 
 LatestPacTenderQuerySchema = LatestTenderEnquiryQuerySchema
 LatestPacTenderResponseSchema = LatestTenderEnquiryResponseSchema
@@ -634,7 +593,6 @@ class BidDocumentLteItemSchema(BasePhase1Schema):
     id = fields.Int(dump_only=True)
     sr_no = FlexibleInt(allow_none=True)
     description = fields.Str(allow_none=True)
-    material_name = fields.Str(allow_none=True)
     hsn_sac = fields.Str(allow_none=True)
     quantity = FlexibleFloat(allow_none=True)
     unit_price = FlexibleFloat(allow_none=True)
@@ -646,10 +604,8 @@ class BidDocumentLteCreateSchema(BasePhase1Schema):
     customer_name = fields.Str(allow_none=True)
     tender_title = fields.Str(allow_none=True)
     tender_no = fields.Str(allow_none=True)
-    tender_number = fields.Str(allow_none=True)
     tender_issue_date = FlexibleDate(allow_none=True)
     total_no_corrigendum_issued = FlexibleInt(allow_none=True)
-    total_corrigendum_issued = FlexibleInt(allow_none=True)
     bid_submission_date = FlexibleDate(allow_none=True)
     delivery_terms = fields.Str(allow_none=True)
     delivery_period = fields.Str(allow_none=True)
@@ -657,8 +613,9 @@ class BidDocumentLteCreateSchema(BasePhase1Schema):
     payment_terms = fields.Str(allow_none=True)
     warranty_period = fields.Str(allow_none=True)
     gst_pct = FlexibleFloat(allow_none=True)
-    gst_rate = FlexibleFloat(allow_none=True)
-    remark = fields.Str(allow_none=True)
+    total_net_amount = FlexibleFloat(allow_none=True)
+    gst_amount = FlexibleFloat(allow_none=True)
+    total_gross_amount = FlexibleFloat(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)
@@ -670,10 +627,8 @@ class BidDocumentLteUpdateSchema(BasePhase1Schema):
     customer_name = fields.Str(allow_none=True)
     tender_title = fields.Str(allow_none=True)
     tender_no = fields.Str(allow_none=True)
-    tender_number = fields.Str(allow_none=True)
     tender_issue_date = FlexibleDate(allow_none=True)
     total_no_corrigendum_issued = FlexibleInt(allow_none=True)
-    total_corrigendum_issued = FlexibleInt(allow_none=True)
     bid_submission_date = FlexibleDate(allow_none=True)
     delivery_terms = fields.Str(allow_none=True)
     delivery_period = fields.Str(allow_none=True)
@@ -681,8 +636,9 @@ class BidDocumentLteUpdateSchema(BasePhase1Schema):
     payment_terms = fields.Str(allow_none=True)
     warranty_period = fields.Str(allow_none=True)
     gst_pct = FlexibleFloat(allow_none=True)
-    gst_rate = FlexibleFloat(allow_none=True)
-    remark = fields.Str(allow_none=True)
+    total_net_amount = FlexibleFloat(allow_none=True)
+    gst_amount = FlexibleFloat(allow_none=True)
+    total_gross_amount = FlexibleFloat(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)
@@ -697,7 +653,6 @@ class BidDocumentSteItemSchema(BasePhase1Schema):
     id = fields.Int(dump_only=True)
     sr_no = FlexibleInt(allow_none=True)
     description = fields.Str(allow_none=True)
-    material_name = fields.Str(allow_none=True)
     hsn_sac = fields.Str(allow_none=True)
     quantity = FlexibleFloat(allow_none=True)
     unit_price = FlexibleFloat(allow_none=True)
@@ -709,71 +664,52 @@ class BidDocumentSteCreateSchema(BasePhase1Schema):
     customer_name = fields.Str(allow_none=True)
     tender_title = fields.Str(allow_none=True)
     tender_no = fields.Str(allow_none=True)
-    tender_number = fields.Str(allow_none=True)
     tender_issue_date = FlexibleDate(allow_none=True)
     total_no_corrigendum_issued = FlexibleInt(allow_none=True)
-    total_corrigendum_issued = FlexibleInt(allow_none=True)
     bid_submission_date = FlexibleDate(allow_none=True)
     delivery_terms = fields.Str(allow_none=True)
-    delivery_term = fields.Str(allow_none=True)
     delivery_period = fields.Str(allow_none=True)
     bid_validity = fields.Str(allow_none=True)
     payment_terms = fields.Str(allow_none=True)
-    payment_term = fields.Str(allow_none=True)
     warranty_period = fields.Str(allow_none=True)
     gst_pct = FlexibleFloat(allow_none=True)
-    gst_rate = FlexibleFloat(allow_none=True)
-    gst_rate_pct = FlexibleFloat(allow_none=True)
     total_net_amount = FlexibleFloat(allow_none=True)
     total_gross_amount = FlexibleFloat(allow_none=True)
     gst_amount = FlexibleFloat(allow_none=True)
-    total_amount = FlexibleFloat(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)
     attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(BidDocumentSteItemSchema), allow_none=True)
-    requirements = fields.List(fields.Nested(BidDocumentSteItemSchema), allow_none=True)
 
 
 class BidDocumentSteUpdateSchema(BasePhase1Schema):
     customer_name = fields.Str(allow_none=True)
     tender_title = fields.Str(allow_none=True)
     tender_no = fields.Str(allow_none=True)
-    tender_number = fields.Str(allow_none=True)
     tender_issue_date = FlexibleDate(allow_none=True)
     total_no_corrigendum_issued = FlexibleInt(allow_none=True)
-    total_corrigendum_issued = FlexibleInt(allow_none=True)
     bid_submission_date = FlexibleDate(allow_none=True)
     delivery_terms = fields.Str(allow_none=True)
-    delivery_term = fields.Str(allow_none=True)
     delivery_period = fields.Str(allow_none=True)
     bid_validity = fields.Str(allow_none=True)
     payment_terms = fields.Str(allow_none=True)
-    payment_term = fields.Str(allow_none=True)
     warranty_period = fields.Str(allow_none=True)
     gst_pct = FlexibleFloat(allow_none=True)
-    gst_rate = FlexibleFloat(allow_none=True)
-    gst_rate_pct = FlexibleFloat(allow_none=True)
     total_net_amount = FlexibleFloat(allow_none=True)
     total_gross_amount = FlexibleFloat(allow_none=True)
     gst_amount = FlexibleFloat(allow_none=True)
-    total_amount = FlexibleFloat(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)
     attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(BidDocumentSteItemSchema), allow_none=True)
-    requirements = fields.List(fields.Nested(BidDocumentSteItemSchema), allow_none=True)
 
 
 class LatestBidDocumentItemResponseSchema(BasePhase1Schema):
     id = fields.Int(allow_none=True)
     sr_no = FlexibleInt(allow_none=True)
     description = fields.Str(allow_none=True)
-    material_name = fields.Str(allow_none=True)
     hsn_sac = fields.Str(allow_none=True)
     quantity = FlexibleFloat(allow_none=True)
     unit_price = FlexibleFloat(allow_none=True)
@@ -785,7 +721,7 @@ class LatestBidDocumentQuerySchema(BasePhase1Schema):
 
 
 class LatestBidDocumentResponseSchema(BasePhase1Schema):
-    delivery_term = fields.Str(allow_none=True)
+    delivery_terms = fields.Str(allow_none=True)
     gst_pct = FlexibleFloat(allow_none=True)
     payment_terms = fields.Str(allow_none=True)
     warranty_period = fields.Str(allow_none=True)
@@ -805,7 +741,6 @@ class InternationalCompetitiveBiddingItemSchema(BasePhase1Schema):
     id = fields.Int(dump_only=True)
     sr_no = FlexibleInt(allow_none=True)
     description = fields.Str(allow_none=True)
-    material_name = fields.Str(allow_none=True)
     unit = fields.Str(allow_none=True)
     quantity = FlexibleFloat(allow_none=True)
 
@@ -813,56 +748,36 @@ class InternationalCompetitiveBiddingItemSchema(BasePhase1Schema):
 class InternationalCompetitiveBiddingCreateSchema(BasePhase1Schema):
     project_id = FlexibleInt(required=True)
     pqb_no = fields.Str(allow_none=True)
-    pqb_number = fields.Str(allow_none=True)
     tender_title = fields.Str(allow_none=True)
     tender_no = fields.Str(allow_none=True)
-    tender_number = fields.Str(allow_none=True)
-    tender_enquiry_no = fields.Str(allow_none=True)
-    icb_no = fields.Str(allow_none=True)
     tender_issue_date = FlexibleDate(allow_none=True)
     bid_submission_due_date_time = FlexibleDateTime(allow_none=True)
-    submission_due_date_time = FlexibleDateTime(allow_none=True)
-    bid_submission_due_date = FlexibleDateTime(allow_none=True)
     bid_opening_date_time = FlexibleDateTime(allow_none=True)
-    opening_date_time = FlexibleDateTime(allow_none=True)
     tender_fee = FlexibleFloat(allow_none=True)
     emd = FlexibleFloat(allow_none=True)
     tender_validity = fields.Str(allow_none=True)
-    validity = fields.Str(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)
     attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(InternationalCompetitiveBiddingItemSchema), allow_none=True)
-    requirements = fields.List(fields.Nested(InternationalCompetitiveBiddingItemSchema), allow_none=True)
 
 
 class InternationalCompetitiveBiddingUpdateSchema(BasePhase1Schema):
     pqb_no = fields.Str(allow_none=True)
-    pqb_number = fields.Str(allow_none=True)
     tender_title = fields.Str(allow_none=True)
     tender_no = fields.Str(allow_none=True)
-    tender_number = fields.Str(allow_none=True)
-    tender_enquiry_no = fields.Str(allow_none=True)
-    icb_no = fields.Str(allow_none=True)
     tender_issue_date = FlexibleDate(allow_none=True)
     bid_submission_due_date_time = FlexibleDateTime(allow_none=True)
-    submission_due_date_time = FlexibleDateTime(allow_none=True)
-    bid_submission_due_date = FlexibleDateTime(allow_none=True)
     bid_opening_date_time = FlexibleDateTime(allow_none=True)
-    opening_date_time = FlexibleDateTime(allow_none=True)
     tender_fee = FlexibleFloat(allow_none=True)
     emd = FlexibleFloat(allow_none=True)
     tender_validity = fields.Str(allow_none=True)
-    validity = fields.Str(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)
     attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(InternationalCompetitiveBiddingItemSchema), allow_none=True)
-    requirements = fields.List(fields.Nested(InternationalCompetitiveBiddingItemSchema), allow_none=True)
 
 
 # =========================================================================
@@ -872,10 +787,7 @@ class BidDocumentIcbItemSchema(BasePhase1Schema):
     id = fields.Int(dump_only=True)
     sr_no = FlexibleInt(allow_none=True)
     description = fields.Str(allow_none=True)
-    material_name = fields.Str(allow_none=True)
-    item_code = fields.Str(allow_none=True)
     hsn_sac = fields.Str(allow_none=True)
-    hsn_code = fields.Str(allow_none=True)
     quantity = FlexibleFloat(allow_none=True)
     unit_price = FlexibleFloat(allow_none=True)
     total_amount = FlexibleFloat(allow_none=True)
@@ -886,73 +798,53 @@ class BidDocumentIcbCreateSchema(BasePhase1Schema):
     customer_name = fields.Str(allow_none=True)
     tender_title = fields.Str(allow_none=True)
     tender_no = fields.Str(allow_none=True)
-    tender_number = fields.Str(allow_none=True)
     tender_issue_date = FlexibleDate(allow_none=True)
     total_no_corrigendum_issued = FlexibleInt(allow_none=True)
-    total_corrigendum_issued = FlexibleInt(allow_none=True)
     bid_submission_date = FlexibleDate(allow_none=True)
     delivery_terms = fields.Str(allow_none=True)
-    delivery_term = fields.Str(allow_none=True)
     delivery_period = fields.Str(allow_none=True)
     bid_validity = fields.Str(allow_none=True)
     payment_terms = fields.Str(allow_none=True)
-    payment_term = fields.Str(allow_none=True)
     warranty_period = fields.Str(allow_none=True)
     gst_pct = FlexibleFloat(allow_none=True)
-    gst_rate = FlexibleFloat(allow_none=True)
-    gst_rate_pct = FlexibleFloat(allow_none=True)
     total_net_amount = FlexibleFloat(allow_none=True)
     total_gross_amount = FlexibleFloat(allow_none=True)
     gst_amount = FlexibleFloat(allow_none=True)
-    total_amount = FlexibleFloat(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)
     attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(BidDocumentIcbItemSchema), allow_none=True)
-    requirements = fields.List(fields.Nested(BidDocumentIcbItemSchema), allow_none=True)
 
 
 class BidDocumentIcbUpdateSchema(BasePhase1Schema):
     customer_name = fields.Str(allow_none=True)
     tender_title = fields.Str(allow_none=True)
     tender_no = fields.Str(allow_none=True)
-    tender_number = fields.Str(allow_none=True)
     tender_issue_date = FlexibleDate(allow_none=True)
     total_no_corrigendum_issued = FlexibleInt(allow_none=True)
-    total_corrigendum_issued = FlexibleInt(allow_none=True)
     bid_submission_date = FlexibleDate(allow_none=True)
     delivery_terms = fields.Str(allow_none=True)
-    delivery_term = fields.Str(allow_none=True)
     delivery_period = fields.Str(allow_none=True)
     bid_validity = fields.Str(allow_none=True)
     payment_terms = fields.Str(allow_none=True)
-    payment_term = fields.Str(allow_none=True)
     warranty_period = fields.Str(allow_none=True)
     gst_pct = FlexibleFloat(allow_none=True)
-    gst_rate = FlexibleFloat(allow_none=True)
-    gst_rate_pct = FlexibleFloat(allow_none=True)
     total_net_amount = FlexibleFloat(allow_none=True)
     total_gross_amount = FlexibleFloat(allow_none=True)
     gst_amount = FlexibleFloat(allow_none=True)
-    total_amount = FlexibleFloat(allow_none=True)
-    remark = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)
     attachments_count = FlexibleInt(allow_none=True)
     items = fields.List(fields.Nested(BidDocumentIcbItemSchema), allow_none=True)
-    requirements = fields.List(fields.Nested(BidDocumentIcbItemSchema), allow_none=True)
 
 
 class LatestBidDocumentIcbQuerySchema(BasePhase1Schema):
     project_id = FlexibleInt(required=False, allow_none=True)
-    projectId = FlexibleInt(required=False, allow_none=True)
 
 
 class LatestBidDocumentIcbResponseSchema(BasePhase1Schema):
-    delivery_term = fields.Str(allow_none=True)
     delivery_terms = fields.Str(allow_none=True)
     gst_pct = FlexibleFloat(allow_none=True)
     payment_terms = fields.Str(allow_none=True)

@@ -25,9 +25,19 @@ class BidSubmission(db.Model):
         index=True,
     )
 
+    customer_name = db.Column(
+        db.String(255),
+        nullable=True,
+    )
+
     tender_title = db.Column(
         db.String(255),
         nullable=True,
+    )
+
+    tender_no = db.Column(
+        db.String(100),
+        nullable=False,
     )
 
     tender_issue_date = db.Column(
@@ -35,17 +45,18 @@ class BidSubmission(db.Model):
         nullable=True,
     )
 
-    submission_date = db.Column(
+    total_no_corrigendum_issued = db.Column(
+        db.Integer,
+        default=0,
+        nullable=True,
+    )
+
+    bid_submission_date = db.Column(
         db.DateTime,
         nullable=True,
     )
 
-    tender_number = db.Column(
-        db.String(100),
-        nullable=False,
-    )
-
-    delivery_term = db.Column(
+    delivery_terms = db.Column(
         db.String(100),
         nullable=True,
     )
@@ -55,13 +66,13 @@ class BidSubmission(db.Model):
         nullable=True,
     )
 
-    payment_term = db.Column(
-        db.String(255),
+    bid_validity = db.Column(
+        db.String(100),
         nullable=True,
     )
 
-    validity = db.Column(
-        db.String(100),
+    payment_terms = db.Column(
+        db.String(255),
         nullable=True,
     )
 
@@ -70,8 +81,23 @@ class BidSubmission(db.Model):
         nullable=True,
     )
 
-    gst_rate = db.Column(
-        db.Numeric(5, 2),
+    gst_pct = db.Column(
+        db.Numeric(10, 2),
+        nullable=True,
+    )
+
+    total_net_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    gst_amount = db.Column(
+        db.Numeric(18, 2),
+        nullable=True,
+    )
+
+    total_gross_amount = db.Column(
+        db.Numeric(18, 2),
         nullable=True,
     )
 
@@ -109,46 +135,6 @@ class BidSubmission(db.Model):
         cascade="all, delete-orphan",
         lazy="select",
     )
-
-    @property
-    def tender_name(self) -> str | None:
-        return self.tender_title
-
-    @tender_name.setter
-    def tender_name(self, val: str | None) -> None:
-        self.tender_title = val
-
-    @property
-    def submission_number(self) -> str:
-        return self.tender_number
-
-    @submission_number.setter
-    def submission_number(self, val: str) -> None:
-        self.tender_number = val
-
-    @property
-    def delivery_terms(self) -> str | None:
-        return self.delivery_term
-
-    @delivery_terms.setter
-    def delivery_terms(self, val: str | None) -> None:
-        self.delivery_term = val
-
-    @property
-    def payment_terms(self) -> str | None:
-        return self.payment_term
-
-    @payment_terms.setter
-    def payment_terms(self, val: str | None) -> None:
-        self.payment_term = val
-
-    @property
-    def period(self) -> str | None:
-        return self.delivery_period
-
-    @period.setter
-    def period(self, val: str | None) -> None:
-        self.delivery_period = val
 
     def __repr__(self) -> str:
         return f"<BidSubmission {self.id}>"

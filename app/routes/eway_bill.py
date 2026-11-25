@@ -121,7 +121,6 @@ def _serialize_eway_bill(rec: EWayBill) -> dict:
             "id": it.id,
             "sr_no": it.sr_no,
             "description": it.description,
-            "material_name": it.material_name or it.description,
             "hsn_sac": it.hsn_sac,
             "quantity": float(it.quantity) if it.quantity is not None else None,
             "unit": it.unit or "NOS",
@@ -134,7 +133,6 @@ def _serialize_eway_bill(rec: EWayBill) -> dict:
         "id": rec.id,
         "project_id": rec.project_id,
         "eway_bill_no": rec.eway_bill_no,
-        "eway_bill_number": rec.eway_bill_no,
         "eway_bill_date": rec.eway_bill_date.isoformat() if rec.eway_bill_date else None,
         "valid_from": rec.valid_from.isoformat() if rec.valid_from else None,
         "valid_until": rec.valid_until.isoformat() if rec.valid_until else None,
@@ -287,7 +285,7 @@ def handle_get_eway_bills(rec_id=None):
         return jsonify(_serialize_eway_bill(rec)), 200
 
     project_id = request.args.get("project_id", type=int) or request.args.get("projectId", type=int)
-    eway_bill_no = request.args.get("eway_bill_no") or request.args.get("eway_bill_number")
+    eway_bill_no = request.args.get("eway_bill_no")
     records = list_eway_bills(project_id=project_id, eway_bill_no=eway_bill_no)
     return jsonify([_serialize_eway_bill(r) for r in records]), 200
 

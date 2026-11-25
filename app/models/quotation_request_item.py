@@ -18,8 +18,13 @@ class QuotationRequestItem(db.Model):
         index=True,
     )
 
-    material_name = db.Column(
-        db.String(255),
+    sr_no = db.Column(
+        db.Integer,
+        nullable=True,
+    )
+
+    description = db.Column(
+        db.String(500),
         nullable=False,
     )
 

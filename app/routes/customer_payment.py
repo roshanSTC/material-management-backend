@@ -66,9 +66,9 @@ def _customer_payment_response(payment):
         entity_id=payment.id,
     )
     iv = Decimal(str(payment.invoice_value or 0)).quantize(Decimal("0.01"))
-    raw_pay_amt = Decimal(str(payment.payment_amount or 0)).quantize(Decimal("0.01"))
-    tds_amt = Decimal(str(payment.tds or 0)).quantize(Decimal("0.01"))
-    ld_amt = Decimal(str(payment.ld or 0)).quantize(Decimal("0.01"))
+    raw_pay_amt = Decimal(str(payment.payment_received or 0)).quantize(Decimal("0.01"))
+    tds_amt = Decimal(str(payment.tds_deducted or 0)).quantize(Decimal("0.01"))
+    ld_amt = Decimal(str(payment.ld_deducted or 0)).quantize(Decimal("0.01"))
     amt = (raw_pay_amt + tds_amt + ld_amt).quantize(Decimal("0.01"))
 
     if hasattr(payment, "_cumulative_paid") and hasattr(payment, "_pending_amount"):
@@ -82,9 +82,9 @@ def _customer_payment_response(payment):
         running_paid = Decimal("0.00")
         for p in project_payments:
             p_amt = (
-                Decimal(str(p.payment_amount or 0))
-                + Decimal(str(p.tds or 0))
-                + Decimal(str(p.ld or 0))
+                Decimal(str(p.payment_received or 0))
+                + Decimal(str(p.tds_deducted or 0))
+                + Decimal(str(p.ld_deducted or 0))
             ).quantize(Decimal("0.01"))
             running_paid += p_amt
             if p.id == payment.id:
@@ -128,28 +128,19 @@ def _customer_payment_response(payment):
         "id": payment.id,
         "project_id": payment.project_id,
         "customer_id": customer_id,
-        "invoice_no": payment.invoice_no,
-        "invoice_number": payment.invoice_no,
-        "payment_against_invoice_no": payment.invoice_no,
+        "payment_against_invoice_no": payment.payment_against_invoice_no,
         "invoice_date": payment.invoice_date,
         "payment_percentage": _format_decimal(pay_pct),
-        "cumulative_payment_percentage": _format_decimal(cum_pct),
         "pending_percentage": _format_decimal(pend_pct),
         "invoice_value": _format_decimal(payment.invoice_value),
-        "payment_amount": _format_decimal(payment.payment_amount),
-        "payment_received": _format_decimal(payment.payment_amount),
-        "amount_paid": _format_decimal(amt),
+        "payment_received": _format_decimal(payment.payment_received),
         "total_paid_amount": _format_decimal(cum_paid),
         "remaining_amount_before_transaction": _format_decimal(remaining_before),
-        "payment_date": payment.payment_date,
-        "payment_received_date": payment.payment_date,
+        "payment_received_date": payment.payment_received_date,
         "pending_amount": _format_decimal(pend),
-        "balance_amount": _format_decimal(pend),
-        "tds": _format_decimal(payment.tds),
-        "tds_deducted": _format_decimal(payment.tds),
-        "ld": _format_decimal(payment.ld),
-        "ld_deducted": _format_decimal(payment.ld),
-        "liquidated_damages": _format_decimal(payment.ld),
+        "balance_amount": _format_decimal(payment.balance_amount if payment.balance_amount is not None else pend),
+        "tds_deducted": _format_decimal(payment.tds_deducted),
+        "ld_deducted": _format_decimal(payment.ld_deducted),
         "is_payment_completed": is_completed,
         "payment_status": payment_status,
         "payment_status_message": status_message,
@@ -471,7 +462,7 @@ _REQUEST_BODY_CREATE_DOC = {
                         "type": "string",
                         "description": "Serialized JSON string matching CustomerPaymentCreateSchema",
                         "example": (
-                            '{"project_id":2,"invoice_no":"INV-EWU5G-54TRE","invoice_date":"2026-09-10","payment_percentage":50,"invoice_value":5149,"payment_amount":2574.50,"payment_date":"2026-09-22","tds":34,"ld":34,"remark":"Bank UTR & Settlement Remarks"}'
+                            '{"project_id":2,"payment_against_invoice_no":"INV-EWU5G-54TRE","invoice_date":"2026-09-10","payment_percentage":50,"invoice_value":5149,"payment_received":2574.50,"payment_received_date":"2026-09-22","tds_deducted":34,"ld_deducted":34,"remark":"Bank UTR & Settlement Remarks"}'
                         ),
                     },
                     "file": {

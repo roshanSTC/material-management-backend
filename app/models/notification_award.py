@@ -28,6 +28,22 @@ class NotificationAward(db.Model):
         db.String(255),
         nullable=True,
     )
+    gst_pct = db.Column(
+        db.Numeric(10, 2),
+        nullable=True,
+    )
+    total_net_amount = db.Column(
+        db.Numeric(15, 2),
+        nullable=True,
+    )
+    gst_amount = db.Column(
+        db.Numeric(15, 2),
+        nullable=True,
+    )
+    total_gross_amount = db.Column(
+        db.Numeric(15, 2),
+        nullable=True,
+    )
     remark = db.Column(
         db.Text,
         nullable=True,

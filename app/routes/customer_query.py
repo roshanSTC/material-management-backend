@@ -68,10 +68,10 @@ def _customer_query_response(customer_query):
         entity_id=customer_query.id,
     )
 
-    customer_name = ""
-    if customer_query.customer and customer_query.customer.name:
+    customer_name = customer_query.customer_name or ""
+    if not customer_name and customer_query.customer and customer_query.customer.name:
         customer_name = customer_query.customer.name
-    elif customer_query.project and customer_query.project.customer and customer_query.project.customer.name:
+    elif not customer_name and customer_query.project and customer_query.project.customer and customer_query.project.customer.name:
         customer_name = customer_query.project.customer.name
 
     return {
@@ -79,8 +79,7 @@ def _customer_query_response(customer_query):
         "project_id": customer_query.project_id,
         "customer_id": customer_query.customer_id,
         "customer_name": customer_name,
-        "qo_date": customer_query.qo_date,
-        "query_date": customer_query.qo_date,
+        "query_date": customer_query.query_date,
         "remarks": remarks_arr,
         "created_at": customer_query.created_at,
         "updated_at": customer_query.updated_at,
@@ -88,9 +87,8 @@ def _customer_query_response(customer_query):
         "items": [
             {
                 "id": item.id,
-                "sr_no": idx,
-                "description": item.material_name,
-                "material_name": item.material_name,
+                "sr_no": item.sr_no if item.sr_no is not None else idx,
+                "description": item.description,
                 "quantity": item.quantity,
             }
             for idx, item in enumerate(customer_query.items, start=1)
@@ -133,7 +131,7 @@ def _customer_query_response(customer_query):
                                 '"qo_date":"2026-08-31",'
                                 '"remark":"Urgent requirement",'
                                 '"items":['
-                                '{"material_name":"Steel",'
+                                '{"description":"Steel",'
                                 '"quantity":"10.000"}'
                                 ']}'
                             ),
@@ -257,7 +255,7 @@ def create():
         customer_query = create_customer_query_transaction(
             project_id=project_id,
             customer_id=customer_id,
-            qo_date=validated_data["qo_date"],
+            query_date=validated_data["query_date"],
             remark=remark_input,
             items=validated_data["items"],
             user_id=user_id,
@@ -422,10 +420,11 @@ def get_latest_customer_query(args=None):
         return {
             "items": [
                 {
-                    "material_name": item.material_name,
+                    "sr_no": item.sr_no if item.sr_no is not None else idx,
+                    "description": item.description,
                     "quantity": item.quantity,
                 }
-                for item in customer_query.items
+                for idx, item in enumerate(customer_query.items, start=1)
             ]
         }, 200
     except ProjectNotFoundError as exc:
@@ -457,7 +456,7 @@ def get_latest_customer_query(args=None):
                                 '"customer_id":1,'
                                 '"qo_date":"2026-09-01",'
                                 '"remark":"Updated requirement",'
-                                '"items":[{"material_name":"Steel",'
+                                '"items":[{"description":"Steel",'
                                 '"quantity":"20.000"}]}'
                             ),
                         },
@@ -519,15 +518,16 @@ def update(customer_query_id):
                 user_id = None
 
         has_remark = ("remark" in data) or ("remarks" in data)
-        remark_input = data.get("remark") if "remark" in data else data.get("remarks")
+        remark_input = data.get("remarks") if "remarks" in data else data.get("remark")
 
-        qo_date_input = data.get("qo_date") or data.get("query_date")
+        query_date_input = data.get("query_date")
 
         customer_query = update_customer_query_transaction(
             customer_query_id=customer_query_id,
             project_id=data.get("project_id"),
             customer_id=data.get("customer_id"),
-            qo_date=qo_date_input,
+            customer_name=data.get("customer_name"),
+            query_date=query_date_input,
             remark=remark_input,
             items=data.get("items"),
             user_id=user_id,

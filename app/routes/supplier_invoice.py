@@ -62,16 +62,12 @@ def _supplier_invoice_response(invoice):
         "id": invoice.id,
         "project_id": invoice.project_id,
         "supplier_id": invoice.supplier_id,
-        "supplier_name": supplier_name,
+        "supplier_name": invoice.supplier_name or supplier_name,
         "invoice_no": invoice.invoice_no,
-        "invoice_number": invoice.invoice_no,
         "invoice_date": invoice.invoice_date,
-        "delivery_terms": invoice.delivery_terms,
-        "delivery_term": invoice.delivery_terms,
-        "incoterms": invoice.delivery_terms,
+        "incoterms": invoice.incoterms,
         "delivery_period": invoice.delivery_period,
         "payment_terms": invoice.payment_terms,
-        "payment_term": invoice.payment_terms,
         "warranty_period": invoice.warranty_period,
         "total_amount": invoice.total_amount,
         "total_net_amount": invoice.total_net_amount,
@@ -86,18 +82,13 @@ def _supplier_invoice_response(invoice):
         "items": [
             {
                 "id": item.id,
-                "sr_no": idx + 1,
+                "sr_no": item.sr_no if item.sr_no is not None else (idx + 1),
                 "supplier_invoice_id": item.supplier_invoice_id,
-                "material_name": item.material_name or item.description,
                 "description": item.description,
-                "item_description": item.description,
-                "hsn_code": item.hsn_code,
-                "hsn": item.hsn_code,
-                "hsn_sac": item.hsn_code,
+                "hsn_sac": item.hsn_sac,
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
-                "net_amount": item.net_amount,
-                "total_amount": item.net_amount,
+                "total_amount": item.total_amount,
                 "created_at": item.created_at,
             }
             for idx, item in enumerate(invoice.items)
@@ -370,7 +361,7 @@ _REQUEST_BODY_CREATE_DOC = {
                     "data": {
                         "type": "string",
                         "description": "Serialized JSON string matching SupplierInvoiceCreateSchema",
-                        "example":('{"project_id":1,"invoice_no":"GD-234-GGJ","invoice_date":"2026-09-08","delivery_terms":"CPT","payment_terms":"34 % inadvance","warranty_period":"12 days","delivery_period":"2 week","total_amount":23691,"total_net_amount":23691,"remark":" Invoice Documents & Attachments\n","items":[{"material_name":"cold ice tank","description":"cold ice tank","hsn_code":"46","quantity":21,"unit_price":55,"net_amount":1155},{"material_name":"steel heaters","description":"steel heaters","hsn_code":"4563","quantity":50,"unit_price":34,"net_amount":1700},{"material_name":"Textiles","description":"Textiles","hsn_code":"465","quantity":12,"unit_price":34,"net_amount":408},{"material_name":"Rubber","description":"Rubber","hsn_code":"njlk5423","quantity":12,"unit_price":21,"net_amount":252},{"material_name":"Rubber","description":"Rubber","hsn_code":"rytf588","quantity":123,"unit_price":7,"net_amount":861},{"material_name":"Glass","description":"Glass","hsn_code":"","quantity":324,"unit_price":45,"net_amount":14580},{"material_name":"Plastics","description":"Plastics","hsn_code":"","quantity":12,"unit_price":43,"net_amount":516},{"material_name":"Metals plate","description":"Metals plate","hsn_code":"","quantity":121,"unit_price":34,"net_amount":4114},{"material_name":"steeeel wood bord","description":"steeeel wood bord","hsn_code":"","quantity":21,"unit_price":5,"net_amount":105}]}'),
+                        "example":('{"project_id":1,"invoice_no":"GD-234-GGJ","invoice_date":"2026-09-08","incoterms":"CPT","payment_terms":"34 % inadvance","warranty_period":"12 days","delivery_period":"2 week","total_amount":23691,"total_net_amount":23691,"remark":" Invoice Documents & Attachments\\n","items":[{"description":"cold ice tank","hsn_sac":"46","quantity":21,"unit_price":55,"total_amount":1155}]}'),
                     },
                     "file": {
                         "type": "array",
@@ -395,7 +386,7 @@ _REQUEST_BODY_UPDATE_DOC = {
                     "data": {
                         "type": "string",
                         "description": "Serialized JSON string matching SupplierInvoiceUpdateSchema",
-                        "example":('{"project_id":1,"invoice_no":"GD-234-GGJ","invoice_date":"2026-09-08","delivery_terms":"CPT","payment_terms":"34 % inadvance","warranty_period":"12 days","delivery_period":"2 week","total_amount":23691,"total_net_amount":23691,"remark":" Invoice Documents & Attachments\n","items":[{"material_name":"cold ice tank","description":"cold ice tank","hsn_code":"46","quantity":21,"unit_price":55,"net_amount":1155},{"material_name":"steel heaters","description":"steel heaters","hsn_code":"4563","quantity":50,"unit_price":34,"net_amount":1700},{"material_name":"Textiles","description":"Textiles","hsn_code":"465","quantity":12,"unit_price":34,"net_amount":408},{"material_name":"Rubber","description":"Rubber","hsn_code":"njlk5423","quantity":12,"unit_price":21,"net_amount":252},{"material_name":"Rubber","description":"Rubber","hsn_code":"rytf588","quantity":123,"unit_price":7,"net_amount":861},{"material_name":"Glass","description":"Glass","hsn_code":"","quantity":324,"unit_price":45,"net_amount":14580},{"material_name":"Plastics","description":"Plastics","hsn_code":"","quantity":12,"unit_price":43,"net_amount":516},{"material_name":"Metals plate","description":"Metals plate","hsn_code":"","quantity":121,"unit_price":34,"net_amount":4114},{"material_name":"steeeel wood bord","description":"steeeel wood bord","hsn_code":"","quantity":21,"unit_price":5,"net_amount":105}]}'),
+                        "example":('{"project_id":1,"invoice_no":"GD-234-GGJ","invoice_date":"2026-09-08","incoterms":"CPT","payment_terms":"34 % inadvance","warranty_period":"12 days","delivery_period":"2 week","total_amount":23691,"total_net_amount":23691,"remark":" Invoice Documents & Attachments\\n","items":[{"description":"cold ice tank","hsn_sac":"46","quantity":21,"unit_price":55,"total_amount":1155}]}'),
                     },
                     "file": {
                         "type": "array",

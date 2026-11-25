@@ -70,37 +70,28 @@ def _parse_decimal_val(val) -> Decimal | None:
 
 def _replace_items(purchase_order: PurchaseOrder, items: list[dict]) -> None:
     purchase_order.items.clear()
-    for item in items:
-        mat_name = _normalize_optional_string(
-            item.get("material_name") or item.get("description")
-        )
-        desc = _normalize_optional_string(
-            item.get("description") or item.get("material_name")
-        ) or ""
-        hsn = _normalize_optional_string(
-            item.get("hsn_code") or item.get("hsn_sac")
-        )
+    for idx, item in enumerate(items, start=1):
+        desc = _normalize_optional_string(item.get("description")) or ""
+        hsn = _normalize_optional_string(item.get("hsn_sac"))
         qty = _parse_decimal_val(item.get("quantity")) or Decimal("1")
         unit_price = _parse_decimal_val(item.get("unit_price"))
         if unit_price is None:
             unit_price = Decimal("0.00")
 
-        net_amt = _parse_decimal_val(item.get("net_amount"))
-        if net_amt is None:
-            net_amt = _parse_decimal_val(item.get("total_price"))
-        if net_amt is None and unit_price is not None and qty is not None:
-            net_amt = (qty * unit_price).quantize(Decimal("0.01"))
+        total_price = _parse_decimal_val(item.get("total_price"))
+        if total_price is None and unit_price is not None and qty is not None:
+            total_price = (qty * unit_price).quantize(Decimal("0.01"))
 
         unit_str = _normalize_optional_string(item.get("unit")) or "NOS"
-        item_delivery_date = _parse_date_val(item.get("delivery_date") or item.get("deliveryDate")) or purchase_order.delivery_date
+        item_delivery_date = _parse_date_val(item.get("delivery_date")) or purchase_order.delivery_date
 
         po_item = PurchaseOrderItem(
-            material_name=mat_name,
+            sr_no=item.get("sr_no") if item.get("sr_no") is not None else idx,
             description=desc,
-            hsn_code=hsn,
+            hsn_sac=hsn,
             quantity=qty,
             unit_price=unit_price,
-            net_amount=net_amt,
+            total_price=total_price,
             unit=unit_str,
             delivery_date=item_delivery_date,
         )
@@ -108,28 +99,14 @@ def _replace_items(purchase_order: PurchaseOrder, items: list[dict]) -> None:
 
 
 def create_purchase_order(*, data: dict) -> PurchaseOrder:
-    po_num = str(
-        data.get("po_no")
-        if data.get("po_no") is not None
-        else data.get("po_number", "")
-    ).strip()
+    po_num = str(data.get("po_no") or "").strip()
+    gst_rate_val = _parse_decimal_val(data.get("gst_rate_pct"))
 
-    gst_val = (
-        data.get("gst_rate_pct")
-        if data.get("gst_rate_pct") is not None
-        else data.get("gst_pct")
-        if data.get("gst_pct") is not None
-        else data.get("gst_rate")
-        if data.get("gst_rate") is not None
-        else data.get("gst")
-    )
-    gst_rate_val = _parse_decimal_val(gst_val)
-
-    del_date_val = _parse_date_val(data.get("delivery_date") or data.get("deliveryDate"))
+    del_date_val = _parse_date_val(data.get("delivery_date"))
     if del_date_val is None and data.get("items"):
         for it in data["items"]:
             if isinstance(it, dict):
-                parsed = _parse_date_val(it.get("delivery_date") or it.get("deliveryDate"))
+                parsed = _parse_date_val(it.get("delivery_date"))
                 if parsed:
                     del_date_val = parsed
                     break
@@ -141,7 +118,7 @@ def create_purchase_order(*, data: dict) -> PurchaseOrder:
             if isinstance(it, dict):
                 it_qty = _parse_decimal_val(it.get("quantity")) or Decimal("1")
                 it_price = _parse_decimal_val(it.get("unit_price")) or Decimal("0.00")
-                it_net = _parse_decimal_val(it.get("net_amount")) or _parse_decimal_val(it.get("total_price")) or (it_qty * it_price)
+                it_net = _parse_decimal_val(it.get("total_price")) or (it_qty * it_price)
                 tot += it_net
         net_amt_val = tot.quantize(Decimal("0.01"))
 
@@ -156,22 +133,19 @@ def create_purchase_order(*, data: dict) -> PurchaseOrder:
     purchase_order = PurchaseOrder(
         project_id=data["project_id"],
         customer_id=data.get("customer_id"),
+        customer_name=_normalize_optional_string(data.get("customer_name")),
         tender_id=data.get("tender_id"),
         po_title=_normalize_optional_string(data.get("po_title")) or "",
-        po_number=po_num,
+        po_no=po_num,
         poc_name=_normalize_optional_string(data.get("poc_name")),
         email=_normalize_optional_string(data.get("email")),
         contact=_normalize_optional_string(data.get("contact")),
-        po_date=_parse_date_val(data.get("po_date") or data.get("poDate")),
+        po_date=_parse_date_val(data.get("po_date")),
         delivery_date=del_date_val,
-        delivery_term=_normalize_optional_string(
-            data.get("delivery_term") or data.get("delivery_terms")
-        ),
-        payment_terms=_normalize_optional_string(
-            data.get("payment_terms") or data.get("payment_term")
-        ),
+        delivery_terms=_normalize_optional_string(data.get("delivery_terms")),
+        payment_terms=_normalize_optional_string(data.get("payment_terms")),
         warranty_period=_normalize_optional_string(data.get("warranty_period")),
-        gst_rate=gst_rate_val,
+        gst_rate_pct=gst_rate_val,
         gst_amount=gst_amt_val,
         total_net_amount=net_amt_val,
         total_gross_amount=gross_amt_val,
@@ -200,7 +174,7 @@ def list_purchase_orders(
     *,
     project_id: int | None = None,
     customer_id: int | None = None,
-    po_number: str | None = None,
+    po_no: str | None = None,
 ) -> list[PurchaseOrder]:
     statement = db.select(PurchaseOrder).options(
         selectinload(PurchaseOrder.items)
@@ -209,8 +183,8 @@ def list_purchase_orders(
         statement = statement.where(PurchaseOrder.project_id == project_id)
     if customer_id is not None:
         statement = statement.where(PurchaseOrder.customer_id == customer_id)
-    if po_number is not None:
-        statement = statement.where(PurchaseOrder.po_number.ilike(f"%{po_number}%"))
+    if po_no is not None:
+        statement = statement.where(PurchaseOrder.po_no.ilike(f"%{po_no}%"))
 
     return db.session.execute(
         statement.order_by(PurchaseOrder.id.desc())
@@ -235,14 +209,14 @@ def update_purchase_order(
         purchase_order.project_id = data["project_id"]
     if "customer_id" in data:
         purchase_order.customer_id = data["customer_id"]
+    if "customer_name" in data:
+        purchase_order.customer_name = _normalize_optional_string(data["customer_name"])
     if "tender_id" in data:
         purchase_order.tender_id = data["tender_id"]
     if "po_title" in data and data["po_title"] is not None:
         purchase_order.po_title = _normalize_optional_string(data["po_title"]) or ""
-    if "po_no" in data or "po_number" in data:
-        po_num = data.get("po_no") if data.get("po_no") is not None else data.get("po_number")
-        if po_num is not None:
-            purchase_order.po_number = str(po_num).strip()
+    if "po_no" in data and data["po_no"] is not None:
+        purchase_order.po_no = str(data["po_no"]).strip()
     if "poc_name" in data:
         purchase_order.poc_name = _normalize_optional_string(data["poc_name"])
     if "email" in data:
@@ -250,46 +224,28 @@ def update_purchase_order(
     if "contact" in data:
         purchase_order.contact = _normalize_optional_string(data["contact"])
     if "po_date" in data:
-        purchase_order.po_date = _parse_date_val(data.get("po_date") or data.get("poDate"))
-    if "delivery_date" in data or "deliveryDate" in data:
-        del_date_val = _parse_date_val(data.get("delivery_date") or data.get("deliveryDate"))
+        purchase_order.po_date = _parse_date_val(data["po_date"])
+    if "delivery_date" in data:
+        del_date_val = _parse_date_val(data["delivery_date"])
         if del_date_val is not None:
             purchase_order.delivery_date = del_date_val
     elif purchase_order.delivery_date is None and data.get("items"):
         for it in data["items"]:
             if isinstance(it, dict):
-                parsed = _parse_date_val(it.get("delivery_date") or it.get("deliveryDate"))
+                parsed = _parse_date_val(it.get("delivery_date"))
                 if parsed:
                     purchase_order.delivery_date = parsed
                     break
 
-    if "delivery_term" in data or "delivery_terms" in data:
-        purchase_order.delivery_term = _normalize_optional_string(
-            data.get("delivery_term") or data.get("delivery_terms")
-        )
-    if "payment_terms" in data or "payment_term" in data:
-        purchase_order.payment_terms = _normalize_optional_string(
-            data.get("payment_terms") or data.get("payment_term")
-        )
+    if "delivery_terms" in data:
+        purchase_order.delivery_terms = _normalize_optional_string(data["delivery_terms"])
+    if "payment_terms" in data:
+        purchase_order.payment_terms = _normalize_optional_string(data["payment_terms"])
     if "warranty_period" in data:
         purchase_order.warranty_period = _normalize_optional_string(data["warranty_period"])
 
-    if (
-        "gst_rate" in data
-        or "gst" in data
-        or "gst_rate_pct" in data
-        or "gst_pct" in data
-    ):
-        gst_val = (
-            data.get("gst_rate_pct")
-            if data.get("gst_rate_pct") is not None
-            else data.get("gst_pct")
-            if data.get("gst_pct") is not None
-            else data.get("gst_rate")
-            if data.get("gst_rate") is not None
-            else data.get("gst")
-        )
-        purchase_order.gst_rate = _parse_decimal_val(gst_val)
+    if "gst_rate_pct" in data:
+        purchase_order.gst_rate_pct = _parse_decimal_val(data["gst_rate_pct"])
 
     if "items" in data and data["items"] is not None:
         _replace_items(purchase_order, data["items"])
@@ -300,18 +256,18 @@ def update_purchase_order(
     ):
         items_net = Decimal("0.00")
         for it in purchase_order.items:
-            items_net += (it.net_amount or Decimal("0.00"))
+            items_net += (it.total_price or Decimal("0.00"))
         purchase_order.total_net_amount = items_net.quantize(Decimal("0.01"))
     elif "total_net_amount" in data and data["total_net_amount"] is not None:
         purchase_order.total_net_amount = _parse_decimal_val(data["total_net_amount"])
 
     # If items or gst were updated and caller did not pass an explicit gst_amount, recalculate
     if ("items" in data and data["items"] is not None and ("gst_amount" not in data or data.get("gst_amount") is None)) or (
-        purchase_order.gst_amount is None and purchase_order.gst_rate is not None and purchase_order.total_net_amount is not None
+        purchase_order.gst_amount is None and purchase_order.gst_rate_pct is not None and purchase_order.total_net_amount is not None
     ):
-        if purchase_order.gst_rate is not None and purchase_order.total_net_amount is not None:
+        if purchase_order.gst_rate_pct is not None and purchase_order.total_net_amount is not None:
             purchase_order.gst_amount = (
-                purchase_order.total_net_amount * purchase_order.gst_rate / Decimal("100")
+                purchase_order.total_net_amount * purchase_order.gst_rate_pct / Decimal("100")
             ).quantize(Decimal("0.01"))
     elif "gst_amount" in data and data["gst_amount"] is not None:
         purchase_order.gst_amount = _parse_decimal_val(data["gst_amount"])

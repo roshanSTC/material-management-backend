@@ -59,18 +59,16 @@ def _parse_decimal_val(val) -> Decimal | None:
 
 def _replace_items(customer_tender: CustomerTender, items: list[dict]) -> None:
     customer_tender.items.clear()
-    for item in items:
-        desc = (
-            item.get("description")
-            or item.get("material_name")
-            or ""
-        )
+    for idx, item in enumerate(items, start=1):
+        desc = str(item.get("description") or "").strip()
         quantity_val = _parse_decimal_val(item.get("quantity")) or Decimal("1")
         item_code_val = _normalize_optional_string(item.get("item_code"))
 
         tender_item = CustomerTenderItem(
+            sr_no=item.get("sr_no") if item.get("sr_no") is not None else idx,
             item_code=item_code_val,
             description=desc,
+            unit=_normalize_optional_string(item.get("unit")),
             quantity=quantity_val,
         )
         customer_tender.items.append(tender_item)
@@ -80,23 +78,20 @@ def create_customer_tender(*, data: dict) -> CustomerTender:
     tender = CustomerTender(
         project_id=data["project_id"],
         customer_id=data.get("customer_id"),
-        officer_name=_normalize_optional_string(
-            data.get("officer_name") or data.get("company_business_name")
-        ),
+        customer_name=_normalize_optional_string(data.get("customer_name")),
+        officer_name=_normalize_optional_string(data.get("officer_name")),
         email=_normalize_optional_string(data.get("email")),
         address=_normalize_optional_string(data.get("address")),
         website=_normalize_optional_string(data.get("website")),
         contact_number=_normalize_optional_string(data.get("contact_number")),
         tender_title=_normalize_optional_string(data.get("tender_title")),
-        tender_number=str(data["tender_number"]).strip(),
-        tender_date=_parse_datetime_val(data.get("tender_date")),
+        tender_no=str(data["tender_no"]).strip(),
+        tender_issue_date=_parse_datetime_val(data.get("tender_issue_date")),
         opening_date_time=_parse_datetime_val(data.get("opening_date_time")),
         closing_date_time=_parse_datetime_val(data.get("closing_date_time")),
         tender_fee=_parse_decimal_val(data.get("tender_fee")),
         validity=_normalize_optional_string(data.get("validity")),
-        delivery_terms=_normalize_optional_string(
-            data.get("delivery_terms") or data.get("incoterms")
-        ),
+        delivery_terms=_normalize_optional_string(data.get("delivery_terms")),
         delivery_period=_normalize_optional_string(data.get("delivery_period")),
         payment_terms=_normalize_optional_string(data.get("payment_terms")),
         warranty_period=_normalize_optional_string(data.get("warranty_period")),
@@ -154,10 +149,10 @@ def update_customer_tender(
         customer_tender.project_id = data["project_id"]
     if "customer_id" in data:
         customer_tender.customer_id = data["customer_id"]
-    if "officer_name" in data or "company_business_name" in data:
-        customer_tender.officer_name = _normalize_optional_string(
-            data.get("officer_name") or data.get("company_business_name")
-        )
+    if "customer_name" in data:
+        customer_tender.customer_name = _normalize_optional_string(data["customer_name"])
+    if "officer_name" in data:
+        customer_tender.officer_name = _normalize_optional_string(data["officer_name"])
     if "email" in data:
         customer_tender.email = _normalize_optional_string(data["email"])
     if "address" in data:
@@ -168,10 +163,10 @@ def update_customer_tender(
         customer_tender.contact_number = _normalize_optional_string(data["contact_number"])
     if "tender_title" in data:
         customer_tender.tender_title = _normalize_optional_string(data["tender_title"])
-    if "tender_number" in data and data["tender_number"] is not None:
-        customer_tender.tender_number = str(data["tender_number"]).strip()
-    if "tender_date" in data:
-        customer_tender.tender_date = _parse_datetime_val(data["tender_date"])
+    if "tender_no" in data and data["tender_no"] is not None:
+        customer_tender.tender_no = str(data["tender_no"]).strip()
+    if "tender_issue_date" in data:
+        customer_tender.tender_issue_date = _parse_datetime_val(data["tender_issue_date"])
     if "opening_date_time" in data:
         customer_tender.opening_date_time = _parse_datetime_val(data["opening_date_time"])
     if "closing_date_time" in data:
@@ -180,10 +175,8 @@ def update_customer_tender(
         customer_tender.tender_fee = _parse_decimal_val(data["tender_fee"])
     if "validity" in data:
         customer_tender.validity = _normalize_optional_string(data["validity"])
-    if "delivery_terms" in data or "incoterms" in data:
-        customer_tender.delivery_terms = _normalize_optional_string(
-            data.get("delivery_terms") or data.get("incoterms")
-        )
+    if "delivery_terms" in data:
+        customer_tender.delivery_terms = _normalize_optional_string(data["delivery_terms"])
     if "delivery_period" in data:
         customer_tender.delivery_period = _normalize_optional_string(data["delivery_period"])
     if "payment_terms" in data:

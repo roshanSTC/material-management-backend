@@ -53,15 +53,11 @@ def _customer_delivery_packing_list_response(packing_list):
         "id": packing_list.id,
         "project_id": packing_list.project_id,
         "packing_list_no": packing_list.packing_list_no,
-        "packing_list_number": packing_list.packing_list_no,
         "packing_list_date": packing_list.packing_list_date,
-        "total_no_of_packs": packing_list.total_no_of_packs,
-        "total_no_packages": packing_list.total_no_of_packs,
+        "total_no_packages": packing_list.total_no_packages,
         "packing_condition": packing_list.packing_condition,
         "net_weight": packing_list.net_weight,
-        "net_weight_kg": packing_list.net_weight,
         "gross_weight": packing_list.gross_weight,
-        "gross_weight_kg": packing_list.gross_weight,
         "remarks": get_step_remarks_for_response(
             project_id=packing_list.project_id,
             step_number=13,
@@ -73,19 +69,13 @@ def _customer_delivery_packing_list_response(packing_list):
         "items": [
             {
                 "id": item.id,
-                "sr_no": idx + 1,
+                "sr_no": item.sr_no if item.sr_no is not None else (idx + 1),
                 "packing_list_id": item.packing_list_id,
-                "material_name": item.material_name,
-                "material_description": item.material_name,
-                "description": item.material_name,
-                "hsn_code": item.hsn_code,
-                "hsn_sac": item.hsn_code,
+                "description": item.description,
+                "hsn_sac": item.hsn_sac,
                 "quantity": str(item.quantity) if item.quantity is not None else None,
-                "weight": str(item.weight) if item.weight is not None else None,
-                "unit_weight": str(item.weight) if item.weight is not None else None,
-                "total_weight": str(item.weight) if item.weight is not None else None,
-                "total_weight_kg": str(item.weight) if item.weight is not None else None,
-                "weight_per_unit_kg": str(item.weight) if item.weight is not None else None,
+                "unit_weight": str(item.unit_weight) if item.unit_weight is not None else None,
+                "total_weight": str(item.total_weight) if item.total_weight is not None else None,
                 "created_at": item.created_at,
                 "updated_at": item.updated_at,
             }
@@ -395,7 +385,7 @@ _REQUEST_BODY_CREATE_DOC = {
                         "type": "string",
                         "description": "Serialized JSON string matching CustomerDeliveryPackingListCreateSchema",
                         "example": (
-                            '{"project_id":2,"packing_list_no":"vgfrde467","packing_list_date":"2026-09-07","total_no_of_packs":7,"packing_condition":"bvcfgdesr5gyuj","net_weight":"465tyghvb","gross_weight":"v cfdrytugyh","items":[{"material_name":"steel cold","hsn_code":"65465","quantity":55,"weight":8},{"material_name":"gdfhbvf","hsn_code":"5464","quantity":55,"weight":855}]}'
+                            '{"project_id":2,"packing_list_no":"vgfrde467","packing_list_date":"2026-09-07","total_no_packages":7,"packing_condition":"bvcfgdesr5gyuj","net_weight":"465tyghvb","gross_weight":"v cfdrytugyh","items":[{"description":"steel cold","hsn_sac":"65465","quantity":55,"total_weight":8},{"description":"gdfhbvf","hsn_sac":"5464","quantity":55,"total_weight":855}]}'
                         ),
                     },
                     "file": {

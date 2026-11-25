@@ -1859,7 +1859,6 @@ def sync_supplier_order_confirmation_step(project_id: int):
 def sync_supplier_billing_step(project_id: int):
     from app.models import (
         SupplierInvoice,
-        SupplierPackingList,
         SupplierProformaInvoice,
     )
 
@@ -1873,13 +1872,8 @@ def sync_supplier_billing_step(project_id: int):
         .order_by(SupplierInvoice.id.desc())
         .first()
     )
-    packing_list = (
-        SupplierPackingList.query.filter_by(project_id=project_id)
-        .order_by(SupplierPackingList.id.desc())
-        .first()
-    )
 
-    if proforma is None and invoice is None and packing_list is None:
+    if proforma is None and invoice is None:
         step = (
             ProjectStep.query.filter_by(
                 project_id=project_id,
@@ -1965,35 +1959,6 @@ def sync_supplier_billing_step(project_id: int):
             "remark": invoice.remark or step_data.get("remark"),
         })
 
-    if packing_list is not None:
-        pl_date_str = None
-        if packing_list.packing_list_date:
-            pl_date_str = (
-                packing_list.packing_list_date.isoformat()
-                if hasattr(packing_list.packing_list_date, "isoformat")
-                else str(packing_list.packing_list_date)[:10]
-            )
-
-        weight_val = (
-            str(packing_list.total_weight)
-            if packing_list.total_weight is not None
-            else str(packing_list.weight)
-            if packing_list.weight is not None
-            else None
-        )
-
-        step_data.update({
-            "has_packing_list": True,
-            "packing_list_no": packing_list.packing_list_no,
-            "packing_list_number": packing_list.packing_list_no,
-            "packing_list_date": pl_date_str,
-            "packing_condition": packing_list.packing_condition,
-            "weight": weight_val,
-            "total_weight": weight_val,
-            "total_gross_weight_kg": weight_val,
-            "packing_list_remarks": packing_list.remark,
-        })
-
     return upsert_project_step_record(
         project_id=project_id,
         step_number=10,
@@ -2010,7 +1975,10 @@ def sync_supplier_invoice_step(project_id: int):
 
 
 def sync_supplier_packing_list_step(project_id: int):
-    return sync_supplier_billing_step(project_id)
+    project = db.session.get(Project, project_id)
+    if project is not None:
+        from app.routes.project_step import sync_project_steps_from_records
+        sync_project_steps_from_records(project)
 
 
 def sync_material_delivery_step(project_id: int):

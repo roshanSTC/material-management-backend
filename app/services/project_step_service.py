@@ -177,7 +177,7 @@ STEP_DEFINITIONS = {
         },
     },
     12: {
-        "name": "Customs Clearance",
+        "name": "Freight Forwarder / CHA Details",
         "description": "Clear goods from customs",
         "required_fields": {
             "freight_forwarder_name",

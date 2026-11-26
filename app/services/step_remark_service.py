@@ -34,7 +34,7 @@ STEP_NAMES = {
     9: "Order Confirmation to Supplier",
     10: "Supplier Invoice",
     11: "Material Delivery",
-    12: "Customs Clearance",
+    12: "Freight Forwarder / CHA Details",
     13: "Customer Invoice",
     14: "Customer Payment",
     15: "Payment to Supplier",

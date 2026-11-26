@@ -222,6 +222,14 @@ def sync_project_steps_from_records(project):
                 )
                 existing_steps["FORM_13_PAC_TENDER"] = s
                 changed = True
+            elif (s.form_code == "FORM_28_FREIGHT_CHA" or s.step_name == "Customs Clearance") and s.step_name != "Freight Forwarder / CHA Details":
+                f28_def = form_defs.get("FORM_28_FREIGHT_CHA")
+                s.form_code = "FORM_28_FREIGHT_CHA"
+                s.step_name = f28_def.name if f28_def else "Freight Forwarder / CHA Details"
+                if f28_def and f28_def.description:
+                    s.description = f28_def.description
+                existing_steps["FORM_28_FREIGHT_CHA"] = s
+                changed = True
 
         # Self-healing: if FORM_30 step mistakenly contains FORM_33 data
         step_30 = existing_steps.get("FORM_30_TECHNO_COMMERCIAL_TENDER")

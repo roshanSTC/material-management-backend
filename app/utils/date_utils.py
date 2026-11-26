@@ -97,6 +97,19 @@ def configure_marshmallow_date_format():
             return None
         if isinstance(value, datetime.date):
             return value.strftime(DATE_RESPONSE_FORMAT)
+        if isinstance(value, str):
+            val_str = value.strip()
+            if not val_str:
+                return None
+            for fmt in DATE_INPUT_FORMATS:
+                try:
+                    return datetime.datetime.strptime(val_str, fmt).strftime(DATE_RESPONSE_FORMAT)
+                except ValueError:
+                    pass
+            try:
+                return datetime.datetime.fromisoformat(val_str.replace("Z", "+00:00")).strftime(DATE_RESPONSE_FORMAT)
+            except ValueError:
+                return val_str
         return orig_serialize(self, value, attr, obj, **kwargs)
 
     def _custom_deserialize(self, value, attr, data, **kwargs):

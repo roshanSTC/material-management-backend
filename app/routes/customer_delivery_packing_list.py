@@ -385,7 +385,7 @@ _REQUEST_BODY_CREATE_DOC = {
                         "type": "string",
                         "description": "Serialized JSON string matching CustomerDeliveryPackingListCreateSchema",
                         "example": (
-                            '{"project_id":2,"packing_list_no":"vgfrde467","packing_list_date":"2026-09-07","total_no_packages":7,"packing_condition":"bvcfgdesr5gyuj","net_weight":"465tyghvb","gross_weight":"v cfdrytugyh","items":[{"description":"steel cold","hsn_sac":"65465","quantity":55,"total_weight":8},{"description":"gdfhbvf","hsn_sac":"5464","quantity":55,"total_weight":855}]}'
+                            '{"project_id":2,"packing_list_no":"vgfrde467","packing_list_date":"2026-09-07","total_no_packages":7,"packing_condition":"bvcfgdesr5gyuj","items":[{"description":"steel cold","hsn_sac":"65465","quantity":55,"total_weight":8},{"description":"gdfhbvf","hsn_sac":"5464","quantity":55,"total_weight":855}]}'
                         ),
                     },
                     "file": {

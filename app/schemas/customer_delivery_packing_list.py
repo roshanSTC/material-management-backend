@@ -2,7 +2,7 @@ from decimal import Decimal
 from marshmallow import EXCLUDE, Schema, fields, validate
 
 from app.schemas.attachment import AttachmentResponseSchema
-from app.schemas.common import FlexibleDate, FlexibleInt
+from app.schemas.common import FlexibleDate, FlexibleInt, FlexibleString
 
 
 class CustomerDeliveryPackingListItemCreateSchema(Schema):
@@ -67,8 +67,8 @@ class CustomerDeliveryPackingListCreateSchema(Schema):
     packing_list_date = FlexibleDate(required=True)
     total_no_packages = FlexibleInt(required=False, allow_none=True)
     packing_condition = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
-    net_weight = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
-    gross_weight = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
+    net_weight = FlexibleString(required=False, allow_none=True, validate=validate.Length(max=255))
+    gross_weight = FlexibleString(required=False, allow_none=True, validate=validate.Length(max=255))
     remarks = fields.Raw(required=False, allow_none=True)
     items = fields.List(
         fields.Nested(CustomerDeliveryPackingListItemCreateSchema),
@@ -88,8 +88,8 @@ class CustomerDeliveryPackingListUpdateSchema(Schema):
     packing_list_date = FlexibleDate(required=False)
     total_no_packages = FlexibleInt(required=False, allow_none=True)
     packing_condition = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
-    net_weight = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
-    gross_weight = fields.String(required=False, allow_none=True, validate=validate.Length(max=255))
+    net_weight = FlexibleString(required=False, allow_none=True, validate=validate.Length(max=255))
+    gross_weight = FlexibleString(required=False, allow_none=True, validate=validate.Length(max=255))
     remarks = fields.Raw(required=False, allow_none=True)
     items = fields.List(
         fields.Nested(CustomerDeliveryPackingListItemUpdateSchema),

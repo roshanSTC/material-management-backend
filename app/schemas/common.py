@@ -124,3 +124,21 @@ class FlexibleInt(fields.Field):
                 raise ValidationError("Not a valid integer.")
         raise ValidationError("Not a valid integer.")
 
+
+class FlexibleString(fields.Field):
+    """
+    Accepts strings or numeric values (int/float/Decimal) and coerces to string.
+    """
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("allow_none", True)
+        super().__init__(*args, **kwargs)
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return str(value)
+        raise ValidationError("Not a valid string.")
+

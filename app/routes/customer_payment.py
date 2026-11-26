@@ -309,7 +309,9 @@ def _handle_list_customer_payments(args=None):
             project_id = None
 
     invoice_no = (
-        args.get("invoice_no")
+        args.get("payment_against_invoice_no")
+        or args.get("invoice_no")
+        or request.args.get("payment_against_invoice_no")
         or request.args.get("invoice_no")
         or request.args.get("invoiceNo")
     )
@@ -319,7 +321,7 @@ def _handle_list_customer_payments(args=None):
     try:
         payments = list_customer_payment_records(
             project_id=project_id,
-            invoice_no=invoice_no,
+            payment_against_invoice_no=invoice_no,
         )
         return [_customer_payment_response(p) for p in payments], 200
     except Exception:

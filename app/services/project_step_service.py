@@ -615,7 +615,7 @@ def list_project_steps(
         )
 
     sync_cost_sheet_step(project_id)
-    sync_customer_delivery_step(project_id)
+    _sync_project_steps(project_id)
     sync_customer_payment_step(project_id)
     sync_supplier_payment_step(project_id)
 
@@ -663,7 +663,7 @@ def get_project_step(
     if step_number == 4:
         sync_cost_sheet_step(project_id)
     elif step_number == 13:
-        sync_customer_delivery_step(project_id)
+        _sync_project_steps(project_id)
     elif step_number == 14:
         sync_customer_payment_step(project_id)
     elif step_number == 15:
@@ -1870,19 +1870,23 @@ def sync_supplier_billing_step(project_id: int):
     )
 
 
-def sync_supplier_proforma_invoice_step(project_id: int):
-    return sync_supplier_billing_step(project_id)
-
-
-def sync_supplier_invoice_step(project_id: int):
-    return sync_supplier_billing_step(project_id)
-
-
-def sync_supplier_packing_list_step(project_id: int):
+def _sync_project_steps(project_id: int):
     project = db.session.get(Project, project_id)
     if project is not None:
         from app.routes.project_step import sync_project_steps_from_records
         sync_project_steps_from_records(project)
+
+
+def sync_supplier_proforma_invoice_step(project_id: int):
+    return _sync_project_steps(project_id)
+
+
+def sync_supplier_invoice_step(project_id: int):
+    return _sync_project_steps(project_id)
+
+
+def sync_supplier_packing_list_step(project_id: int):
+    return _sync_project_steps(project_id)
 
 
 def sync_material_delivery_step(project_id: int):
@@ -1984,13 +1988,11 @@ def sync_material_delivery_step(project_id: int):
 
 
 def sync_import_logistics_step(project_id: int):
-    return sync_material_delivery_step(project_id)
+    return _sync_project_steps(project_id)
 
 
 def sync_bill_of_entry_step(project_id: int):
-    res = sync_material_delivery_step(project_id)
-    sync_customs_clearance_step(project_id)
-    return res
+    return _sync_project_steps(project_id)
 
 
 def sync_customs_clearance_step(project_id: int):
@@ -2221,23 +2223,23 @@ def sync_customer_delivery_step(project_id: int):
 
 
 def sync_customer_delivery_invoice_step(project_id: int):
-    return sync_customer_delivery_step(project_id)
+    return _sync_project_steps(project_id)
 
 
 def sync_customer_delivery_packing_list_step(project_id: int):
-    return sync_customer_delivery_step(project_id)
+    return _sync_project_steps(project_id)
 
 
 def sync_delivery_challan_step(project_id: int):
-    return sync_customer_delivery_step(project_id)
+    return _sync_project_steps(project_id)
 
 
 def sync_transport_detail_step(project_id: int):
-    return sync_customer_delivery_step(project_id)
+    return _sync_project_steps(project_id)
 
 
 def sync_warranty_certificate_step(project_id: int):
-    return sync_customer_delivery_step(project_id)
+    return _sync_project_steps(project_id)
 
 
 def sync_customer_payment_step(project_id: int) -> ProjectStep | None:

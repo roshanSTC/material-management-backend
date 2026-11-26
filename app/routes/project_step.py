@@ -361,19 +361,10 @@ def sync_project_steps_from_records(project):
                     if step_data.get("_manually_completed") or step_data.get("_is_attached"):
                         continue
 
-                    if step_data.get("_auto_created") or form_code == "FORM_13_PAC_TENDER":
-                        db.session.delete(step)
-                        del existing_steps[form_code]
-                        changed = True
-                        deleted_any = True
-                    else:
-                        if step.status == "completed" or (step.progress_percentage or 0) > 0:
-                            step.progress_percentage = 0
-                            step.completed_at = None
-                            step_data.pop("_synced_from_record", None)
-                            step.status = "pending"
-                            step.data = {}
-                            changed = True
+                    db.session.delete(step)
+                    del existing_steps[form_code]
+                    changed = True
+                    deleted_any = True
 
         # Clean up legacy steps without a form_code
         legacy_step_map = {
@@ -386,10 +377,10 @@ def sync_project_steps_from_records(project):
             7: ("FORM_15_BID_DOCUMENT", "bid_submissions"),
             8: ("FORM_14_PURCHASE_ORDER", "purchase_orders"),
             9: ("FORM_16_ORDER_CONFIRMATION", "supplier_order_confirmations"),
-            10: ("FORM_18_SUPPLIER_INVOICE", ["supplier_proforma_invoices", "supplier_invoices"]),
-            11: ("FORM_27_SHIPPING_CLEARANCE", ["import_logistics", "bills_of_entry"]),
+            10: ("FORM_18_SUPPLIER_INVOICE", "supplier_invoices"),
+            11: ("FORM_27_SHIPPING_CLEARANCE", "bills_of_entry"),
             12: ("FORM_28_FREIGHT_CHA", "customs_clearances"),
-            13: ("FORM_26_TAX_INVOICE_CUSTOMER", ["customer_delivery_invoices", "customer_delivery_packing_lists", "delivery_challans", "transport_details", "warranty_certificates"]),
+            13: ("FORM_26_TAX_INVOICE_CUSTOMER", "customer_delivery_invoices"),
             14: ("FORM_22_PAYMENT_FROM_CUSTOMER", "customer_payments"),
             15: ("FORM_20_PAYMENT_TO_SUPPLIER", "supplier_payments"),
         }

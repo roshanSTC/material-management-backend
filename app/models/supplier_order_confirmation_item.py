@@ -23,11 +23,6 @@ class SupplierOrderConfirmationItem(db.Model):
         nullable=True,
     )
 
-    description = db.Column(
-        db.String(500),
-        nullable=False,
-    )
-
     hsn_sac = db.Column(
         db.String(50),
         nullable=True,

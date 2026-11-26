@@ -94,7 +94,6 @@ def _order_confirmation_response(confirmation):
                 "id": item.id,
                 "sr_no": item.sr_no if item.sr_no is not None else (idx + 1),
                 "order_confirmation_id": item.supplier_order_confirmation_id,
-                "description": item.description,
                 "hsn_sac": item.hsn_sac,
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
@@ -155,7 +154,6 @@ def _latest_order_confirmation_response(confirmation):
             "sr_no": item.sr_no if item.sr_no is not None else idx,
             "unit_price": _format_decimal_str(price, places=2),
             "quantity": _format_decimal_str(qty, places=3) or "0.000",
-            "description": item.description,
             "hsn_sac": item.hsn_sac,
             "total_amount": _format_decimal_str(tot_amt, places=2),
         })

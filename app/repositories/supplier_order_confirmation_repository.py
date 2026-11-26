@@ -73,7 +73,6 @@ def _replace_items(
 ) -> None:
     order_confirmation.items.clear()
     for idx, item in enumerate(items, start=1):
-        desc = _normalize_optional_string(item.get("description")) or ""
         hsn = _normalize_optional_string(item.get("hsn_sac"))
         qty = _parse_decimal_val(item.get("quantity")) or Decimal("1")
         unit_price = _parse_decimal_val(item.get("unit_price"))
@@ -86,7 +85,6 @@ def _replace_items(
 
         item_obj = SupplierOrderConfirmationItem(
             sr_no=item.get("sr_no") if item.get("sr_no") is not None else idx,
-            description=desc,
             hsn_sac=hsn,
             quantity=qty,
             unit_price=unit_price,

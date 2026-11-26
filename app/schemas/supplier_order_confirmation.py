@@ -10,7 +10,6 @@ class SupplierOrderConfirmationItemCreateSchema(Schema):
         unknown = EXCLUDE
 
     sr_no = FlexibleInt(required=False, allow_none=True)
-    description = fields.String(required=True, validate=validate.Length(min=1, max=500))
     hsn_sac = fields.String(required=False, allow_none=True, validate=validate.Length(max=50))
     quantity = fields.Decimal(
         required=True,
@@ -28,7 +27,6 @@ class SupplierOrderConfirmationItemUpdateSchema(Schema):
 
     id = fields.Integer(required=False, allow_none=True)
     sr_no = FlexibleInt(required=False, allow_none=True)
-    description = fields.String(required=False, allow_none=True, validate=validate.Length(min=1, max=500))
     hsn_sac = fields.String(required=False, allow_none=True, validate=validate.Length(max=50))
     quantity = fields.Decimal(
         required=False,
@@ -107,7 +105,6 @@ class SupplierOrderConfirmationItemResponseSchema(Schema):
     id = fields.Integer(required=True)
     sr_no = fields.Integer(allow_none=True)
     order_confirmation_id = fields.Integer(required=True)
-    description = fields.String(required=True)
     hsn_sac = fields.String(allow_none=True)
     quantity = fields.Decimal(as_string=True, places=3, required=True)
     unit_price = fields.Decimal(as_string=True, places=2, required=True)
@@ -156,7 +153,6 @@ class LatestSupplierOrderConfirmationItemResponseSchema(Schema):
         unknown = EXCLUDE
 
     sr_no = fields.Integer(allow_none=True)
-    description = fields.String(allow_none=True)
     hsn_sac = fields.String(allow_none=True)
     unit_price = fields.Decimal(as_string=True, places=2, required=True)
     quantity = fields.Decimal(as_string=True, places=3, required=True)

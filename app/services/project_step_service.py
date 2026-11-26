@@ -1762,7 +1762,6 @@ def sync_supplier_order_confirmation_step(project_id: int):
 def sync_supplier_billing_step(project_id: int):
     from app.models import (
         SupplierInvoice,
-        SupplierPackingList,
         SupplierProformaInvoice,
     )
 
@@ -1776,13 +1775,8 @@ def sync_supplier_billing_step(project_id: int):
         .order_by(SupplierInvoice.id.desc())
         .first()
     )
-    packing_list = (
-        SupplierPackingList.query.filter_by(project_id=project_id)
-        .order_by(SupplierPackingList.id.desc())
-        .first()
-    )
 
-    if proforma is None and invoice is None and packing_list is None:
+    if proforma is None and invoice is None:
         step = (
             ProjectStep.query.filter_by(
                 project_id=project_id,
@@ -1885,7 +1879,10 @@ def sync_supplier_invoice_step(project_id: int):
 
 
 def sync_supplier_packing_list_step(project_id: int):
-    return sync_supplier_billing_step(project_id)
+    project = db.session.get(Project, project_id)
+    if project is not None:
+        from app.routes.project_step import sync_project_steps_from_records
+        sync_project_steps_from_records(project)
 
 
 def sync_material_delivery_step(project_id: int):

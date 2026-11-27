@@ -108,6 +108,7 @@ def _replace_items(bid_submission: BidSubmission, items: list[dict]) -> None:
             unit_price=unit_price_val,
             quantity=quantity_val,
             total_amount=total_amount_val,
+            currency=_normalize_optional_string(item.get("currency")),
         )
         bid_submission.items.append(sub_item)
 
@@ -139,6 +140,8 @@ def create_bid_submission(*, data: dict) -> BidSubmission:
         total_net_amount=_parse_decimal_val(data.get("total_net_amount")),
         gst_amount=_parse_decimal_val(data.get("gst_amount")),
         total_gross_amount=_parse_decimal_val(data.get("total_gross_amount")),
+        currency_unit=_normalize_optional_string(data.get("currency_unit")),
+        currency_symbol=_normalize_optional_string(data.get("currency_symbol")),
         remark=_normalize_optional_string(
             data.get("remark") or data.get("remarks")
         ),
@@ -227,6 +230,10 @@ def update_bid_submission(
         bid_submission.gst_amount = _parse_decimal_val(data["gst_amount"])
     if "total_gross_amount" in data:
         bid_submission.total_gross_amount = _parse_decimal_val(data["total_gross_amount"])
+    if "currency_unit" in data:
+        bid_submission.currency_unit = _normalize_optional_string(data["currency_unit"])
+    if "currency_symbol" in data:
+        bid_submission.currency_symbol = _normalize_optional_string(data["currency_symbol"])
     if "remark" in data or "remarks" in data:
         bid_submission.remark = _normalize_optional_string(
             data.get("remark") or data.get("remarks")

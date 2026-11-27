@@ -48,6 +48,11 @@ class PurchaseOrderItem(db.Model):
         nullable=True,
     )
 
+    currency = db.Column(
+        db.String(20),
+        nullable=True,
+    )
+
     unit = db.Column(
         db.String(50),
         nullable=True,

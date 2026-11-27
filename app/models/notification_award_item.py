@@ -36,6 +36,10 @@ class NotificationAwardItem(db.Model):
         db.Numeric(15, 2),
         nullable=True,
     )
+    currency = db.Column(
+        db.String(20),
+        nullable=True,
+    )
     created_at = db.Column(
         db.DateTime,
         nullable=False,

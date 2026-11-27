@@ -1155,6 +1155,8 @@ def _serialize_nac(rec):
         "nac_no": rec.nac_no,
         "nac_date": rec.nac_date.isoformat() if rec.nac_date else None,
         "nac_title": rec.nac_title,
+        "currency_unit": rec.currency_unit,
+        "currency_symbol": rec.currency_symbol,
         "remark": rec.remark,
         "remarks": get_step_remarks_for_response(rec.project_id, 5, fallback_raw=rec.remark, entity_id=rec.id),
         "items": [
@@ -1165,6 +1167,7 @@ def _serialize_nac(rec):
                 "quantity": float(it.quantity) if it.quantity is not None else None,
                 "per_unit_price": float(it.per_unit_price) if it.per_unit_price is not None else None,
                 "total_amount": float(it.total_amount) if it.total_amount is not None else None,
+                "currency": it.currency,
             }
             for it in (rec.items or [])
         ],
@@ -1176,6 +1179,7 @@ def _serialize_nac(rec):
                 "quantity": float(it.quantity) if it.quantity is not None else None,
                 "per_unit_price": float(it.per_unit_price) if it.per_unit_price is not None else None,
                 "total_amount": float(it.total_amount) if it.total_amount is not None else None,
+                "currency": it.currency,
             }
             for it in (rec.items or [])
         ],
@@ -1233,6 +1237,7 @@ def create_nac():
             quantity=it.get("quantity"),
             per_unit_price=it.get("per_unit_price"),
             total_amount=it.get("total_amount"),
+            currency=it.get("currency"),
         ))
 
     db.session.add(rec)
@@ -1277,6 +1282,7 @@ def update_nac(rec_id):
                 quantity=it.get("quantity"),
                 per_unit_price=it.get("per_unit_price"),
                 total_amount=it.get("total_amount"),
+                currency=it.get("currency"),
             ))
 
     _save_attachments(files, "notification_award", rec.id, user_id)

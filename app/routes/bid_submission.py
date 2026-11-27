@@ -161,6 +161,8 @@ def _bid_submission_response(bid_submission):
         "bid_validity": bid_submission.bid_validity,
         "warranty_period": bid_submission.warranty_period,
         "gst_pct": gst_str,
+        "currency_unit": bid_submission.currency_unit,
+        "currency_symbol": bid_submission.currency_symbol,
         "remarks": get_step_remarks_for_response(
             project_id=bid_submission.project_id,
             step_number=7,
@@ -179,6 +181,7 @@ def _bid_submission_response(bid_submission):
                 "unit_price": item.unit_price,
                 "quantity": item.quantity,
                 "total_amount": item.total_amount,
+                "currency": item.currency,
                 "created_at": item.created_at,
             }
             for idx, item in enumerate(bid_submission.items, start=1)
@@ -223,11 +226,14 @@ def _latest_bid_submission_response(bid_submission):
                 "quantity": _format_decimal_str(item.quantity, places=3) or "0.000",
                 "unit_price": _format_decimal_str(item.unit_price, places=2),
                 "total_amount": _format_decimal_str(item.total_amount, places=2),
+                "currency": item.currency,
             }
             for idx, item in enumerate(bid_submission.items, start=1)
         ],
         "payment_terms": bid_submission.payment_terms,
         "warranty_period": bid_submission.warranty_period,
+        "currency_unit": bid_submission.currency_unit,
+        "currency_symbol": bid_submission.currency_symbol,
     }
 
 

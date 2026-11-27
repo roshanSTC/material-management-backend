@@ -92,6 +92,7 @@ def _replace_items(purchase_order: PurchaseOrder, items: list[dict]) -> None:
             quantity=qty,
             unit_price=unit_price,
             total_price=total_price,
+            currency=_normalize_optional_string(item.get("currency")),
             unit=unit_str,
             delivery_date=item_delivery_date,
         )
@@ -149,6 +150,8 @@ def create_purchase_order(*, data: dict) -> PurchaseOrder:
         gst_amount=gst_amt_val,
         total_net_amount=net_amt_val,
         total_gross_amount=gross_amt_val,
+        currency_unit=_normalize_optional_string(data.get("currency_unit")),
+        currency_symbol=_normalize_optional_string(data.get("currency_symbol")),
         remark=normalize_remark_for_db(
             data.get("remark") if data.get("remark") is not None else data.get("remarks")
         ),
@@ -246,6 +249,10 @@ def update_purchase_order(
 
     if "gst_rate_pct" in data:
         purchase_order.gst_rate_pct = _parse_decimal_val(data["gst_rate_pct"])
+    if "currency_unit" in data:
+        purchase_order.currency_unit = _normalize_optional_string(data["currency_unit"])
+    if "currency_symbol" in data:
+        purchase_order.currency_symbol = _normalize_optional_string(data["currency_symbol"])
 
     if "items" in data and data["items"] is not None:
         _replace_items(purchase_order, data["items"])

@@ -87,6 +87,16 @@ class PurchaseOrder(db.Model):
         nullable=True,
     )
 
+    currency_unit = db.Column(
+        db.String(20),
+        nullable=True,
+    )
+
+    currency_symbol = db.Column(
+        db.String(20),
+        nullable=True,
+    )
+
     delivery_date = db.Column(
         db.Date,
         nullable=True,

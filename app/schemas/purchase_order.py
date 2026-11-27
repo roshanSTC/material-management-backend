@@ -21,6 +21,7 @@ class PurchaseOrderItemCreateSchema(Schema):
     )
     unit_price = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
     total_price = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
+    currency = fields.String(required=False, allow_none=True, validate=validate.Length(max=20))
     delivery_date = FlexibleDate(required=False, allow_none=True)
 
 
@@ -42,6 +43,7 @@ class PurchaseOrderItemUpdateSchema(Schema):
     )
     unit_price = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
     total_price = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
+    currency = fields.String(required=False, allow_none=True, validate=validate.Length(max=20))
     delivery_date = FlexibleDate(required=False, allow_none=True)
 
 
@@ -68,6 +70,8 @@ class PurchaseOrderCreateSchema(Schema):
     gst_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
     total_net_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
     total_gross_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
+    currency_unit = fields.String(required=False, allow_none=True, validate=validate.Length(max=20))
+    currency_symbol = fields.String(required=False, allow_none=True, validate=validate.Length(max=20))
     remarks = fields.Raw(required=False, allow_none=True)
     items = fields.List(
         fields.Nested(PurchaseOrderItemCreateSchema),
@@ -99,6 +103,8 @@ class PurchaseOrderUpdateSchema(Schema):
     gst_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
     total_net_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
     total_gross_amount = fields.Decimal(required=False, allow_none=True, as_string=True, places=2)
+    currency_unit = fields.String(required=False, allow_none=True, validate=validate.Length(max=20))
+    currency_symbol = fields.String(required=False, allow_none=True, validate=validate.Length(max=20))
     remarks = fields.Raw(required=False, allow_none=True)
     items = fields.List(
         fields.Nested(PurchaseOrderItemUpdateSchema),
@@ -135,6 +141,7 @@ class PurchaseOrderItemResponseSchema(Schema):
     quantity = fields.Decimal(as_string=True, places=3, required=True)
     unit_price = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_price = fields.Decimal(as_string=True, places=2, allow_none=True)
+    currency = fields.String(allow_none=True)
     delivery_date = fields.Date(allow_none=True)
     created_at = fields.DateTime(required=True)
 
@@ -162,6 +169,8 @@ class PurchaseOrderResponseSchema(Schema):
     gst_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_gross_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+    currency_unit = fields.String(allow_none=True)
+    currency_symbol = fields.String(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     created_at = fields.DateTime(required=True)
     updated_at = fields.DateTime(required=True)
@@ -180,6 +189,7 @@ class LatestPurchaseOrderItemResponseSchema(Schema):
     quantity = fields.Decimal(as_string=True, places=3, required=True)
     unit_price = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_price = fields.Decimal(as_string=True, places=2, allow_none=True)
+    currency = fields.String(allow_none=True)
     delivery_date = fields.Date(allow_none=True)
 
 
@@ -193,4 +203,6 @@ class LatestPurchaseOrderResponseSchema(Schema):
     gst_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_net_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
     total_gross_amount = fields.Decimal(as_string=True, places=2, allow_none=True)
+    currency_unit = fields.String(allow_none=True)
+    currency_symbol = fields.String(allow_none=True)
     items = fields.List(fields.Nested(LatestPurchaseOrderItemResponseSchema), required=True)

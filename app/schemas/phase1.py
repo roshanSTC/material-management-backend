@@ -330,6 +330,7 @@ class NotificationAwardItemSchema(BasePhase1Schema):
     quantity = FlexibleFloat(allow_none=True)
     per_unit_price = FlexibleFloat(allow_none=True)
     total_amount = FlexibleFloat(allow_none=True)
+    currency = fields.Str(allow_none=True)
 
 
 class NotificationAwardCreateSchema(BasePhase1Schema):
@@ -341,6 +342,8 @@ class NotificationAwardCreateSchema(BasePhase1Schema):
     total_net_amount = FlexibleFloat(allow_none=True)
     gst_amount = FlexibleFloat(allow_none=True)
     total_gross_amount = FlexibleFloat(allow_none=True)
+    currency_unit = fields.Str(allow_none=True)
+    currency_symbol = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)
@@ -356,6 +359,8 @@ class NotificationAwardUpdateSchema(BasePhase1Schema):
     total_net_amount = FlexibleFloat(allow_none=True)
     gst_amount = FlexibleFloat(allow_none=True)
     total_gross_amount = FlexibleFloat(allow_none=True)
+    currency_unit = fields.Str(allow_none=True)
+    currency_symbol = fields.Str(allow_none=True)
     remarks = fields.Raw(allow_none=True)
     status = fields.Str(allow_none=True)
     form_code = fields.Str(allow_none=True)

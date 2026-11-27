@@ -118,6 +118,8 @@ def _purchase_order_response(purchase_order):
         "gst_amount": gst_amt,
         "total_net_amount": tot_net,
         "total_gross_amount": tot_gross,
+        "currency_unit": purchase_order.currency_unit,
+        "currency_symbol": purchase_order.currency_symbol,
         "remarks": get_step_remarks_for_response(
             project_id=purchase_order.project_id,
             step_number=8,
@@ -137,6 +139,7 @@ def _purchase_order_response(purchase_order):
                 "quantity": item.quantity,
                 "unit_price": item.unit_price,
                 "total_price": item.total_price,
+                "currency": item.currency,
                 "delivery_date": getattr(item, "delivery_date", None) or del_date,
                 "created_at": item.created_at,
             }
@@ -191,6 +194,7 @@ def _latest_purchase_order_response(purchase_order):
             "quantity": _format_decimal_str(qty, places=3) or "0.000",
             "unit_price": _format_decimal_str(price, places=2),
             "total_price": _format_decimal_str(total_price, places=2),
+            "currency": item.currency,
             "delivery_date": getattr(item, "delivery_date", None),
         })
 
@@ -222,6 +226,8 @@ def _latest_purchase_order_response(purchase_order):
         "gst_amount": _format_decimal_str(gst_amt, places=2),
         "total_net_amount": _format_decimal_str(tot_net, places=2),
         "total_gross_amount": _format_decimal_str(purchase_order.total_gross_amount, places=2),
+        "currency_unit": purchase_order.currency_unit,
+        "currency_symbol": purchase_order.currency_symbol,
         "items": items_list,
     }
 
